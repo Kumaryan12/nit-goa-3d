@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import CampusScene from './components/CampusScene'
 import LoadingOverlay from './components/LoadingOverlay'
+import BuildingInfoPanel from './components/BuildingInfoPanel'
 import { sceneConfig } from './lib/sceneConfig'
 import { fetchCampusData } from './lib/osm'
 import { LAT0, LON0 } from './lib/geo'
 import type { CampusMapState } from './types/osm'
+import type { BuildingSelection } from './types/campus'
 
 export default function App() {
   const [showGrid, setShowGrid] = useState(true)
   const [mapState, setMapState] = useState<CampusMapState>({ status: 'loading' })
   const [renderedCount, setRenderedCount] = useState(0)
+  const [selection, setSelection] = useState<BuildingSelection | null>(null)
+  const clearSelection = useCallback(() => setSelection(null), [])
   const onRenderedCount = useCallback((count: number) => {
     setRenderedCount(count)
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Buildings successfully rendered:', count)
@@ -37,14 +41,18 @@ export default function App() {
 
   return (
     <main className="explorer" aria-label="NIT Goa 3D campus explorer">
-      <div className="scene-viewport" aria-label="Interactive campus ground. Drag to orbit, scroll to zoom, and right-drag to pan.">
+      <div className="scene-viewport" aria-label="Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.">
         <CampusScene
           showGrid={showGrid}
           mapData={mapState.status === 'ready' ? mapState.data : null}
           onRenderedCount={onRenderedCount}
+          selectedBuildingId={selection?.buildingId ?? null}
+          onSelectBuilding={setSelection}
+          onClearSelection={clearSelection}
         />
       </div>
       <LoadingOverlay state={mapState} />
+      <BuildingInfoPanel selection={selection} onClose={clearSelection} />
       {import.meta.env.DEV && (
         <div className="map-debug">Buildings loaded: {renderedCount}</div>
       )}
@@ -70,7 +78,7 @@ export default function App() {
 
       <footer className="scene-footer">
         <div>
-          <p className="navigation-hint">Drag to orbit <span>·</span> Scroll to zoom <span>·</span> Right-drag to pan</p>
+          <p className="navigation-hint">Click a building for details <span>·</span> Drag to orbit <span>·</span> Scroll to zoom</p>
           <p className="map-attribution">
             © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>
             {mapState.status === 'ready' && mapState.data.source === 'nearby-fallback' && ' · Nearby buildings (900 m fallback)'}

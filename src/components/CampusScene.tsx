@@ -8,11 +8,15 @@ import Lighting from './Lighting'
 import OSMBuildings from './OSMBuildings'
 import { groundSizeForCoordinates } from '../lib/geo'
 import type { CampusMapData } from '../types/osm'
+import type { BuildingSelection } from '../types/campus'
 
 interface CampusSceneProps {
   showGrid?: boolean
   mapData: CampusMapData | null
   onRenderedCount: (count: number) => void
+  selectedBuildingId: string | null
+  onSelectBuilding: (selection: BuildingSelection) => void
+  onClearSelection: () => void
 }
 
 function CampusFraming() {
@@ -28,7 +32,7 @@ function CampusFraming() {
   return null
 }
 
-export default function CampusScene({ showGrid = true, mapData, onRenderedCount }: CampusSceneProps) {
+export default function CampusScene({ showGrid = true, mapData, onRenderedCount, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const groundSize = useMemo(() => mapData
     ? groundSizeForCoordinates([
       ...(mapData.boundary ?? []),
@@ -36,19 +40,24 @@ export default function CampusScene({ showGrid = true, mapData, onRenderedCount 
     ])
     : sceneConfig.groundSize, [mapData])
 
-  // Keep this element stable when the grid or debug count changes, so toggling
-  // the grid doesn't reset the user's camera. Bounds fits the real data once
-  // loaded and adapts the framing to viewport resizes.
+  // Bounds framing depends on bounds and viewport size, so selection changes
+  // and grid toggles preserve the user's camera.
   const buildingLayer = useMemo(() => mapData && (
     <Bounds margin={1.3} maxDuration={0.8}>
       <CampusFraming />
-      <OSMBuildings buildings={mapData.buildings} onRenderedCount={onRenderedCount} />
+      <OSMBuildings
+        buildings={mapData.buildings}
+        onRenderedCount={onRenderedCount}
+        selectedBuildingId={selectedBuildingId}
+        onSelectBuilding={onSelectBuilding}
+      />
     </Bounds>
-  ), [mapData, onRenderedCount])
+  ), [mapData, onRenderedCount, selectedBuildingId, onSelectBuilding])
 
   return (
     <Canvas
       shadows
+      onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
       dpr={[1, 2]}
       camera={{
         position: sceneConfig.cameraPosition,

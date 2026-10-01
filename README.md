@@ -1,6 +1,6 @@
 # NIT Goa 3D Explorer
 
-A full-viewport Vite, React, and TypeScript campus explorer built with Three.js, React Three Fiber, and Drei. Phase 2 loads real OpenStreetMap building ways and multipolygon relations from Overpass and extrudes their footprints. No buildings are invented or bundled as production placeholders.
+A full-viewport Vite, React, and TypeScript campus explorer built with Three.js, React Three Fiber, and Drei. Real OpenStreetMap ways and multipolygon relations provide the extruded footprints. Phase 3 adds campus metadata and clickable building information. No buildings are invented or bundled as production placeholders.
 
 ## Run locally
 
@@ -28,6 +28,7 @@ npm run preview
 - The grid has 5 meter cells and can be toggled with the Grid button.
 - The perspective camera starts at `[110, 110, 110]`, looking at the origin, then fits the real buildings from an isometric angle. Viewport resizing refits the view; toggling the grid preserves it.
 - Drag to orbit, scroll to zoom, and right-drag to pan. On touchscreens, use one finger to orbit and two fingers to zoom or pan.
+- Click a building to show its name, category, and description. Close the information panel with its close button, Escape, or a click on empty scene space. Selected buildings remain highlighted; selecting or dismissing a building preserves the camera.
 - Edit `src/lib/sceneConfig.ts` to adjust scale, colors, camera, and sun placement.
 
 ## OpenStreetMap pipeline
@@ -42,6 +43,16 @@ Buildings have a rough cream material, cast and receive sunlight shadows, and hi
 
 The real campus-area response used for regression tests contains 14 building ways and 8 building relations (22 footprints, 11 courtyard holes). Public Overpass availability and current OSM coverage can vary. Tests read a genuine recorded response; the application always fetches live data and never substitutes the test fixture.
 
+## Campus metadata
+
+`src/types/campus.ts` defines `CampusLocation` with a stable `id`, `name`, `category`, `description`, `keywords`, and approximate local-meter `coordinates: { x, z }`. `src/data/campus.ts` contains Academic Block, Administration Block, Boys Hostel, Girls Hostel, Canteen, Sports Ground, and Main Entrance. Categories also support amenities and other locations for later phases.
+
+Hostel identities are grounded in named OSM footprints and [NIT Goa's hostel facilities page](https://nitgoa.ac.in/hostels/facilities.html): Talpona is the boys' hostel and Terekhol is the girls' hostel. General campus facilities are described in [NIT Goa's admission brochure](https://www.nitgoa.ac.in/uploads/Admissionbrochure30may2024.pdf).
+
+The coordinate anchors are editable estimates. Academic, administration, and canteen identities are **provisional**, not independently verified building labels. `src/lib/campus.ts` first checks exact normalized OSM names against location names/keywords, then matches unnamed footprints to the nearest unused building location within 40 meters of the footprint's bounding-box center. Name matches take priority; each location and footprint can be assigned only once. Results are independent of Overpass result ordering. The panel marks proximity matches as approximate. Refine anchors in `campus.ts` as campus identities become known.
+
+Sports Ground and Main Entrance are metadata-only open places in this phase; they do not relabel unrelated buildings or generate additional geometry. Unmatched footprints keep their OSM IDs and names (or `Unnamed campus building`) and remain clickable. Mesh `userData` carries both `osmId` and `locationId` for future connections. No gallery is implemented.
+
 ## Structure
 
 ```text
@@ -55,17 +66,20 @@ src/
     Lighting.tsx
     OSMBuildings.tsx
     LoadingOverlay.tsx
+    BuildingInfoPanel.tsx
   lib/
     sceneConfig.ts
     osm.ts
     geo.ts
     buildings.ts
     buildingGeometry.ts
+    campus.ts
   data/
-    .gitkeep
+    campus.ts
   types/
     scene.ts
     osm.ts
+    campus.ts
 ```
 
-`CampusScene` owns the Canvas, camera framing, sky, and OrbitControls. `Ground` owns the plane and grid helper. `Lighting` owns ambient light and directional sunlight. `OSMBuildings` owns the extruded meshes. `data/` is reserved for future campus data. No roads, vegetation, labels, information panels, gallery, or authentication are included.
+`CampusScene` owns the Canvas, camera framing, sky, and OrbitControls. `Ground` owns the plane and grid helper. `Lighting` owns ambient light and directional sunlight. `OSMBuildings` owns the extruded meshes and building selection. `BuildingInfoPanel` displays the selected location. No roads, vegetation, map labels, gallery, or authentication are included.
