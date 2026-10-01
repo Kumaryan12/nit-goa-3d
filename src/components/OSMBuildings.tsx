@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useCursor } from '@react-three/drei'
-import { buildingShape } from '../lib/buildingGeometry'
+import { buildingShape, roofShape } from '../lib/buildingGeometry'
+import { applyRoofTiles } from '../lib/roofMaterial'
 import { assignCampusLocations } from '../lib/campus'
 import type { BuildingSelection } from '../types/campus'
 import type { BuildingFootprint } from '../types/osm'
@@ -20,16 +21,16 @@ function OSMBuilding({ building, selection, selected, onSelect }: {
 }) {
   const [hovered, setHovered] = useState(false)
   const shape = useMemo(() => buildingShape(building), [building])
+  const roof = useMemo(() => roofShape(building), [building])
+  const roofExtrusion = useMemo(() => ({ depth: 0.32, bevelEnabled: false, steps: 1 }), [])
   const extrusion = useMemo(() => ({ depth: building.height, bevelEnabled: false, steps: 1 }), [building.height])
+  const concrete = ['#e8d7b5', '#dfcdb0', '#eee0c3', '#dec9a6'][building.osmId % 4]
   useCursor(hovered)
 
   return (
-    <mesh
+    <group
       name={selection.location.id}
       userData={{ osmId: building.id, locationId: selection.location.id }}
-      rotation={[-Math.PI / 2, 0, 0]}
-      castShadow
-      receiveShadow
       onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }}
       onPointerOut={() => setHovered(false)}
       onClick={(event) => {
@@ -38,9 +39,15 @@ function OSMBuilding({ building, selection, selected, onSelect }: {
         if (event.delta <= 2) onSelect(selection)
       }}
     >
-      <extrudeGeometry args={[shape, extrusion]} />
-      <meshStandardMaterial color={selected ? '#dcc494' : hovered ? '#f8efd5' : '#e8ddc6'} roughness={1} metalness={0} />
-    </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <extrudeGeometry args={[shape, extrusion]} />
+        <meshStandardMaterial color={selected ? '#f0c97c' : hovered ? '#f8efd5' : concrete} roughness={0.94} metalness={0} />
+      </mesh>
+      <mesh position={[0, building.height + 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <extrudeGeometry args={[roof, roofExtrusion]} />
+        <meshStandardMaterial color={selected ? '#d8954a' : '#b86640'} roughness={0.92} onBeforeCompile={applyRoofTiles} />
+      </mesh>
+    </group>
   )
 }
 

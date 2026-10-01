@@ -1,21 +1,23 @@
 import type { CampusMapState, CampusRoadState } from '../types/osm'
 
-export default function LoadingOverlay({ state, roadState }: { state: CampusMapState; roadState: CampusRoadState }) {
-  const messages: { text: string; error?: boolean; loading?: boolean }[] = []
-  if (state.status === 'loading') messages.push({ text: 'Loading NIT Goa map data...', loading: true })
-  if (state.status === 'error') messages.push({ text: 'Unable to load OpenStreetMap campus data.', error: true })
-  if (roadState.status === 'error') messages.push({ text: 'Unable to load OpenStreetMap campus roads.', error: true })
-  if (state.status !== 'loading' && roadState.status === 'loading') messages.push({ text: 'Loading NIT Goa roads...', loading: true })
-  if (roadState.status === 'ready' && roadState.data.roads.length === 0) messages.push({ text: 'No mapped campus roads found in OpenStreetMap.' })
-  if (!messages.length) return null
-  return (
-    <div className="map-status" role="status" aria-live="polite">
-      {messages.map(({ text, error, loading }) => (
-        <div key={text} className={`map-status-message ${error ? 'map-status-error' : ''}`}>
-          {loading && <span className="loading-dot" aria-hidden="true" />}
-          {text}
-        </div>
-      ))}
-    </div>
-  )
+export default function LoadingOverlay({ state, roadState, terrainReady, vegetationReady, onRetryRoads }: {
+  state: CampusMapState; roadState: CampusRoadState; terrainReady: boolean; vegetationReady: boolean; onRetryRoads: () => void
+}) {
+  const complete = state.status === 'ready' && roadState.status === 'ready' && terrainReady && vegetationReady
+  const stages = [
+    { name: 'Buildings', status: state.status },
+    { name: 'Roads', status: roadState.status },
+    { name: 'Terrain', status: terrainReady ? 'ready' : 'loading' },
+    { name: 'Vegetation', status: vegetationReady ? 'ready' : 'loading' },
+  ]
+  return <div className={`map-status ${complete ? 'map-status-complete' : ''}`} role="status" aria-live="polite">
+    <span className="loading-title">{complete ? 'Campus ready' : state.status === 'error' || roadState.status === 'error' ? 'Campus partially available' : 'Preparing your campus'}</span>
+    <div className="loading-stages">{stages.map(({ name, status }) => <div key={name} className={status === 'error' ? 'map-status-error' : ''}>
+      <span aria-hidden="true" className={status === 'loading' ? 'loading-dot' : ''}>{status === 'ready' ? '✓' : status === 'error' ? '!' : ''}</span>
+      {name}<span className="sr-only"> {status}</span>
+    </div>)}</div>
+    {state.status === 'error' && <p className="map-status-error">Buildings unavailable. Refresh to retry.</p>}
+    {roadState.status === 'error' && <><p className="map-status-error">Roads unavailable. Building selection remains available.</p><button type="button" className="retry-button" onClick={onRetryRoads}>Retry roads ↻</button></>}
+    {roadState.status === 'ready' && !roadState.data.roads.length && <p>No mapped roads found.</p>}
+  </div>
 }

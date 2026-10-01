@@ -1,98 +1,103 @@
-import { useEffect, useMemo } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
-import { Bounds, OrbitControls, Sky, useBounds } from '@react-three/drei'
-import { ACESFilmicToneMapping } from 'three'
+import { memo, useEffect, useMemo, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { CameraControls, Sky, Stars } from '@react-three/drei'
+import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
 import { sceneConfig } from '../lib/sceneConfig'
-import Ground from './Ground'
+import { campusCameraView, flyToLocation } from '../lib/camera'
+import type { CameraRequest } from '../lib/camera'
+import { gpsToLocal } from '../lib/geo'
+import { generateTerrain } from '../lib/terrain'
+import type { DigitalTwin } from '../lib/digitalTwin'
+import type { BuildingSelection } from '../types/campus'
 import Lighting from './Lighting'
+import Terrain from './Terrain'
+import CampusBoundary from './CampusBoundary'
+import Vegetation from './Vegetation'
+import POIObjects from './POIObjects'
+import LocationLabels from './LocationLabels'
 import OSMBuildings from './OSMBuildings'
 import OSMRoads from './OSMRoads'
-import { groundSizeForCoordinates } from '../lib/geo'
-import type { CampusMapData, CampusRoadData } from '../types/osm'
-import type { BuildingSelection } from '../types/campus'
+import BuildingWindows from './BuildingWindows'
 
+export interface SceneMetrics { fps: number; calls: number; triangles: number }
 interface CampusSceneProps {
-  showGrid?: boolean
-  mapData: CampusMapData | null
-  roadData: CampusRoadData | null
+  showGrid: boolean
+  night: boolean
+  twin: DigitalTwin | null
+  cameraRequest: CameraRequest
   onRenderedCount: (count: number) => void
+  onTerrainReady: () => void
+  onVegetationReady: (count: number) => void
+  onMetrics: (metrics: SceneMetrics) => void
   selectedBuildingId: string | null
   onSelectBuilding: (selection: BuildingSelection) => void
   onClearSelection: () => void
 }
 
-function CampusFraming() {
-  const bounds = useBounds()
+const loadingTerrain = generateTerrain(650, { boundary: [], buildings: [], roads: [], clearings: [] }, 48)
+const noop = () => {}
+
+function Navigation({ twin, request }: { twin: DigitalTwin | null; request: CameraRequest }) {
+  const controls = useRef<CameraControls>(null)
   const { width, height } = useThree((state) => state.size)
+  // Road arrival, selection, grid and lighting changes never reframe the camera.
+  const points = useMemo(() => twin?.buildings.flatMap((building) => building.outer.map(gpsToLocal)) ?? [], [twin])
+  const framingKey = points.map((point) => `${point.x},${point.z}`).join(';')
+  const home = useMemo(() => campusCameraView(points, width / height), [framingKey, width, height])
+  useEffect(() => { void controls.current?.setLookAt(...home.position, ...home.target, true) }, [home])
   useEffect(() => {
-    bounds.refresh()
-    const { center, distance } = bounds.getSize()
-    const offset = distance / Math.sqrt(3)
-    bounds.moveTo([center.x + offset, center.y + offset, center.z + offset])
-      .lookAt({ target: [center.x, center.y, center.z] })
-  }, [bounds, width, height])
+    const building = twin?.selections.findIndex((selection) => selection.location.id === request.locationId) ?? -1
+    const destination = request.locationId
+      ? flyToLocation(request.locationId, twin ? [...twin.locations, ...twin.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location)] : undefined, twin?.buildings[building]?.height)
+      : home
+    if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, true)
+    // Requests have a monotonic sequence so repeated clicks on the same place work.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request])
+  return <CameraControls ref={controls} makeDefault smoothTime={0.35} draggingSmoothTime={0.12} dollySpeed={0.7}
+    minDistance={12} maxDistance={twin ? twin.size * 2 : 2000} maxPolarAngle={Math.PI / 2 - 0.035} />
+}
+
+function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => void }) {
+  const elapsed = useRef(0), frames = useRef(0)
+  useFrame(({ gl }, delta) => {
+    elapsed.current += delta; frames.current++
+    if (elapsed.current >= 2) {
+      onMetrics({ fps: Math.round(frames.current / elapsed.current), calls: gl.info.render.calls, triangles: gl.info.render.triangles })
+      elapsed.current = 0; frames.current = 0
+    }
+  })
   return null
 }
 
-export default function CampusScene({ showGrid = true, mapData, roadData, onRenderedCount, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
-  const groundSize = useMemo(() => groundSizeForCoordinates([
-    ...(mapData?.boundary ?? []),
-    ...(mapData?.buildings.flatMap((building) => building.outer) ?? []),
-    ...(roadData?.boundary ?? []),
-  ]), [mapData, roadData])
-
-  // Bounds framing depends on bounds and viewport size, so selection changes
-  // and grid toggles preserve the user's camera.
-  const buildingLayer = useMemo(() => mapData && (
-    <Bounds margin={1.3} maxDuration={0.8}>
-      <CampusFraming />
-      <OSMBuildings
-        buildings={mapData.buildings}
-        onRenderedCount={onRenderedCount}
-        selectedBuildingId={selectedBuildingId}
-        onSelectBuilding={onSelectBuilding}
-      />
-    </Bounds>
-  ), [mapData, onRenderedCount, selectedBuildingId, onSelectBuilding])
-
-  return (
-    <Canvas
-      shadows
-      onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
-      dpr={[1, 2]}
-      camera={{
-        position: sceneConfig.cameraPosition,
-        fov: 45,
-        // A meter-scale near plane preserves depth precision across the campus.
-        near: 1,
-        far: 10000,
-      }}
-      gl={{ antialias: true, toneMapping: ACESFilmicToneMapping }}
-      fallback={<p className="webgl-fallback">Your browser needs WebGL to display the campus scene.</p>}
-    >
-      <color attach="background" args={[sceneConfig.backgroundColor]} />
-      <fog attach="fog" args={[sceneConfig.backgroundColor, groundSize, groundSize * 3]} />
-      <Sky
-        distance={450000}
-        sunPosition={sceneConfig.sunPosition}
-        turbidity={4}
-        rayleigh={0.6}
-        mieCoefficient={0.005}
-        mieDirectionalG={0.8}
-      />
-      <Lighting groundSize={groundSize} />
-      <Ground showGrid={showGrid} size={groundSize} />
-      {roadData && <OSMRoads roads={roadData.roads} />}
-      {buildingLayer}
-      <OrbitControls
-        makeDefault
-        target={sceneConfig.cameraTarget}
-        enableDamping
-        dampingFactor={0.08}
-        minDistance={10}
-        maxDistance={Math.max(600, groundSize * 3)}
-        maxPolarAngle={Math.PI / 2 - 0.02}
-      />
-    </Canvas>
-  )
+function CampusScene({ showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+  const size = twin?.size ?? 650
+  const background = night ? '#111c2d' : '#d9e7ec'
+  const heights = useMemo(() => Object.fromEntries(twin?.selections.map((selection, i) => [selection.location.id, twin.buildings[i].height]) ?? []), [twin])
+  return <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]}
+    onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
+    camera={{ position: sceneConfig.cameraPosition, fov: 45, near: 1, far: 10000 }}
+    gl={{ antialias: true, toneMapping: ACESFilmicToneMapping }}
+    fallback={<p className="webgl-fallback">Your browser needs WebGL to display the campus scene.</p>}>
+    <color attach="background" args={[background]} />
+    <fog attach="fog" args={[background, size * 1.1, size * 3]} />
+    {night ? <Stars radius={3000} depth={150} count={800} factor={3} saturation={0} fade speed={0} />
+      : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={3} rayleigh={0.7} mieCoefficient={0.005} mieDirectionalG={0.8} />}
+    <Lighting groundSize={size} night={night} />
+    <Terrain model={twin?.terrain ?? loadingTerrain} onReady={twin ? onTerrainReady : noop} />
+    {showGrid && <gridHelper args={[size, Math.round(size / sceneConfig.gridSpacing), '#7d8970', '#9ba584']} position={[0, 0.025, 0]} />}
+    {twin && <>
+      <CampusBoundary points={twin.boundary} />
+      <OSMRoads roads={twin.roads} />
+      <OSMBuildings buildings={twin.buildings} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
+      <BuildingWindows buildings={twin.buildings} night={night} />
+      {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
+      {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} />}
+      <LocationLabels locations={twin.locations} heights={heights} />
+    </>}
+    <Navigation twin={twin} request={cameraRequest} />
+    <RuntimeMetrics onMetrics={onMetrics} />
+  </Canvas>
 }
+
+export default memo(CampusScene)

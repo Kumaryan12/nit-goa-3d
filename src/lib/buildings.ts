@@ -1,5 +1,7 @@
 import { sameCoordinate, validClosedRing, isGeoCoordinate, pointInRing } from './geo.ts'
 import type { BuildingFootprint, GeoCoordinate, OSMElement, OSMTags } from '../types/osm.ts'
+import { buildingOverrides } from '../data/buildingOverrides.ts'
+import type { BuildingOverride } from '../data/buildingOverrides.ts'
 
 export const DEFAULT_BUILDING_HEIGHT = 10
 
@@ -12,9 +14,12 @@ export function parseHeight(value: string | undefined): number | null {
   return Number.isFinite(height) && height > 0 ? height : null
 }
 
-export function buildingHeight(tags: OSMTags): number {
+export function buildingHeight(tags: OSMTags, locationId?: string, overrides: BuildingOverride[] = buildingOverrides): number {
+  const override = overrides.find((item) => item.id === locationId)
   return parseHeight(tags.height)
-    ?? ((parseHeight(tags['building:levels']) ?? 0) * 3.2 || DEFAULT_BUILDING_HEIGHT)
+    ?? ((parseHeight(tags['building:levels']) ?? 0) * 3.2 || null)
+    ?? (override && Number.isFinite(override.height) && override.height > 0 ? override.height : null)
+    ?? DEFAULT_BUILDING_HEIGHT
 }
 
 export function isBuilding(element: OSMElement): boolean {

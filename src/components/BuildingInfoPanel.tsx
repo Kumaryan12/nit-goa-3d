@@ -5,9 +5,10 @@ import type { BuildingSelection } from '../types/campus'
 interface BuildingInfoPanelProps {
   selection: BuildingSelection | null
   onClose: () => void
+  onFlyTo: (locationId: string) => void
 }
 
-export default function BuildingInfoPanel({ selection, onClose }: BuildingInfoPanelProps) {
+export default function BuildingInfoPanel({ selection, onClose, onFlyTo }: BuildingInfoPanelProps) {
   const panelRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function BuildingInfoPanel({ selection, onClose }: BuildingInfoPa
       </div>
       <h2 id="building-info-title">{location.name}</h2>
       <p className="building-description">{location.description}</p>
+      <button type="button" className="fly-button" onClick={() => onFlyTo(location.id)}>Fly to this building <span aria-hidden="true">↗</span></button>
       {matchMethod === 'proximity' && <p className="building-match-note">Approximate identification based on campus position.</p>}
     </aside>
   )
