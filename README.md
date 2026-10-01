@@ -1,6 +1,6 @@
 # NIT Goa 3D Explorer
 
-A full-viewport Vite, React, and TypeScript campus explorer built with Three.js, React Three Fiber, and Drei. Real OpenStreetMap ways and multipolygon relations provide the extruded footprints. Phase 3 adds campus metadata and clickable building information. No buildings are invented or bundled as production placeholders.
+A full-viewport Vite, React, and TypeScript campus explorer built with Three.js, React Three Fiber, and Drei. Real OpenStreetMap ways and multipolygon relations provide the extruded footprints. Campus metadata supports clickable building information, and Phase 4 adds real campus roads and paths. No buildings or roads are invented or bundled as production placeholders.
 
 ## Run locally
 
@@ -53,6 +53,16 @@ The coordinate anchors are editable estimates. Academic, administration, and can
 
 Sports Ground and Main Entrance are metadata-only open places in this phase; they do not relabel unrelated buildings or generate additional geometry. Unmatched footprints keep their OSM IDs and names (or `Unnamed campus building`) and remain clickable. Mesh `userData` carries both `osmId` and `locationId` for future connections. No gallery is implemented.
 
+## Campus roads
+
+`fetchCampusRoads` in `src/lib/osm.ts` uses a separate campus-area `highway=*` query with `out geom;`. This includes service roads, footways, and paths. If the area request fails or yields no usable roads, the loader uses the real campus boundary in a polygon Overpass query. Roads never use the building loader's 900 meter fallback. A missing boundary fails safely; a successful empty response displays a no-mapped-roads message.
+
+`src/lib/roads.ts` converts GPS centerlines through the same `gpsToLocal` function as buildings, removes consecutive duplicate coordinates, rejects malformed geometry, and clips centerlines to the campus polygon, including concave boundaries. Linear road and footpath classifications are supported; proposed/construction features and `area=yes` plazas are excluded. Width uses a valid OSM `width` tag (0.3–30 m), otherwise estimated defaults: service roads 4.5 m, driveways/tracks 3 m, other roads 6 m, footpaths 1.8 m, cycleways 2.5 m.
+
+`src/lib/roadGeometry.ts` builds flat mesh ribbons in world X/Z with shared, bounded miter joins. Asphalt roads sit at Y = 0.06 m and lighter footpaths at Y = 0.08 m, above both ground and the grid. Materials are rough and receive building shadows. `OSMRoads` has no pointer handlers, so building selection remains available. Road loading/error state is independent of building state, and road arrival does not reset the camera or selected building.
+
+The live response recorded for tests has 20 service-road ways and no separately mapped footways/paths. Rendering follows current OSM coverage without generating missing routes. Tests cover cardinal coordinate conversion, real-road conversion, campus clipping, ribbon geometry, and Overpass fallback/error/cancellation handling. No textures, trees, or gallery are included.
+
 ## Structure
 
 ```text
@@ -65,6 +75,7 @@ src/
     Ground.tsx
     Lighting.tsx
     OSMBuildings.tsx
+    OSMRoads.tsx
     LoadingOverlay.tsx
     BuildingInfoPanel.tsx
   lib/
@@ -74,6 +85,8 @@ src/
     buildings.ts
     buildingGeometry.ts
     campus.ts
+    roads.ts
+    roadGeometry.ts
   data/
     campus.ts
   types/
@@ -82,4 +95,4 @@ src/
     campus.ts
 ```
 
-`CampusScene` owns the Canvas, camera framing, sky, and OrbitControls. `Ground` owns the plane and grid helper. `Lighting` owns ambient light and directional sunlight. `OSMBuildings` owns the extruded meshes and building selection. `BuildingInfoPanel` displays the selected location. No roads, vegetation, map labels, gallery, or authentication are included.
+`CampusScene` owns the Canvas, camera framing, sky, and OrbitControls. `Ground` owns the plane and grid helper. `Lighting` owns ambient light and directional sunlight. `OSMBuildings` owns the extruded meshes and building selection. `OSMRoads` owns the road meshes. `BuildingInfoPanel` displays the selected location. No vegetation, map labels, gallery, or authentication are included.

@@ -3,20 +3,40 @@ import CampusScene from './components/CampusScene'
 import LoadingOverlay from './components/LoadingOverlay'
 import BuildingInfoPanel from './components/BuildingInfoPanel'
 import { sceneConfig } from './lib/sceneConfig'
-import { fetchCampusData } from './lib/osm'
+import { fetchCampusData, fetchCampusRoads } from './lib/osm'
 import { LAT0, LON0 } from './lib/geo'
-import type { CampusMapState } from './types/osm'
+import type { CampusMapState, CampusRoadState } from './types/osm'
 import type { BuildingSelection } from './types/campus'
 
 export default function App() {
   const [showGrid, setShowGrid] = useState(true)
   const [mapState, setMapState] = useState<CampusMapState>({ status: 'loading' })
+  const [roadState, setRoadState] = useState<CampusRoadState>({ status: 'loading' })
   const [renderedCount, setRenderedCount] = useState(0)
   const [selection, setSelection] = useState<BuildingSelection | null>(null)
   const clearSelection = useCallback(() => setSelection(null), [])
   const onRenderedCount = useCallback((count: number) => {
     setRenderedCount(count)
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Buildings successfully rendered:', count)
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchCampusRoads(controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return
+        if (import.meta.env.DEV) {
+          console.info('[NIT Goa OSM] Road objects returned:', data.returnedRoadCount)
+          console.info('[NIT Goa OSM] Campus roads rendered:', data.roads.length, 'source:', data.source)
+        }
+        setRoadState({ status: 'ready', data })
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return
+        console.error('[NIT Goa OSM] Unable to load campus roads.', error)
+        setRoadState({ status: 'error' })
+      })
+    return () => controller.abort()
   }, [])
 
   useEffect(() => {
@@ -45,16 +65,17 @@ export default function App() {
         <CampusScene
           showGrid={showGrid}
           mapData={mapState.status === 'ready' ? mapState.data : null}
+          roadData={roadState.status === 'ready' ? roadState.data : null}
           onRenderedCount={onRenderedCount}
           selectedBuildingId={selection?.buildingId ?? null}
           onSelectBuilding={setSelection}
           onClearSelection={clearSelection}
         />
       </div>
-      <LoadingOverlay state={mapState} />
+      <LoadingOverlay state={mapState} roadState={roadState} />
       <BuildingInfoPanel selection={selection} onClose={clearSelection} />
       {import.meta.env.DEV && (
-        <div className="map-debug">Buildings loaded: {renderedCount}</div>
+        <div className="map-debug">Buildings loaded: {renderedCount} · Roads loaded: {roadState.status === 'ready' ? roadState.data.roads.length : 0}</div>
       )}
 
       <header className="scene-header">

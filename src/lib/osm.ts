@@ -1,6 +1,7 @@
 import { extractBuildingFootprints, isBuilding } from './buildings.ts'
 import { LAT0, LON0, validClosedRing } from './geo.ts'
-import type { CampusMapData, OSMResponse } from '../types/osm.ts'
+import { extractCampusRoads } from './roads.ts'
+import type { CampusMapData, CampusRoadData, GeoCoordinate, OSMResponse } from '../types/osm.ts'
 
 // Override in .env.local to use another public or self-hosted Overpass instance.
 export const OVERPASS_ENDPOINT = import.meta.env?.VITE_OVERPASS_ENDPOINT
@@ -25,6 +26,24 @@ export const FALLBACK_QUERY = `[out:json][timeout:30];
   relation["building"](around:${FALLBACK_RADIUS_METERS},${LAT0},${LON0});
 );
 out geom;`
+
+// highway=* includes service roads, footways, and paths. Fetch complete
+// geometry, then clip centerlines to the actual campus boundary locally.
+export const ROADS_QUERY = `[out:json][timeout:30];
+way(${CAMPUS_WAY_ID})->.campus;
+.campus map_to_area -> .campusArea;
+(
+  .campus;
+  way["highway"](area.campusArea);
+);
+out geom;`
+
+export const CAMPUS_BOUNDARY_QUERY = `[out:json][timeout:30];way(${CAMPUS_WAY_ID});out geom;`
+
+export function campusRoadPolygonQuery(boundary: GeoCoordinate[]): string {
+  const polygon = boundary.map(({ lat, lon }) => `${lat} ${lon}`).join(' ')
+  return `[out:json][timeout:30];way["highway"](poly:"${polygon}");out geom;`
+}
 
 export async function requestOverpass(query: string, signal?: AbortSignal): Promise<OSMResponse> {
   const controller = new AbortController()
@@ -85,5 +104,46 @@ export async function fetchCampusData(signal?: AbortSignal): Promise<CampusMapDa
   } catch (error) {
     if (signal?.aborted) throw error
     throw new AggregateError([areaError, error], 'Both NIT Goa Overpass queries failed.')
+  }
+}
+
+function campusBoundary(response: OSMResponse): GeoCoordinate[] | null {
+  const campus = response.elements.find((element) => element.type === 'way' && element.id === CAMPUS_WAY_ID)
+  return campus?.type === 'way' ? validClosedRing(campus.geometry) : null
+}
+
+function roadData(response: OSMResponse, boundary: GeoCoordinate[], source: CampusRoadData['source']): CampusRoadData {
+  return {
+    roads: extractCampusRoads(response.elements, boundary),
+    returnedRoadCount: response.elements.filter((element) => element.type === 'way' && element.tags?.highway).length,
+    source,
+    boundary,
+  }
+}
+
+// Loading roads is independent of buildings: failure never discards loaded
+// building geometry or selection. The fallback stays within the campus polygon.
+export async function fetchCampusRoads(signal?: AbortSignal): Promise<CampusRoadData> {
+  let boundary: GeoCoordinate[] | null = null
+  let areaError: unknown
+  try {
+    const response = await requestOverpass(ROADS_QUERY, signal)
+    boundary = campusBoundary(response)
+    if (!boundary) throw new Error('Overpass did not return a valid NIT Goa campus boundary.')
+    const data = roadData(response, boundary, 'campus-area')
+    if (data.roads.length > 0) return data
+    throw new Error('Campus-area query returned no roads; checking the campus polygon.')
+  } catch (error) {
+    if (signal?.aborted) throw error
+    areaError = error
+    console.warn('[NIT Goa OSM] Road area query failed; trying the campus polygon.', error)
+  }
+  try {
+    boundary ??= campusBoundary(await requestOverpass(CAMPUS_BOUNDARY_QUERY, signal))
+    if (!boundary) throw new Error('Campus roads cannot be bounded without the campus boundary.')
+    return roadData(await requestOverpass(campusRoadPolygonQuery(boundary), signal), boundary, 'campus-polygon')
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new AggregateError([areaError, error], 'Unable to load OpenStreetMap campus roads.')
   }
 }

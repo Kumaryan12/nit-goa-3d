@@ -54,3 +54,24 @@ export type CampusMapState =
   | { status: 'loading' }
   | { status: 'ready'; data: CampusMapData }
   | { status: 'error' }
+
+export interface RoadFootprint {
+  id: string
+  osmId: number
+  tags: OSMTags
+  kind: 'road' | 'footpath'
+  width: number
+  paths: { x: number; z: number }[][]
+}
+
+export interface CampusRoadData {
+  roads: RoadFootprint[]
+  returnedRoadCount: number
+  source: 'campus-area' | 'campus-polygon'
+  boundary: GeoCoordinate[]
+}
+
+export type CampusRoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; data: CampusRoadData }
+  | { status: 'error' }

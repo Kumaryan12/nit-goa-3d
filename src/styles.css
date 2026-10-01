@@ -79,7 +79,8 @@ h1 span { font-weight: 400; color: #667065; }
   font-size: 12px;
   pointer-events: none;
 }
-.map-status { top: 124px; display: flex; align-items: center; gap: 9px; }
+.map-status { top: 124px; display: flex; flex-direction: column; align-items: start; gap: 9px; }
+.map-status-message { display: flex; align-items: center; gap: 9px; }
 .map-status-error { color: #8b4637; }
 .map-debug { top: 94px; padding: 5px 9px; font-size: 10px; }
 .loading-dot { width: 6px; height: 6px; border-radius: 50%; background: #6a8067; }

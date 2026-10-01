@@ -6,13 +6,15 @@ import { sceneConfig } from '../lib/sceneConfig'
 import Ground from './Ground'
 import Lighting from './Lighting'
 import OSMBuildings from './OSMBuildings'
+import OSMRoads from './OSMRoads'
 import { groundSizeForCoordinates } from '../lib/geo'
-import type { CampusMapData } from '../types/osm'
+import type { CampusMapData, CampusRoadData } from '../types/osm'
 import type { BuildingSelection } from '../types/campus'
 
 interface CampusSceneProps {
   showGrid?: boolean
   mapData: CampusMapData | null
+  roadData: CampusRoadData | null
   onRenderedCount: (count: number) => void
   selectedBuildingId: string | null
   onSelectBuilding: (selection: BuildingSelection) => void
@@ -32,13 +34,12 @@ function CampusFraming() {
   return null
 }
 
-export default function CampusScene({ showGrid = true, mapData, onRenderedCount, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
-  const groundSize = useMemo(() => mapData
-    ? groundSizeForCoordinates([
-      ...(mapData.boundary ?? []),
-      ...mapData.buildings.flatMap((building) => building.outer),
-    ])
-    : sceneConfig.groundSize, [mapData])
+export default function CampusScene({ showGrid = true, mapData, roadData, onRenderedCount, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+  const groundSize = useMemo(() => groundSizeForCoordinates([
+    ...(mapData?.boundary ?? []),
+    ...(mapData?.buildings.flatMap((building) => building.outer) ?? []),
+    ...(roadData?.boundary ?? []),
+  ]), [mapData, roadData])
 
   // Bounds framing depends on bounds and viewport size, so selection changes
   // and grid toggles preserve the user's camera.
@@ -62,7 +63,8 @@ export default function CampusScene({ showGrid = true, mapData, onRenderedCount,
       camera={{
         position: sceneConfig.cameraPosition,
         fov: 45,
-        near: 0.1,
+        // A meter-scale near plane preserves depth precision across the campus.
+        near: 1,
         far: 10000,
       }}
       gl={{ antialias: true, toneMapping: ACESFilmicToneMapping }}
@@ -80,6 +82,7 @@ export default function CampusScene({ showGrid = true, mapData, onRenderedCount,
       />
       <Lighting groundSize={groundSize} />
       <Ground showGrid={showGrid} size={groundSize} />
+      {roadData && <OSMRoads roads={roadData.roads} />}
       {buildingLayer}
       <OrbitControls
         makeDefault
