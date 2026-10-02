@@ -14,7 +14,7 @@ export function flyToLocation(locationId: string, locations: CampusLocation[] = 
   const location = lookupCameraLocation(locationId, locations)
   if (!location) return null
   const { x, z } = location.coordinates
-  const y = Number.isFinite(height) ? Math.max(0, height * 0.45) : 0
+  const y = (location.elevation ?? 0) + (Number.isFinite(height) ? Math.max(0, height * 0.45) : 0)
   const offset = location.category === 'sports' ? 110 : location.category === 'hostel' ? 100 : 72
   return { position: [x + offset, y + offset * 1.15, z + offset], target: [x, y, z] }
 }

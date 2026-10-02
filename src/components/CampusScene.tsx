@@ -89,6 +89,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
 function CampusScene({ pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const size = twin?.size ?? 650
   const background = night ? '#111c2d' : '#d9e7ec'
+  const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
   const heights = useMemo(() => Object.fromEntries(twin?.selections.map((selection, i) => [selection.location.id, twin.buildings[i].height]) ?? []), [twin])
   return <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]}
     onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
@@ -103,13 +104,13 @@ function CampusScene({ pickingPosition, pickedPosition, onPickPosition, presenta
     <Terrain model={twin?.terrain ?? loadingTerrain} onReady={twin ? onTerrainReady : noop} />
     {showGrid && <gridHelper args={[size, Math.round(size / sceneConfig.gridSpacing), '#7d8970', '#9ba584']} position={[0, 0.025, 0]} />}
     {twin && <>
-      <CampusBoundary points={twin.boundary} entrance={twin.locations.find((location) => location.id === 'main-entrance')!.coordinates} />
-      <OSMRoads roads={twin.roads} />
+      <CampusBoundary terrain={twin.slope ? twin.terrain : undefined} points={twin.boundary} entrance={twin.locations.find((location) => location.id === 'main-entrance')!.coordinates} />
+      <OSMRoads roads={twin.roads} terrain={twin.slope ? twin.terrain : undefined} />
       <OSMBuildings buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
       <BuildingWindows buildings={twin.buildings} night={night} />
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
-      {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} />}
-      <LocationLabels locations={twin.locations} heights={heights} />
+      {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.slope ? twin.terrain : undefined} />}
+      <LocationLabels locations={labelLocations} heights={heights} />
     </>}
     {twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />

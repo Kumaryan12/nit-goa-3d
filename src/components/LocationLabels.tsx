@@ -3,6 +3,7 @@ import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import { fadeLabel, labelOpacity } from '../lib/labels'
+import { campusTopography } from '../data/topography'
 import type { CampusLocation } from '../types/campus'
 
 const labeled = new Set(['academic-block', 'boys-hostel', 'girls-hostel', 'canteen', 'sports-ground', 'main-entrance'])
@@ -14,7 +15,7 @@ function LocationLabel({ location, height }: { location: CampusLocation; height:
   const portal = useRef(gl.domElement.parentElement!)
   const label = useRef<HTMLDivElement>(null)
   const opacity = useRef(0)
-  const point = useMemo(() => new Vector3(location.coordinates.x, height + 8, location.coordinates.z), [location, height])
+  const point = useMemo(() => new Vector3(location.coordinates.x, (location.elevation ?? 0) + height + 8, location.coordinates.z), [location, height])
   const projected = useMemo(() => new Vector3(), [])
   useFrame(({ camera }, delta) => {
     projected.copy(point).project(camera)
@@ -31,5 +32,5 @@ function LocationLabel({ location, height }: { location: CampusLocation; height:
 }
 
 export default function LocationLabels({ locations, heights }: { locations: CampusLocation[]; heights: Record<string, number> }) {
-  return <group>{locations.filter((location) => labeled.has(location.id)).map((location) => <LocationLabel key={location.id} location={location} height={heights[location.id] ?? 0} />)}</group>
+  return <group>{locations.filter((location) => labeled.has(location.id) || location.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '') === campusTopography.upperLocationName.toLowerCase()).map((location) => <LocationLabel key={location.id} location={location} height={heights[location.id] ?? 0} />)}</group>
 }

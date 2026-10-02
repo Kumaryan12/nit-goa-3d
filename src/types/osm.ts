@@ -41,6 +41,7 @@ export interface BuildingFootprint {
   outer: GeoCoordinate[]
   holes: GeoCoordinate[][]
   height: number
+  baseElevation?: number
 }
 
 export interface CampusMapData {

@@ -20,6 +20,8 @@ export interface CampusLocation {
   osmBuildingId?: string | null
   rotationDegrees?: number
   height: number
+  // Ground elevation is separate from building height.
+  elevation?: number
   icon: string
   // Image URLs can later come from a gallery API; empty means none verified.
   images: string[]

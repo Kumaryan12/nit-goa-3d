@@ -79,7 +79,15 @@ Use **Edit campus** in the toolbar, or **Edit name / location** in a selected bu
 
 Edits persist in this browser under `nit-goa:location-edits:v1`; they do not change OpenStreetMap or other visitors' maps. **Export corrections** downloads `campus-overrides.json` containing saved edits. To publish confirmed corrections for everyone, put that JSON object into the typed `savedCampusOverrides` export in `src/data/campusOverrides.ts`, run tests/build, then commit and deploy. Browser edits take priority over those project defaults. Initial project overrides are empty until actual positions are confirmed.
 
-Coordinates use local meters: +X east, +Z south, origin 15.16773° N / 74.01548° E. The editor also displays latitude/longitude. Placement uses a flat ground projection and is intended for campus metadata corrections, not surveying.
+Coordinates use local meters: +X east, +Z south, origin 15.16773° N / 74.01548° E. The editor also displays latitude/longitude. Placement raycasts the displayed terrain and is intended for campus metadata corrections, not surveying.
+
+## Nescafe / sports-ground elevation
+
+When a corrected OSM building is named **Nescafe** (also accepts Nescafé), the terrain creates an upper terrace around its real footprint and a lower, level sports field at the edited Sports Ground position. A smooth slope connects them. The editable estimate in `src/data/topography.ts` starts at **8 meters of relative height**; this represents the campus owner's description, not surveyed elevation or OSM elevation data. Without an identifiable Nescafe building, the earlier terrain remains available until that identity is assigned.
+
+Buildings and their windows use a level foundation at their local terrace height. Roads and the entrance pathway are subdivided and draped over terrain; labels, fly-to targets, boundary fencing, vegetation, route overlays and the walking marker use the same surface. X/Z building footprints, road centerlines and selection identities are preserved. Walking distance/time remain planar OSM-network estimates and do not model slope effort or accessibility.
+
+Move Sports Ground in the editor to redirect the slope automatically. Renaming or choosing Nescafe's footprint updates the upper anchor. Export confirmed browser corrections into `src/data/campusOverrides.ts` to make the same campus layout available to all visitors.
 
 ## Gallery and demo mode
 

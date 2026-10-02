@@ -30,6 +30,7 @@ function OSMBuilding({ building, selection, selected, onSelect }: {
 
   return (
     <group
+      position={[0, building.baseElevation ?? 0, 0]}
       name={selection.location.id}
       userData={{ osmId: building.id, locationId: selection.location.id }}
       onPointerOver={(event) => { event.stopPropagation(); setHovered(true) }}

@@ -2,13 +2,15 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { createRoadGeometry } from '../lib/roadGeometry'
 import { campusLocations } from '../data/campus'
+import { terrainHeightAt } from '../lib/terrain'
+import type { TerrainModel } from '../lib/terrain'
 import { distanceToSegment } from '../lib/terrain'
 import type { LocalCoordinate } from '../lib/geo'
 
-export default function CampusBoundary({ points, entrance = campusLocations.find((location) => location.id === 'main-entrance')!.coordinates }: { points: LocalCoordinate[]; entrance?: LocalCoordinate }) {
+export default function CampusBoundary({ points, terrain, entrance = campusLocations.find((location) => location.id === 'main-entrance')!.coordinates }: { points: LocalCoordinate[]; entrance?: LocalCoordinate; terrain?: TerrainModel }) {
   const wallsRef = useRef<InstancedMesh>(null)
   const postsRef = useRef<InstancedMesh>(null)
-  const outline = useMemo(() => createRoadGeometry(points.length > 2 ? [points] : [], 0.8, 0.12), [points])
+  const outline = useMemo(() => createRoadGeometry(points.length > 2 ? [points] : [], 0.8, 0.12, terrain), [points, terrain])
   const { walls, posts } = useMemo(() => {
     const walls: { x: number; z: number; length: number; angle: number }[] = []
     const posts: LocalCoordinate[] = []
@@ -29,15 +31,17 @@ export default function CampusBoundary({ points, entrance = campusLocations.find
   useLayoutEffect(() => {
     const dummy = new Object3D()
     walls.forEach((wall, i) => {
-      dummy.position.set(wall.x, 0.52, wall.z); dummy.rotation.set(0, wall.angle, 0); dummy.scale.set(wall.length, 0.8, 0.32); dummy.updateMatrix()
+      const dx = Math.cos(wall.angle) * wall.length / 2, dz = -Math.sin(wall.angle) * wall.length / 2
+      const a = terrain ? terrainHeightAt(terrain, wall.x - dx, wall.z - dz) : 0, b = terrain ? terrainHeightAt(terrain, wall.x + dx, wall.z + dz) : 0
+      dummy.position.set(wall.x, (a + b) / 2 + 0.52, wall.z); dummy.rotation.set(0, wall.angle, Math.atan2(b - a, wall.length)); dummy.scale.set(Math.hypot(wall.length, b - a), 0.8, 0.32); dummy.updateMatrix()
       wallsRef.current?.setMatrixAt(i, dummy.matrix)
     })
     posts.forEach((post, i) => {
-      dummy.position.set(post.x, 0.8, post.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(0.5, 1.4, 0.5); dummy.updateMatrix()
+      dummy.position.set(post.x, (terrain ? terrainHeightAt(terrain, post.x, post.z) : 0) + 0.8, post.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(0.5, 1.4, 0.5); dummy.updateMatrix()
       postsRef.current?.setMatrixAt(i, dummy.matrix)
     })
     for (const mesh of [wallsRef.current, postsRef.current]) if (mesh) { mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingSphere() }
-  }, [walls, posts])
+  }, [walls, posts, terrain])
   useEffect(() => () => outline.dispose(), [outline])
   if (points.length < 3) return null
   return <group>

@@ -1,6 +1,8 @@
 import { BufferGeometry, Color, Float32BufferAttribute } from 'three'
 import { gpsToLocal } from './geo.ts'
 import type { LocalCoordinate } from './geo.ts'
+import { slopeElevationAt } from './topography.ts'
+import type { TerrainSlope } from './topography.ts'
 import { pointInCampus } from './roads.ts'
 import type { BuildingFootprint, RoadFootprint } from '../types/osm.ts'
 
@@ -16,6 +18,7 @@ export interface TerrainFeatures {
   buildings: BuildingFootprint[]
   roads: RoadFootprint[]
   clearings: GroundRect[]
+  slope?: TerrainSlope
 }
 
 export function footprintRect(building: BuildingFootprint): GroundRect {
@@ -61,20 +64,27 @@ export function generateTerrain(size: number, features: TerrainFeatures, segment
   const beige = new Color('#ded2b7'), grass = new Color('#81965a'), outside = new Color('#587a4e')
   const color = new Color()
   // Two cells of flat clearance guarantee that interpolated triangles beneath
-  // footprints, roads, POIs and fence edges also stay at Y=0.
+  // footprints and POIs stay level. Roads follow the base grade when a slope exists.
   const flatBuffer = (size / segments) * 2
   for (let row = 0; row <= segments; row++) {
     for (let col = 0; col <= segments; col++) {
       const point = { x: -size / 2 + col * size / segments, z: -size / 2 + row * size / segments }
       let settlementDistance = Infinity
-      for (const rect of rectangles) settlementDistance = Math.min(settlementDistance, distanceToRect(point, rect))
+      let terraceDistance = Infinity, terraceHeight = 0
+      for (const rect of rectangles) {
+        const distance = distanceToRect(point, rect)
+        settlementDistance = Math.min(settlementDistance, distance)
+        if (distance < terraceDistance) { terraceDistance = distance; terraceHeight = slopeElevationAt(rect, features.slope) }
+      }
       for (const line of roadSegments) settlementDistance = Math.min(settlementDistance, Math.max(0, distanceToSegment(point, line.a, line.b) - line.radius))
       let boundaryDistance = Infinity
       for (const line of boundarySegments) boundaryDistance = Math.min(boundaryDistance, distanceToSegment(point, line.a, line.b))
       const blend = smooth((Math.min(settlementDistance, boundaryDistance) - flatBuffer) / 35)
       const noise = terrainNoise(point.x, point.z)
       const index = row * (segments + 1) + col
-      heights[index] = blend * (0.25 + noise * 1.5 + terrainNoise(point.x, point.z, 32) * 0.35)
+      const terraceBlend = smooth((terraceDistance - flatBuffer) / 25)
+      const base = features.slope ? terraceHeight * (1 - terraceBlend) + slopeElevationAt(point, features.slope) * terraceBlend : 0
+      heights[index] = base + blend * (0.25 + noise * 1.5 + terrainNoise(point.x, point.z, 32) * 0.35)
       if (features.boundary.length && pointInCampus(point, features.boundary)) color.copy(beige).lerp(grass, smooth((settlementDistance - 5) / 45))
       else color.copy(outside)
       color.multiplyScalar(0.92 + noise * 0.16)

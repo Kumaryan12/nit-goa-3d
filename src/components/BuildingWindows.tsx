@@ -14,7 +14,7 @@ export default function BuildingWindows({ buildings, night }: { buildings: Build
       const count = Math.floor(length / 4.5), floors = Math.min(12, Math.max(1, Math.floor(building.height / 3.2)))
       return Array.from({ length: count * floors }, (_, j) => {
         const t = ((j % count) + 0.5) / count
-        return { x: a.x + dx * t - dz / length * 0.07 * sign, z: a.z + dz * t + dx / length * 0.07 * sign, y: 1.9 + Math.floor(j / count) * 3.2, angle: -Math.atan2(dz, dx) }
+        return { x: a.x + dx * t - dz / length * 0.07 * sign, z: a.z + dz * t + dx / length * 0.07 * sign, y: (building.baseElevation ?? 0) + 1.9 + Math.floor(j / count) * 3.2, angle: -Math.atan2(dz, dx) }
       })
     })
   }), [buildings])
