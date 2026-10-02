@@ -5,11 +5,12 @@ import { distanceToSegment, terrainHeightAt } from './terrain.ts'
 import type { TerrainModel } from './terrain.ts'
 import type { BuildingFootprint } from '../types/osm.ts'
 import type { CampusLocation } from '../types/campus.ts'
+import type { HostelAction } from './hostelInterior.ts'
 
 export type ExplorerView = 'overview' | 'walk'
-export interface WalkInput { forward: number; side: number; turn: number; running: boolean }
-export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string }
-export interface WalkSpawnRequest { sequence: number; locationId: string }
+export interface WalkInput { forward: number; side: number; turn: number; running: boolean; action?: HostelAction }
+export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string; canEnterHostel?: boolean; interior?: { floor: number; room: string | null; canGoUp: boolean; canGoDown: boolean; stairLowFloor: number | null } }
+export interface WalkSpawnRequest { sequence: number; locationId: string; enterHostel?: boolean }
 interface Collider { id: string; outer: LocalCoordinate[]; holes: LocalCoordinate[][]; minX: number; maxX: number; minZ: number; maxZ: number; base: number; height: number }
 export interface WalkWorld { boundary: LocalCoordinate[]; buildings: Collider[]; terrain: TerrainModel }
 export const AVATAR_RADIUS = 0.42

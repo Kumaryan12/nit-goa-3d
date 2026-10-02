@@ -2,8 +2,9 @@ import { useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { gpsToLocal } from '../lib/geo'
 import type { BuildingFootprint } from '../types/osm'
+import type { HostelPlan } from '../lib/hostelInterior'
 
-export default function BuildingWindows({ buildings, night }: { buildings: BuildingFootprint[]; night: boolean }) {
+export default function BuildingWindows({ buildings, night, doorway }: { buildings: BuildingFootprint[]; night: boolean; doorway?: HostelPlan | null }) {
   const mesh = useRef<InstancedMesh>(null)
   const windows = useMemo(() => buildings.flatMap((building) => {
     const points = building.outer.map(gpsToLocal)
@@ -12,12 +13,14 @@ export default function BuildingWindows({ buildings, night }: { buildings: Build
     return points.slice(1).flatMap((b, i) => {
       const a = points[i], dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz)
       const count = Math.floor(length / 4.5), floors = Math.min(12, Math.max(1, Math.floor(building.height / 3.2)))
-      return Array.from({ length: count * floors }, (_, j) => {
+      return Array.from({ length: count * floors }).flatMap((_, j) => {
         const t = ((j % count) + 0.5) / count
-        return { x: a.x + dx * t - dz / length * 0.07 * sign, z: a.z + dz * t + dx / length * 0.07 * sign, y: (building.baseElevation ?? 0) + 1.9 + Math.floor(j / count) * 3.2, angle: -Math.atan2(dz, dx) }
+        const window = { x: a.x + dx * t - dz / length * 0.07 * sign, z: a.z + dz * t + dx / length * 0.07 * sign, y: (building.baseElevation ?? 0) + 1.9 + Math.floor(j / count) * 3.2, angle: -Math.atan2(dz, dx) }
+        if (doorway?.buildingId === building.id && Math.floor(j / count) === 0 && Math.hypot(window.x-doorway.entrance.point.x,window.z-doorway.entrance.point.z) < 2) return []
+        return [window]
       })
     })
-  }), [buildings])
+  }), [buildings, doorway])
   useLayoutEffect(() => {
     const dummy = new Object3D()
     windows.forEach((window, i) => {

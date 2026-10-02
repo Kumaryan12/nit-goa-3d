@@ -5,8 +5,11 @@ import { applyRoofTiles } from '../lib/roofMaterial'
 import { assignCampusLocations } from '../lib/campus'
 import type { BuildingSelection } from '../types/campus'
 import type { BuildingFootprint } from '../types/osm'
+import type { HostelPlan } from '../lib/hostelInterior'
 
 interface OSMBuildingsProps {
+  hostelPlan?: HostelPlan | null
+  insideHostel?: boolean
   buildings: BuildingFootprint[]
   assignments?: BuildingSelection[]
   onRenderedCount: (count: number) => void
@@ -14,7 +17,9 @@ interface OSMBuildingsProps {
   onSelectBuilding: (selection: BuildingSelection) => void
 }
 
-function OSMBuilding({ building, selection, selected, onSelect }: {
+function OSMBuilding({ building, selection, selected, onSelect, groundShellHeight = 0, hidden = false }: {
+  groundShellHeight?: number
+  hidden?: boolean
   building: BuildingFootprint
   selection: BuildingSelection
   selected: boolean
@@ -24,10 +29,11 @@ function OSMBuilding({ building, selection, selected, onSelect }: {
   const shape = useMemo(() => buildingShape(building), [building])
   const roof = useMemo(() => roofShape(building), [building])
   const roofExtrusion = useMemo(() => ({ depth: 0.32, bevelEnabled: false, steps: 1 }), [])
-  const extrusion = useMemo(() => ({ depth: building.height, bevelEnabled: false, steps: 1 }), [building.height])
+  const extrusion = useMemo(() => ({ depth: Math.max(.1, building.height - groundShellHeight), bevelEnabled: false, steps: 1 }), [building.height, groundShellHeight])
   const concrete = ['#e8d7b5', '#dfcdb0', '#eee0c3', '#dec9a6'][building.osmId % 4]
   useCursor(hovered)
 
+  if (hidden) return null
   return (
     <group
       position={[0, building.baseElevation ?? 0, 0]}
@@ -41,7 +47,7 @@ function OSMBuilding({ building, selection, selected, onSelect }: {
         if (event.delta <= 2) onSelect(selection)
       }}
     >
-      <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+      <mesh position={[0, groundShellHeight, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
         <extrudeGeometry args={[shape, extrusion]} />
         <meshStandardMaterial color={selected ? '#f0c97c' : hovered ? '#f8efd5' : concrete} roughness={0.94} metalness={0} />
       </mesh>
@@ -53,7 +59,7 @@ function OSMBuilding({ building, selection, selected, onSelect }: {
   )
 }
 
-export default function OSMBuildings({ buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
+export default function OSMBuildings({ hostelPlan, insideHostel = false, buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
   const selections = useMemo(() => assignments ?? assignCampusLocations(buildings), [buildings, assignments])
   useEffect(() => { onRenderedCount(buildings.length) }, [buildings, onRenderedCount])
 
@@ -61,6 +67,8 @@ export default function OSMBuildings({ buildings, assignments, onRenderedCount, 
     <group>
       {buildings.map((building, index) => (
         <OSMBuilding
+          groundShellHeight={hostelPlan?.buildingId === building.id ? hostelPlan.floorHeight : 0}
+          hidden={insideHostel && hostelPlan?.buildingId === building.id}
           key={building.id}
           building={building}
           selection={selections[index]}

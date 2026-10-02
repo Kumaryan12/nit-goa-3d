@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import type { Group } from 'three'
@@ -8,43 +8,85 @@ import { terrainHeightAt } from '../lib/terrain'
 import { cameraBoomFraction, createWalkWorld, emptyWalkInput, findWalkSpawn, isWalkable, nearestWalkLocation, stepWalking } from '../lib/walking'
 import type { WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
 import StudentAvatar from './StudentAvatar'
+import { canUseStairs, demoRoomNumber, interiorCameraFraction, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
+import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+  hostelPlan: HostelPlan | null; interiorPose: React.RefObject<InteriorPose | null>
+  processedSpawn: React.RefObject<number>
   twin: DigitalTwin; paused: boolean; input: React.RefObject<WalkInput>; position: React.RefObject<LocalCoordinate | null>; spawn: WalkSpawnRequest;
   onStatus: (status: WalkStatus) => void; onInspect: (id: string) => void
 }) {
+  const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
   const { gl, camera } = useThree(), avatar = useRef<Group>(null), yaw = useRef(0), pitch = useRef(0.28), cameraDistance = useRef(7)
-  const keys = useRef(new Set<string>()), lastSpawn = useRef(spawn.sequence), motion = useRef({ phase: 0, moving: false }), elapsed = useRef(0), nearest = useRef<string | null>(null)
+  const keys = useRef(new Set<string>()), motion = useRef({ phase: 0, moving: false }), elapsed = useRef(0), nearest = useRef<string | null>(null)
   const world = useMemo(() => createWalkWorld(twin.buildings, twin.boundary, twin.terrain), [twin])
   const locations = useMemo(() => [...twin.locations, ...twin.selections.filter(item => item.matchMethod === 'unmatched').map(item => item.location)].map(location => ({ ...location, osmBuildingId: twin.selections.find(item => item.location.id === location.id)?.buildingId ?? location.osmBuildingId })), [twin])
   const target = useMemo(() => new Vector3(), []), desired = useMemo(() => new Vector3(), []), snapped = useRef(false), oriented = useRef(false)
+  const publish = useCallback((moving = false, blocked = false, error?: string) => {
+    const p = position.current; if (!p) return
+    const pose = interiorPose.current, place = pose ? { id: 'boys-hostel', distance: 0 } : nearestWalkLocation(p, locations, world)
+    nearest.current = place && place.distance <= 25 ? place.id : null
+    const room = pose && hostelPlan ? roomAtPoint(hostelPlan, p) : null
+    const status: WalkStatus = {
+      position: { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving, blocked, error,
+      canEnterHostel: !pose && !!hostelPlan && pointDistance(p, hostelPlan.entrance.outside) <= 5,
+      interior: pose && hostelPlan ? { floor: pose.floor, room: room ? demoRoomNumber(pose.floor, room.id) : null, canGoUp: !journey.current && canUseStairs(hostelPlan, p, pose.floor, true), canGoDown: !journey.current && canUseStairs(hostelPlan, p, pose.floor, false), stairLowFloor: journey.current?.lowFloor ?? null } : undefined,
+    }
+    actionContext.current = status; onStatus(status)
+  }, [hostelPlan, interiorPose, position, locations, world, onStatus])
   useEffect(() => {
     const anchor = locations.find(location => location.id === spawn.locationId) ?? twin.locations.find(location => location.id === 'main-entrance')!
-    const relocating = lastSpawn.current !== spawn.sequence || !position.current || !isWalkable(position.current, world)
-    if (relocating) position.current = findWalkSpawn(anchor.coordinates, world)
-    lastSpawn.current = spawn.sequence
+    const changed = processedSpawn.current !== spawn.sequence, pose = interiorPose.current
+    const validInside = !!hostelPlan && !!pose && pose.buildingId === hostelPlan.buildingId && pose.floor >= 0 && pose.floor < hostelPlan.levels && !!position.current && isInteriorWalkable(position.current, hostelPlan)
+    const relocating = changed || !position.current || !(validInside || isWalkable(position.current, world))
+    if (relocating) {
+      interiorPose.current = null
+      if (hostelPlan && spawn.enterHostel) { interiorPose.current = { buildingId: hostelPlan.buildingId, floor: 0 }; position.current = { ...hostelPlan.entrance.inside } }
+      else position.current = hostelPlan && spawn.locationId === 'boys-hostel' ? { ...hostelPlan.entrance.outside } : findWalkSpawn(anchor.coordinates, world)
+    } else if (pose && !validInside) interiorPose.current = null
+    // Switching modes during a stair walk returns to a safe same-floor landing.
+    if (validInside && position.current && hostelPlan && pointDistance(position.current, hostelPlan.stairs.start) + pointDistance(position.current, hostelPlan.stairs.end) < hostelPlan.stairs.length + .3) position.current = stairLanding(hostelPlan, pose!.floor < hostelPlan.levels - 1)
+    journey.current = null; processedSpawn.current = spawn.sequence
     if (avatar.current) avatar.current.visible = !!position.current
     nearest.current = null
     if (!position.current) onStatus({ position: anchor.coordinates, nearestId: null, distance: Infinity, moving: false, blocked: false, error: `No open ground near ${anchor.name}. Choose another starting place.` })
     else {
       if (relocating || !oriented.current) {
-        // Face the built campus when returning from Overview. At a building start,
-        // face into open space instead of staring at its wall.
         const points = world.buildings.length ? world.buildings.map(building => ({ x: (building.minX + building.maxX) / 2, z: (building.minZ + building.maxZ) / 2 })) : twin.boundary
         const center = points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, z: sum.z + point.z / points.length }), { x: 0, z: 0 })
         const nearBuilding = relocating && world.buildings.some(building => building.id === (anchor.osmBuildingId ?? anchor.id))
         yaw.current = nearBuilding ? Math.atan2(anchor.coordinates.x - position.current.x, anchor.coordinates.z - position.current.z) : Math.atan2(position.current.x - center.x, position.current.z - center.z)
+        if (hostelPlan && spawn.locationId === 'boys-hostel') yaw.current = Math.atan2(-hostelPlan.entrance.inward.x, -hostelPlan.entrance.inward.z)
         if (avatar.current) avatar.current.rotation.y = yaw.current
         oriented.current = true
       }
-      const place = nearestWalkLocation(position.current, locations, world)
-      nearest.current = place && place.distance <= 25 ? place.id : null
-      onStatus({ position: { ...position.current }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving: false, blocked: false })
+      publish()
     }
     snapped.current = false; keys.current.clear(); input.current = emptyWalkInput()
-  }, [world, spawn, locations, twin, input, position, onStatus])
+  }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, onStatus, publish])
+  const act = useCallback((action: HostelAction) => {
+    const plan = hostelPlan, p = position.current, pose = interiorPose.current
+    if (!plan || !p || journey.current) return
+    if (action === 'enter-hostel' && !pose && pointDistance(p, plan.entrance.outside) <= 5) {
+      interiorPose.current = { buildingId: plan.buildingId, floor: 0 }; position.current = { ...plan.entrance.inside }
+      yaw.current = Math.atan2(-plan.entrance.inward.x, -plan.entrance.inward.z)
+    } else if (action === 'exit-hostel' && pose) {
+      interiorPose.current = null; position.current = { ...plan.entrance.outside }
+      yaw.current = Math.atan2(plan.entrance.inward.x, plan.entrance.inward.z)
+    } else if (action === 'find-stairs' && pose) {
+      const up = pose.floor < plan.levels - 1; position.current = stairLanding(plan, up)
+      yaw.current = Math.atan2(plan.stairs.along.x * (up ? -1 : 1), plan.stairs.along.z * (up ? -1 : 1))
+    } else if (pose && (action === 'stairs-up' || action === 'stairs-down')) {
+      const up = action === 'stairs-up'; if (!canUseStairs(plan, p, pose.floor, up)) return
+      journey.current = { lowFloor: up ? pose.floor : pose.floor - 1, up, progress: 0 }
+      position.current = stairLanding(plan, up); yaw.current = Math.atan2(plan.stairs.along.x * (up ? -1 : 1), plan.stairs.along.z * (up ? -1 : 1))
+    } else return
+    if (avatar.current) avatar.current.rotation.y = yaw.current
+    keys.current.clear(); input.current = emptyWalkInput(); snapped.current = false; publish()
+  }, [hostelPlan, position, interiorPose, input, publish])
   useEffect(() => {
     const fov = camera instanceof Object && 'fov' in camera ? camera.fov : null, near = camera.near
     camera.near = 0.1; if ('fov' in camera) camera.fov = 60; camera.updateProjectionMatrix()
@@ -56,14 +98,22 @@ export default function AvatarExplorer({ twin, paused, input, position, spawn, o
     const down = (event: KeyboardEvent) => {
       if (paused || editingText() || event.metaKey || event.ctrlKey || event.altKey) return
       if (movementKeys.has(event.code)) { event.preventDefault(); keys.current.add(event.code) }
-      if (event.code === 'KeyE' && !event.repeat && nearest.current) { event.preventDefault(); clear(); onInspect(nearest.current) }
+      if (event.code === 'KeyE' && !event.repeat) {
+        event.preventDefault(); clear()
+        const context = actionContext.current
+        if (context?.canEnterHostel) act('enter-hostel')
+        else if (context?.interior?.canGoUp) act('stairs-up')
+        else if (context?.interior?.canGoDown) act('stairs-down')
+        else if (interiorPose.current?.floor === 0 && hostelPlan && position.current && pointDistance(position.current, hostelPlan.entrance.inside) < 3) act('exit-hostel')
+        else if (nearest.current) onInspect(nearest.current)
+      }
       if (event.code === 'Escape') clear()
     }
     const up = (event: KeyboardEvent) => { keys.current.delete(event.code) }
     const hidden = () => { if (document.hidden) clear() }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear); document.addEventListener('visibilitychange', hidden)
     return () => { clear(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
-  }, [paused, input, onInspect])
+  }, [paused, input, onInspect, act, hostelPlan, interiorPose, position])
   useEffect(() => {
     const canvas = gl.domElement
     let drag: { id: number; x: number; y: number } | null = null
@@ -86,28 +136,49 @@ export default function AvatarExplorer({ twin, paused, input, position, spawn, o
     const turn = allowed ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0
     yaw.current += turn * Math.min(delta, 0.1) * 1.8
     const direction = { x: -Math.sin(yaw.current) * forward + Math.cos(yaw.current) * side, z: -Math.cos(yaw.current) * forward - Math.sin(yaw.current) * side }
-    const before = position.current, next = stepWalking(before, direction, allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running) ? 5.5 : 2.3, delta, world)
-    const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = Math.hypot(direction.x, direction.z) > 0 && moved < 0.001
-    position.current = next; motion.current.moving = moved > 0.001; motion.current.phase += moved * 7
-    avatar.current.position.set(next.x, terrainHeightAt(twin.terrain, next.x, next.z), next.z)
-    if (moved > 0.001) {
-      const heading = Math.atan2(-direction.x, -direction.z), difference = Math.atan2(Math.sin(heading - avatar.current.rotation.y), Math.cos(heading - avatar.current.rotation.y))
+    if (input.current.action) { const action = input.current.action; delete input.current.action; if (allowed) act(action) }
+    const before = position.current, pose = interiorPose.current
+    let next = before, surfaceY = terrainHeightAt(twin.terrain, before.x, before.z)
+    if (pose && hostelPlan) {
+      surfaceY = hostelPlan.base + pose.floor * hostelPlan.floorHeight + .14
+      if (journey.current) {
+        if (allowed) journey.current.progress += Math.min(delta, .1) / 3.4
+        const sample = stairSample(hostelPlan, journey.current); next = sample.point; surfaceY = sample.y
+        if (sample.complete) {
+          pose.floor = sample.floor; journey.current = null; position.current = next
+          const look = landingLookDirection(hostelPlan, next); yaw.current = Math.atan2(-look.x,-look.z)
+          avatar.current.rotation.y = yaw.current; snapped.current = false; publish()
+        }
+      } else next = stepInterior(before, direction, allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running) ? 3.5 : 2.3, delta, hostelPlan)
+    } else {
+      next = stepWalking(before, direction, allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running) ? 5.5 : 2.3, delta, world)
+      surfaceY = terrainHeightAt(twin.terrain, next.x, next.z)
+    }
+    const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = Math.hypot(direction.x, direction.z) > 0 && moved < .001 && !journey.current
+    position.current = next; motion.current.moving = moved > .001; motion.current.phase += moved * 7
+    avatar.current.position.set(next.x, surfaceY, next.z)
+    if (moved > .001) {
+      const heading = Math.atan2(before.x - next.x, before.z - next.z), difference = Math.atan2(Math.sin(heading - avatar.current.rotation.y), Math.cos(heading - avatar.current.rotation.y))
       avatar.current.rotation.y += difference * (1 - Math.exp(-delta * 14))
     }
-    target.set(next.x, avatar.current.position.y + 1.35, next.z)
-    const boom = cameraDistance.current
+    target.set(next.x, surfaceY + 1.35, next.z)
+    const indoorFov = pose ? 75 : 60
+    if ('fov' in camera && camera.fov !== indoorFov) { camera.fov = indoorFov; camera.updateProjectionMatrix() }
+    const boom = pose ? Math.min(4.5, cameraDistance.current) : cameraDistance.current
     desired.set(next.x + Math.sin(yaw.current) * boom * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * boom, next.z + Math.cos(yaw.current) * boom * Math.cos(pitch.current))
-    desired.lerpVectors(target, desired, cameraBoomFraction(target, desired, world))
+    const fraction = (end: Vector3) => pose && hostelPlan ? interiorCameraFraction(target, end, hostelPlan, pose.floor, journey.current?.lowFloor ?? null) : cameraBoomFraction(target, end, world)
+    desired.lerpVectors(target, desired, fraction(desired))
     if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * 12))
-    // Smoothing must not carry the camera through a wall while turning.
-    camera.position.lerpVectors(target, camera.position, cameraBoomFraction(target, camera.position, world))
-    camera.position.y = Math.max(camera.position.y, terrainHeightAt(twin.terrain, camera.position.x, camera.position.z) + 0.3)
+    camera.position.lerpVectors(target, camera.position, fraction(camera.position))
+    camera.position.y = Math.max(camera.position.y, (pose ? surfaceY : terrainHeightAt(twin.terrain, camera.position.x, camera.position.z)) + .3)
+    // Tight doorways sometimes shorten the boom into the avatar. Show the
+    // corridor instead of filling the screen with the back of its head.
+    avatar.current.visible = camera.position.distanceTo(target) > 1.4
     camera.lookAt(target)
     elapsed.current += delta
     if (elapsed.current >= 0.2) {
       elapsed.current = 0
-      const place = nearestWalkLocation(next, locations, world); nearest.current = place && place.distance <= 25 ? place.id : null
-      onStatus({ position: { x: Math.round(next.x * 10) / 10, z: Math.round(next.z * 10) / 10 }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving: moved > 0.001, blocked })
+      publish(moved > .001, blocked)
     }
   })
   return <group ref={avatar}><StudentAvatar motion={motion} /></group>

@@ -344,3 +344,9 @@ h1 span { font-weight: 400; }
 .hostel-room-list { list-style: none; padding: 0; margin: 12px 0; }
 .hostel-room-list li { display: flex; flex-direction: column; gap: 4px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
 .hostel-room-list span { color: var(--muted); }
+
+.walk-interior-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 5px; margin: 8px 0; }
+.walk-interior-actions .fly-button { font-size: 10px; padding: 9px 6px; justify-content: center; }
+.walk-demo-note { grid-column: 1 / -1; margin: 0 0 4px; color: var(--muted); font-size: 10px; }
+.building-floor-directory > .navigate-button { width: 100%; margin-bottom: 10px; }
+@media (max-width: 760px) { .walk-interior-actions .fly-button { font-size: 9px; padding: 7px 4px; } .walk-demo-note { font-size: 9px; } .walk-mode .building-info-panel { bottom: 340px; max-height: 28dvh; } .walk-mode .building-info-panel.panel-collapsed { bottom: 340px; } .walk-controls { max-height: calc(100dvh - 200px); overflow-y: auto; } }

@@ -1,11 +1,12 @@
 import type { BuildingDetails } from '../types/buildingDetails.ts'
 
 // Ground + four upper floors confirmed by the campus owner.
-// Room numbers and interior layouts await campus details.
+// Verified room numbers remain empty. Generated DEMO labels belong only to
+// the approximate interior; they do not represent real room assignments.
 export const boysHostelDetails: BuildingDetails = {
   locationId: 'boys-hostel',
   floorHeightMeters: 3.2,
-  interiorStatus: 'not-modeled',
+  interiorStatus: 'approximate',
   floors: [
     { id: 'ground', level: 0, label: 'Ground floor', rooms: [] },
     { id: 'first', level: 1, label: 'First floor', rooms: [] },

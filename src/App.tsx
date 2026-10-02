@@ -11,6 +11,9 @@ import type { CampusOverride } from './lib/locationOverrides'
 import WalkControls from './components/WalkControls'
 import { emptyWalkInput, explorerViewFromURL, withExplorerView } from './lib/walking'
 import type { ExplorerView, WalkStatus, WalkSpawnRequest } from './lib/walking'
+import { createWalkWorld, isWalkable } from './lib/walking'
+import { createHostelPlan } from './lib/hostelInterior'
+import type { InteriorPose } from './lib/hostelInterior'
 import { savedCampusOverrides } from './data/campusOverrides'
 import { useDigitalTwin } from './hooks/useDigitalTwin'
 import { parseURLState, serializeURLState } from './lib/urlState'
@@ -47,6 +50,8 @@ export default function App() {
   const initialView = useRef(explorerViewFromURL(window.location.href)).current
   const [view, setView] = useState<ExplorerView>(initialView)
   const walkInput = useRef(emptyWalkInput()), avatarPosition = useRef<LocalCoordinate | null>(null)
+  const interiorPose = useRef<InteriorPose | null>(null)
+  const processedWalkSpawn = useRef(0)
   const [walkStatus, setWalkStatus] = useState<WalkStatus | null>(null), [walkManualPause, setWalkManualPause] = useState(false)
   const [walkSpawn, setWalkSpawn] = useState<WalkSpawnRequest>({ sequence: 0, locationId: 'main-entrance' })
   const onWalkStatus = useCallback((status: WalkStatus) => setWalkStatus(status), [])
@@ -107,6 +112,13 @@ export default function App() {
   const roadData = roadState.status === 'ready' ? roadState.data : null
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useDigitalTwin(mapData, roadData, requestsSettled, overrides)
+  const hostelPlan = useMemo(() => {
+    if (!twin) return null
+    const building = twin.buildings[twin.selections.findIndex(item => item.location.id === 'boys-hostel')]
+    if (!building) return null
+    const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain)
+    return createHostelPlan(building, twin.roads, point => isWalkable(point, world))
+  }, [twin])
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
   const [navigationOpen, setNavigationOpen] = useState(initialView === 'overview' && !!initial.to)
   const [startId, setStartId] = useState(initial.from ?? '@current')
@@ -149,6 +161,9 @@ export default function App() {
     walkInput.current = emptyWalkInput()
     if (next === 'overview') setCameraRequest(request => ({ sequence: request.sequence + 1, locationId: null }))
   }, [closeEditor])
+  const enterHostel = useCallback(() => {
+    changeView('walk'); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId: 'boys-hostel', enterHostel: true }))
+  }, [changeView])
   const walkPaused = walkManualPause || galleryOpen || uploadOpen || authOpen || editorOpen
   const onRenderedCount = useCallback((count: number) => {
     setRenderedCount(count)
@@ -225,6 +240,7 @@ export default function App() {
     <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking ? 'picking-location' : ''} ${editorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''}`} aria-label="NIT Goa 3D campus explorer">
       <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to jog, E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
+          hostelPlan={hostelPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null}
           view={view} walkPaused={walkPaused} walkInput={walkInput} avatarPosition={avatarPosition} walkSpawn={walkSpawn} onWalkStatus={onWalkStatus} onWalkInspect={chooseLocation}
           presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           pickingPosition={picking?.mode === 'point'} pickedPosition={editorOpen ? picked?.coordinates ?? null : null} onPickPosition={onPickPosition}
@@ -245,7 +261,7 @@ export default function App() {
       {!editorOpen && (navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
-        : <BuildingInfoPanel walkMode={view === 'walk'} onEdit={editLocation} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
+        : <BuildingInfoPanel hostelPlan={hostelPlan} onEnterHostel={enterHostel} walkMode={view === 'walk'} onEdit={editLocation} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
       {editorOpen && <Suspense fallback={<p className="scene-loading">Opening location editor…</p>}><CampusLocationEditor locations={catalog} locationId={editorLocationId}
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}
         onLocation={(id) => { setEditorLocationId(id); setPicking(null); setPicked(null) }} onPick={setPicking} onSave={saveCorrection} onReset={resetCorrection} onClose={closeEditor} /></Suspense>}

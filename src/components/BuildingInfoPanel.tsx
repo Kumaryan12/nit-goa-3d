@@ -5,9 +5,12 @@ import type { LocalCoordinate } from '../lib/geo'
 import { locationDistance, nearbyLocations } from '../lib/locations'
 import GalleryPreview from './GalleryPreview'
 import BuildingFloorDirectory from './BuildingFloorDirectory'
+import type { HostelPlan } from '../lib/hostelInterior'
 import { buildingDetails } from '../data/buildingDetails'
 
 interface BuildingInfoPanelProps {
+  hostelPlan?: HostelPlan | null
+  onEnterHostel?: () => void
   walkMode?: boolean
   onEdit: (id: string) => void
   onGallery: (id: string, photo?: string) => void
@@ -21,7 +24,7 @@ interface BuildingInfoPanelProps {
   onSelectLocation: (locationId: string) => void
 }
 
-function BuildingInfoPanel({ walkMode = false, onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
+function BuildingInfoPanel({ hostelPlan, onEnterHostel, walkMode = false, onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
   const nearby = useMemo(() => selection ? nearbyLocations(selection.location, locations) : [], [selection, locations])
@@ -50,7 +53,7 @@ function BuildingInfoPanel({ walkMode = false, onEdit, onGallery, onUpload, sele
     {matchMethod === 'manual' && <p className="building-match-note">Building identity assigned manually in campus metadata.</p>}
     {matchMethod === 'proximity' && <p className="building-match-note">Approximate identification based on campus position.</p>}
     {!selection.buildingId && <p className="building-match-note">Approximate campus location anchor.</p>}
-    {buildingDetails[location.id] && <BuildingFloorDirectory key={location.id} details={buildingDetails[location.id]} />}
+    {buildingDetails[location.id] && <BuildingFloorDirectory key={location.id} details={buildingDetails[location.id]} plan={location.id === 'boys-hostel' ? hostelPlan : null} onEnter={onEnterHostel} />}
     <section className="panel-section"><h3>Facilities</h3>
       {location.facilities.length ? <ul className="facilities-list">{location.facilities.map((facility) => <li key={facility}>{facility}</li>)}</ul>
         : <p className="panel-muted">Facilities have not yet been assigned.</p>}

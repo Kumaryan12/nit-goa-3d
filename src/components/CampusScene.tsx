@@ -11,6 +11,8 @@ import type { DigitalTwin } from '../lib/digitalTwin'
 import type { BuildingSelection } from '../types/campus'
 import Lighting from './Lighting'
 import AvatarExplorer from './AvatarExplorer'
+import BoysHostelInterior from './BoysHostelInterior'
+import type { HostelPlan, InteriorPose } from '../lib/hostelInterior'
 import type { ExplorerView, WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
 import LocationPicker from './LocationPicker'
 import Terrain from './Terrain'
@@ -28,6 +30,11 @@ import type { LocalCoordinate } from '../lib/geo'
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number }
 interface CampusSceneProps {
+  hostelPlan: HostelPlan | null
+  interiorPose: React.RefObject<InteriorPose | null>
+  processedWalkSpawn: React.RefObject<number>
+  hostelFloor: number | null
+  stairLowFloor: number | null
   view: ExplorerView
   walkPaused: boolean
   walkInput: React.RefObject<WalkInput>
@@ -95,7 +102,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ hostelPlan, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const size = twin?.size ?? 650
   const background = night ? '#111c2d' : '#d9e7ec'
   const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
@@ -115,15 +122,16 @@ function CampusScene({ view, walkPaused, walkInput, avatarPosition, walkSpawn, o
     {twin && <>
       <CampusBoundary terrain={twin.slope ? twin.terrain : undefined} points={twin.boundary} entrance={twin.locations.find((location) => location.id === 'main-entrance')!.coordinates} />
       <OSMRoads roads={twin.roads} terrain={twin.slope ? twin.terrain : undefined} />
-      <OSMBuildings buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
-      <BuildingWindows buildings={twin.buildings} night={night} />
+      <OSMBuildings hostelPlan={view === 'walk' ? hostelPlan : null} insideHostel={view === 'walk' && hostelFloor !== null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
+      <BuildingWindows doorway={view === 'walk' ? hostelPlan : null} buildings={view === 'walk' && hostelFloor !== null && hostelPlan ? twin.buildings.filter(building => building.id !== hostelPlan.buildingId) : twin.buildings} night={night} />
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.slope ? twin.terrain : undefined} />}
+      {view === 'walk' && hostelPlan && <BoysHostelInterior plan={hostelPlan} floor={hostelFloor} stairLowFloor={stairLowFloor} onSelect={() => { const selection = twin.selections.find(item => item.buildingId === hostelPlan.buildingId); if (selection) onSelectBuilding(selection) }} />}
       <LocationLabels locations={labelLocations} heights={heights} />
     </>}
     {view === 'overview' && twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
-    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
+    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer hostelPlan={hostelPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
     <RuntimeMetrics onMetrics={onMetrics} />
   </Canvas>
 }

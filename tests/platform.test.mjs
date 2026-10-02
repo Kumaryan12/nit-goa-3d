@@ -31,7 +31,7 @@ test('location schema prepares every landmark for icons, height, facilities and 
   assert.equal(selection.location.height, building.height)
   assert.deepEqual(boysHostelDetails.floors.map(floor => floor.level), [0, 1, 2, 3, 4])
   assert.equal(building.height, boysHostelDetails.floors.length * boysHostelDetails.floorHeightMeters)
-  assert.equal(boysHostelDetails.interiorStatus, 'not-modeled')
+  assert.equal(boysHostelDetails.interiorStatus, 'approximate')
   assert.ok(boysHostelDetails.floors.every(floor => floor.rooms.length === 0), 'unmapped real room numbers are not fabricated')
   assert.equal(selection.matchMethod, 'osm-name')
   assert.equal(selectionForLocation('main-entrance').buildingId, null)
