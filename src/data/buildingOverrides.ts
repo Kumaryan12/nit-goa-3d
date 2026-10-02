@@ -1,3 +1,5 @@
+import { boysHostelDetails } from './buildingDetails.ts'
+
 export interface BuildingOverride {
   id: string
   height: number
@@ -8,7 +10,7 @@ export interface BuildingOverride {
 export const buildingOverrides: BuildingOverride[] = [
   { id: 'academic-block', height: 14, floors: 4 },
   { id: 'administration-block', height: 10.5, floors: 3 },
-  { id: 'boys-hostel', height: 18, floors: 5 },
+  { id: 'boys-hostel', height: boysHostelDetails.floors.length * boysHostelDetails.floorHeightMeters, floors: boysHostelDetails.floors.length },
   { id: 'girls-hostel', height: 14.5, floors: 4 },
   { id: 'canteen', height: 4.5, floors: 1 },
 ]

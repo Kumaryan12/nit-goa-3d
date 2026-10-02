@@ -4,6 +4,8 @@ import type { BuildingSelection, CampusLocation } from '../types/campus'
 import type { LocalCoordinate } from '../lib/geo'
 import { locationDistance, nearbyLocations } from '../lib/locations'
 import GalleryPreview from './GalleryPreview'
+import BuildingFloorDirectory from './BuildingFloorDirectory'
+import { buildingDetails } from '../data/buildingDetails'
 
 interface BuildingInfoPanelProps {
   walkMode?: boolean
@@ -48,6 +50,7 @@ function BuildingInfoPanel({ walkMode = false, onEdit, onGallery, onUpload, sele
     {matchMethod === 'manual' && <p className="building-match-note">Building identity assigned manually in campus metadata.</p>}
     {matchMethod === 'proximity' && <p className="building-match-note">Approximate identification based on campus position.</p>}
     {!selection.buildingId && <p className="building-match-note">Approximate campus location anchor.</p>}
+    {buildingDetails[location.id] && <BuildingFloorDirectory key={location.id} details={buildingDetails[location.id]} />}
     <section className="panel-section"><h3>Facilities</h3>
       {location.facilities.length ? <ul className="facilities-list">{location.facilities.map((facility) => <li key={facility}>{facility}</li>)}</ul>
         : <p className="panel-muted">Facilities have not yet been assigned.</p>}

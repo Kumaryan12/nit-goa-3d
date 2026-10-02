@@ -83,6 +83,12 @@ Share examples:
 
 Query helpers validate IDs, preserve unrelated query parameters and deployment paths, and update history without reloads. Back/Forward restores meaningful selection, route, night and photo state. Unknown IDs fail gracefully. Photos reload directly by repository ID; closing removes `photo`. Modal openness, playback progress and other transient UI are omitted from URLs.
 
+## Boys Hostel building details
+
+Boys Hostel (Talpona) has a ground floor and four upper floors (five levels total), confirmed by the campus owner. `src/data/buildingDetails.ts` stores each floor and its room directory; `src/types/buildingDetails.ts` defines floor/room records for further buildings. Room arrays remain empty until actual numbering is supplied. Its info panel includes a floor selector and identifies unmapped room numbers and unavailable interior walking.
+
+The exterior fallback height is now 16 m (five estimated 3.2 m levels); valid OSM height/level tags still take priority. The real footprint and all three courtyards remain unchanged. The hostel stays solid in Walk mode. Enterable interiors need a modeled entrance, corridors, floor surfaces, stairs/landings, interior collision walls and a camera suitable for enclosed spaces; OSM footprints alone do not provide that layout.
+
 ## Correct campus names and positions
 
 Use **Edit campus** in the toolbar, or **Edit name / location** in a selected building's details.

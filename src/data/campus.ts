@@ -1,3 +1,4 @@
+import { boysHostelDetails } from './buildingDetails.ts'
 import type { CampusLocation } from '../types/campus.ts'
 
 // These anchors are editable estimates in local meters, not surveyed positions.
@@ -37,10 +38,10 @@ export const campusLocations: CampusLocation[] = [
     id: 'boys-hostel',
     name: 'Boys Hostel',
     category: 'hostel',
-    description: 'Talpona, the boys’ hostel at NIT Goa, provides campus accommodation for male students.',
+    description: 'Talpona, the boys’ hostel at NIT Goa, has a ground floor and four upper floors and provides campus accommodation for male students.',
     keywords: ['boys hostel', 'Talpona', 'hostel Talpona', 'boys', 'residence', 'accommodation', 'rooms', 'mess'],
     coordinates: { x: 14, z: -368 },
-    height: 18,
+    height: boysHostelDetails.floors.length * boysHostelDetails.floorHeightMeters,
     icon: '🏠',
     images: [],
     facilities: ['Student accommodation', 'Residential common areas'],

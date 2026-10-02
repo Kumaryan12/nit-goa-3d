@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { campusLocations } from '../src/data/campus.ts'
+import { boysHostelDetails } from '../src/data/buildingDetails.ts'
 import { galleryPhotos } from '../src/data/gallery.ts'
 import { galleryForLocation, demoGalleryRepository } from '../src/lib/gallery.ts'
 import { calculateCampusStats } from '../src/lib/stats.ts'
@@ -28,6 +29,10 @@ test('location schema prepares every landmark for icons, height, facilities and 
   const selection = selectionForLocation('boys-hostel', twin.locations, twin.selections)
   const building = twin.buildings.find((item) => item.id === selection.buildingId)
   assert.equal(selection.location.height, building.height)
+  assert.deepEqual(boysHostelDetails.floors.map(floor => floor.level), [0, 1, 2, 3, 4])
+  assert.equal(building.height, boysHostelDetails.floors.length * boysHostelDetails.floorHeightMeters)
+  assert.equal(boysHostelDetails.interiorStatus, 'not-modeled')
+  assert.ok(boysHostelDetails.floors.every(floor => floor.rooms.length === 0), 'unmapped real room numbers are not fabricated')
   assert.equal(selection.matchMethod, 'osm-name')
   assert.equal(selectionForLocation('main-entrance').buildingId, null)
   assert.equal(selectionForLocation('unknown'), null)

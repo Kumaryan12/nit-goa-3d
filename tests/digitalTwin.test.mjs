@@ -25,7 +25,7 @@ const close = (actual, expected, epsilon = 1e-6) => assert.ok(Math.abs(actual - 
 test('height priority honors OSM height, OSM levels, manual override, then default', () => {
   assert.equal(buildingHeight({ height: '22 m', 'building:levels': '3' }, 'boys-hostel'), 22)
   close(buildingHeight({ height: 'invalid', 'building:levels': '3' }, 'boys-hostel'), 9.6)
-  assert.equal(buildingHeight({ height: '0', 'building:levels': '-2' }, 'boys-hostel'), 18)
+  assert.equal(buildingHeight({ height: '0', 'building:levels': '-2' }, 'boys-hostel'), 16)
   assert.equal(buildingHeight({}, 'unknown'), DEFAULT_BUILDING_HEIGHT)
   assert.equal(buildingHeight({}, 'boys-hostel', [{ id: 'boys-hostel', height: NaN, floors: 5 }]), DEFAULT_BUILDING_HEIGHT)
   assert.equal(buildingHeight({}, 'boys-hostel', [{ id: 'boys-hostel', height: -1, floors: 5 }]), DEFAULT_BUILDING_HEIGHT)
