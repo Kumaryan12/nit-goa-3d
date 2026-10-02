@@ -1,6 +1,6 @@
 # NIT Goa 3D Explorer
 
-A full-viewport Vite, React, and TypeScript campus explorer built with Three.js, React Three Fiber, and Drei. Real OpenStreetMap ways and multipolygon relations provide the extruded footprints. Phase 5 adds terrain, terracotta roofs, tropical vegetation, labels, campus boundary walls, day/night lighting, and smooth camera navigation while preserving real OSM footprints, roads, metadata, and building selection. No buildings or roads are invented or bundled as production placeholders.
+A full-viewport Vite, React, and TypeScript campus explorer built with Three.js, React Three Fiber, and Drei. Real OpenStreetMap ways and multipolygon relations provide the extruded footprints. Phase 6 adds ranked campus search, walking estimates, richer location cards, a community gallery foundation, dynamic statistics and a minimap. Terrain, terracotta roofs, instanced tropical vegetation, labels, campus boundary walls, day/night lighting and smooth camera navigation remain intact. No buildings or roads are invented or bundled as production placeholders.
 
 ## Run locally
 
@@ -45,13 +45,13 @@ The real campus-area response used for regression tests contains 14 building way
 
 ## Campus metadata
 
-`src/types/campus.ts` defines `CampusLocation` with a stable `id`, `name`, `category`, `description`, `keywords`, and approximate local-meter `coordinates: { x, z }`. `src/data/campus.ts` contains Academic Block, Administration Block, Boys Hostel, Girls Hostel, Canteen, Sports Ground, and Main Entrance. Categories also support amenities and other locations for later phases.
+`src/types/campus.ts` defines `CampusLocation` with a stable `id`, `name`, `category`, `description`, `keywords`, approximate local-meter `coordinates: { x, z }`, `height`, `icon`, `images` and `facilities`. Matched locations use the current OSM footprint center and rendered height; open POIs retain editable anchors. `images` is reserved for future verified photo URLs. `src/data/campus.ts` contains Academic Block, Administration Block, Boys Hostel, Girls Hostel, Canteen, Sports Ground, and Main Entrance. Categories also support amenities and other locations for later phases.
 
 Hostel identities are grounded in named OSM footprints and [NIT Goa's hostel facilities page](https://nitgoa.ac.in/hostels/facilities.html): Talpona is the boys' hostel and Terekhol is the girls' hostel. General campus facilities are described in [NIT Goa's admission brochure](https://www.nitgoa.ac.in/uploads/Admissionbrochure30may2024.pdf).
 
 The coordinate anchors are editable estimates. Academic, administration, and canteen identities are **provisional**, not independently verified building labels. `src/lib/campus.ts` first checks exact normalized OSM names against location names/keywords, then matches unnamed footprints to the nearest unused building location within 40 meters of the footprint's bounding-box center. Name matches take priority; each location and footprint can be assigned only once. Results are independent of Overpass result ordering. The panel marks proximity matches as approximate. Refine anchors in `campus.ts` as campus identities become known.
 
-Sports Ground and Main Entrance have illustrative POI geometry at the existing approximate metadata anchors: a grass football field with white lines and goals, and an entrance gate with a short path to the nearest mapped road. They do not relabel unrelated buildings. These objects and landscaping are procedural visual additions, not surveyed OSM features. Unmatched footprints keep their OSM IDs and names (or `Unnamed campus building`) and remain clickable. Mesh `userData` carries both `osmId` and `locationId` for future connections. No gallery is implemented.
+Sports Ground and Main Entrance have illustrative POI geometry at the existing approximate metadata anchors: a grass football field with white lines and goals, and an entrance gate with a short path to the nearest mapped road. They do not relabel unrelated buildings. These objects and landscaping are procedural visual additions, not surveyed OSM features. Unmatched footprints keep their OSM IDs and names (or `Unnamed campus building`) and remain clickable. Mesh `userData` carries both `osmId` and `locationId` for future connections. Photo previews use explicitly labelled illustration placeholders.
 
 ## Campus roads
 
@@ -70,7 +70,7 @@ The live response recorded for tests has 20 service-road ways and no separately 
 - **Vegetation:** 640 seeded trees are distributed along roads, around buildings, near the perimeter and in open spaces. Clearance checks exclude buildings, roads, the sports field and gate. A spatial hash prevents tightly overlapping trees. Three instanced meshes render trunks, low-poly crowns and tropical palm fronds; no hundreds-of-components tree hierarchy is used. Vegetation waits for both OSM requests to settle so late roads cannot cross tree placements.
 - **Labels:** `LocationLabels` uses camera-facing Drei Html for six landmarks. Matched buildings use their actual footprint centers and rendered height. Labels fade between 850 and 1,400 meters, animate opacity without React state updates, and hide behind the camera or outside the viewport. Label elements do not intercept clicks.
 - **Lighting:** Day uses warm sunlight and sky; Night uses a dark sky, stars, cool moonlight and warm emissive windows. Both retain directional shadows. The renderer caps DPR at 1.5 and uses PCF shadows.
-- **Navigation:** Drei CameraControls adds damped rotation, smooth wheel/pinch zoom and animated reset/fly-to. `src/lib/camera.ts` exports `lookupCameraLocation`, `flyToLocation` and `campusCameraView`. Quick location buttons and the existing information panel expose fly-to; unknown IDs return null. There is no search UI. `CampusScene` is memoized so sampled performance updates do not rerender the 3D layers.
+- **Navigation:** Drei CameraControls adds damped rotation, smooth wheel/pinch zoom and animated reset/fly-to. `src/lib/camera.ts` exports `lookupCameraLocation`, `flyToLocation` and `campusCameraView`. Quick location buttons and the existing information panel expose fly-to; unknown IDs return null. `CampusScene` is memoized so sampled performance updates do not rerender the 3D layers.
 - **Loading:** Buildings and roads remain independent. A four-stage checklist shows Buildings, Roads, Terrain and Vegetation. Buildings are usable while roads load. A road error offers **Retry roads**, preserving the camera and current selection. A missing boundary renders no invented fence or trees.
 
 ### Verification
@@ -78,6 +78,27 @@ The live response recorded for tests has 20 service-road ways and no separately 
 `npm test` includes the existing OSM and metadata tests plus height-priority/override, terrain generation/interpolation, road/building/boundary alignment, tree placement, courtyard-preserving roofs, label fading and camera lookup tests. `npm run build` checks all TypeScript and creates the production bundle.
 
 The real recorded campus fixtures produce **22 buildings, 20 roads and 640 trees**. A nearby building fallback may include 23 buildings. During local browser inspection, the scene reported approximately **30 fps with Chrome Energy Saver enabled**, roughly **86–135 render calls** depending on the view, and **173–175k rendered triangles** including visible shadow work. Initial model generation measured about **103 ms** in Node on this machine. These are local development observations, not a cross-device benchmark; current live OSM counts and public Overpass availability can vary.
+
+## Phase 6 exploration platform
+
+- **Search:** `SearchBar` filters names, keywords, categories and facilities, requiring every query token to match. Exact names rank above prefixes, name fragments and keyword matches; ties are stable. Click a result or use Up/Down and Enter to select, open details and fly to it. Cmd/Ctrl+K focuses search; Escape closes results. The catalog includes the seven landmarks and current unnamed OSM buildings and accepts future locations without changing the search engine.
+- **Information:** Cards show the category icon, facilities, approximate straight-line distance from the campus polygon's area centroid, the three nearest landmarks and location-linked demo photos. Quick buttons, nearby links and minimap footprints select the same stable location IDs. Open-space POIs can be selected without assigning a fake building ID.
+- **Walking engine:** `createRoadGraph(roads, options)` splits centerline intersections and collinear overlaps into meter-weighted edges. Distinct OSM layers, bridges and tunnels remain separate. A* uses a Euclidean heuristic and priority queue. `findPath(start, end, graph)` returns local coordinates or `[]` when no connected route exists; `createPathfinder(roads, options).findPath(start, end)` provides the requested two-argument API. The shared graph is not mutated by queries.
+- **Access and estimates:** Generic routing excludes private access by default. The campus explorer explicitly enables `allowPrivate: true`, because 17 of the 20 recorded campus roads have `access=private`; its UI explains that estimates assume authorized campus access. Explicit pedestrian prohibitions remain excluded. Motorist one-way does not imply pedestrian one-way; `oneway:foot` is respected. Anchors project onto the nearest mapped segment within 80 meters. Distances include the short straight-line anchor connections and assume 80 m/min walking speed; these approximate connectors do not establish verified door access or obstacle clearance. Disconnected networks are reported without invented road links.
+- **Navigation mode:** “Navigate here” opens editable start/destination controls. The current-location placeholder uses Main Entrance, with a clear explanation that GPS is unavailable. Changing endpoints recalculates distance and time. Loading, unavailable, empty and disconnected road data have explicit UI states. Escape or the back button returns to location details. No arrows or route overlay are rendered.
+- **Gallery:** `data/gallery.ts` contains eight demo entries linked by `locationId`. `GalleryPreview` accepts photo data as props, handles missing images and uses lazy loading. `types/gallery.ts` defines the async `GalleryRepository.getByLocation` contract and `lib/gallery.ts` provides a demo adapter for a future API. The shared SVG is a local illustration, clearly marked **Placeholder**, not a campus photo.
+- **Dashboard and minimap:** Counts derive from the current loaded twin and generated trees. The recorded data has **22 buildings, 20 roadway ways, 193 centerline segments, 0 separately mapped footpaths and 640 trees**. “Road segments” counts consecutive centerline pairs, while the detail row counts OSM roadway objects. The north-up SVG overview preserves courtyard holes and displays the selected location anchor. Responsive glass panels support a 390 × 844 phone viewport.
+- **Rendering:** The graph, search results, minimap geometry, distances and statistics are memoized; stable callbacks and memoized panels avoid metric-driven work. Unchanged metric samples do not trigger App renders. Vegetation retains three instanced meshes. Label portals stay in a stable canvas wrapper, preventing React DOM-root recreation when Fiber connects pointer events.
+
+### Phase 6 verification and performance
+
+`npm test`: **65 tests passed**, including 16 new tests in `search.test.mjs`, `pathfinding.test.mjs` and `platform.test.mjs`. They cover keyword/facility matching and ranking, graph intersections, shortest routes, snapping, disconnected/invalid networks, access/one-way/layer restrictions, real OSM routing, gallery linking, enriched metadata, dynamic statistics, centroid/nearby calculations and minimap holes/IDs. All 49 earlier geometry, road, metadata and visual-model regressions still pass.
+
+`npm run build`: TypeScript and production Vite build pass. The Three.js application bundle remains over Vite's 500 kB chunk warning threshold (approximately 1.26 MB / 346 kB gzip); this is a bundle-size notice, not a build failure.
+
+Browser checks covered keyboard hostel search → selection/card/camera flight, walking estimates, day/night lighting, minimap selection marker, and phone cards with scrollable facilities/photos/nearby links. A clean reload has no React errors; React Three Fiber still emits its upstream `THREE.Clock` deprecation warning.
+
+For a controlled local comparison, the untouched Phase 5 commit `daaa415` and Phase 6 were opened in the same clean Chrome Guest window, at 100% page zoom, desktop home camera, DPR capped at 1.5 and without DevTools open. Both used the same genuine recorded OSM responses via a temporary QA endpoint to avoid public Overpass rate limits; the endpoint and fixtures are not a production fallback or application backend. Before/after samples: **60 FPS → 60 FPS**, **148 → 148 draw calls**, approximately **176k → 176k triangles**. Phase 6 also sampled around 60 FPS with location/navigation panels and the phone layout. This meets the 30 FPS target on this test machine; device/GPU, power settings and live OSM coverage affect actual performance.
 
 ## Structure
 
@@ -99,6 +120,11 @@ src/
     LocationLabels.tsx
     LoadingOverlay.tsx
     BuildingInfoPanel.tsx
+    SearchBar.tsx
+    NavigationMode.tsx
+    GalleryPreview.tsx
+    CampusStats.tsx
+    MiniMap.tsx
     Ground.tsx              # original flat-ground utility, no longer mounted
   lib/
     sceneConfig.ts
@@ -115,13 +141,21 @@ src/
     roofMaterial.ts
     labels.ts
     camera.ts
+    search.ts
+    pathfinding.ts
+    locations.ts
+    gallery.ts
+    stats.ts
+    minimap.ts
   data/
     campus.ts
     buildingOverrides.ts
+    gallery.ts
   types/
     scene.ts
     osm.ts
     campus.ts
+    gallery.ts
 ```
 
-No gallery, authentication, backend or AI features are implemented.
+Gallery previews are frontend demo data. Authentication, a database, real uploads, GPS, navigation arrows and AI assistance are not implemented.

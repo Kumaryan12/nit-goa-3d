@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { Html } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import { fadeLabel, labelOpacity } from '../lib/labels'
 import type { CampusLocation } from '../types/campus'
@@ -8,6 +8,10 @@ import type { CampusLocation } from '../types/campus'
 const labeled = new Set(['academic-block', 'boys-hostel', 'girls-hostel', 'canteen', 'sports-ground', 'main-entrance'])
 
 function LocationLabel({ location, height }: { location: CampusLocation; height: number }) {
+  const gl = useThree((state) => state.gl)
+  // Keep Html's DOM root in the canvas wrapper as Fiber connects its events.
+  // A changing default portal target otherwise destroys and recreates roots.
+  const portal = useRef(gl.domElement.parentElement!)
   const label = useRef<HTMLDivElement>(null)
   const opacity = useRef(0)
   const point = useMemo(() => new Vector3(location.coordinates.x, height + 8, location.coordinates.z), [location, height])
@@ -21,7 +25,7 @@ function LocationLabel({ location, height }: { location: CampusLocation; height:
       label.current.style.visibility = opacity.current < 0.01 ? 'hidden' : 'visible'
     }
   })
-  return <Html position={point} center pointerEvents="none" zIndexRange={[20, 0]} wrapperClass="location-label-wrapper">
+  return <Html portal={portal} position={point} center pointerEvents="none" zIndexRange={[20, 0]} wrapperClass="location-label-wrapper">
     <div ref={label} className="location-label" style={{ opacity: 0 }}>{location.name}</div>
   </Html>
 }

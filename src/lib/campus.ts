@@ -30,6 +30,10 @@ function unnamedBuilding(building: BuildingFootprint, coordinates: CampusLocatio
     description: 'A real OpenStreetMap building footprint. Campus details have not yet been assigned to this building.',
     keywords: building.tags.name ? [building.tags.name] : [],
     coordinates,
+    height: building.height,
+    icon: isHostel ? '🏠' : isAcademic ? '🏢' : '🏛',
+    images: [],
+    facilities: [],
   }
 }
 

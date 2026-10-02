@@ -44,7 +44,11 @@ function Navigation({ twin, request }: { twin: DigitalTwin | null; request: Came
   const points = useMemo(() => twin?.buildings.flatMap((building) => building.outer.map(gpsToLocal)) ?? [], [twin])
   const framingKey = points.map((point) => `${point.x},${point.z}`).join(';')
   const home = useMemo(() => campusCameraView(points, width / height), [framingKey, width, height])
-  useEffect(() => { void controls.current?.setLookAt(...home.position, ...home.target, true) }, [home])
+  useEffect(() => {
+    const destination = request.locationId ? flyToLocation(request.locationId, twin?.locations,
+      twin?.locations.find((location) => location.id === request.locationId)?.height) : home
+    if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, true)
+  }, [home])
   useEffect(() => {
     const building = twin?.selections.findIndex((selection) => selection.location.id === request.locationId) ?? -1
     const destination = request.locationId

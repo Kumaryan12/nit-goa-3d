@@ -13,7 +13,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const buildings = (map?.buildings ?? []).map((building, i) => ({ ...building, height: buildingHeight(building.tags, selections[i].location.id) }))
   const locations = campusLocations.map((location) => {
     const index = selections.findIndex((selection) => selection.location.id === location.id)
-    return index < 0 ? location : { ...location, coordinates: buildingCenter(buildings[index]) }
+    return index < 0 ? location : { ...location, coordinates: buildingCenter(buildings[index]), height: buildings[index].height }
   })
   const sports = locations.find((location) => location.id === 'sports-ground')!
   const entrance = locations.find((location) => location.id === 'main-entrance')!

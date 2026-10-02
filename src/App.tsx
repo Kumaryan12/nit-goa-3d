@@ -3,6 +3,13 @@ import CampusScene from './components/CampusScene'
 import type { SceneMetrics } from './components/CampusScene'
 import { createDigitalTwin } from './lib/digitalTwin'
 import type { CameraRequest } from './lib/camera'
+import { createRoadGraph } from './lib/pathfinding'
+import { campusCenter, selectionForLocation } from './lib/locations'
+import { calculateCampusStats } from './lib/stats'
+import SearchBar from './components/SearchBar'
+import NavigationMode from './components/NavigationMode'
+import CampusStats from './components/CampusStats'
+import MiniMap from './components/MiniMap'
 import { campusLocations } from './data/campus'
 import LoadingOverlay from './components/LoadingOverlay'
 import BuildingInfoPanel from './components/BuildingInfoPanel'
@@ -23,6 +30,8 @@ export default function App() {
   const [vegetationReady, setVegetationReady] = useState(false)
   const [treeCount, setTreeCount] = useState(0)
   const [metrics, setMetrics] = useState<SceneMetrics | null>(null)
+  const onMetrics = useCallback((next: SceneMetrics) => setMetrics((previous) =>
+    previous?.fps === next.fps && previous.calls === next.calls && previous.triangles === next.triangles ? previous : next), [])
   const [cameraRequest, setCameraRequest] = useState<CameraRequest>({ sequence: 0, locationId: null })
   const onFlyTo = useCallback((locationId: string) => setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId })), [])
   const onResetCamera = () => setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null }))
@@ -39,6 +48,26 @@ export default function App() {
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useMemo(() => mapData || roadData || requestsSettled ? createDigitalTwin(mapData, roadData, requestsSettled) : null, [mapData, roadData, requestsSettled])
   const [selection, setSelection] = useState<BuildingSelection | null>(null)
+  const [navigationOpen, setNavigationOpen] = useState(false)
+  const [startId, setStartId] = useState('@current')
+  const locations = twin?.locations ?? campusLocations
+  const catalog = useMemo(() => [...locations, ...(twin?.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location) ?? [])], [locations, twin])
+  const activeSelection = useMemo(() => selection ? selectionForLocation(selection.location.id, catalog, twin?.selections) ?? selection : null, [selection, catalog, twin])
+  const center = useMemo(() => twin?.boundary.length ? campusCenter(twin.boundary) : null, [twin])
+  // Internal campus estimates assume authorized campus access. General-purpose
+  // routing keeps the engine's default exclusion of private roads.
+  const roadGraph = useMemo(() => createRoadGraph(roadData?.roads ?? [], { allowPrivate: true }), [roadData])
+  const stats = useMemo(() => calculateCampusStats(twin), [twin])
+  const chooseLocation = useCallback((id: string) => {
+    const next = selectionForLocation(id, catalog, twin?.selections)
+    if (!next) return
+    setSelection(next)
+    setNavigationOpen(false)
+    onFlyTo(id)
+  }, [catalog, twin, onFlyTo])
+  const chooseNavigationDestination = useCallback((id: string) => { chooseLocation(id); setNavigationOpen(true) }, [chooseLocation])
+  const closeNavigation = useCallback(() => setNavigationOpen(false), [])
+  const openNavigation = useCallback(() => setNavigationOpen(true), [])
   const clearSelection = useCallback(() => setSelection(null), [])
   const onRenderedCount = useCallback((count: number) => {
     setRenderedCount(count)
@@ -94,36 +123,43 @@ export default function App() {
           cameraRequest={cameraRequest}
           onTerrainReady={onTerrainReady}
           onVegetationReady={onVegetationReady}
-          onMetrics={setMetrics}
+          onMetrics={onMetrics}
           onRenderedCount={onRenderedCount}
-          selectedBuildingId={selection?.buildingId ?? null}
+          selectedBuildingId={activeSelection?.buildingId ?? null}
           onSelectBuilding={setSelection}
           onClearSelection={clearSelection}
         />
       </div>
       <LoadingOverlay state={mapState} roadState={roadState} terrainReady={terrainReady} vegetationReady={vegetationReady} onRetryRoads={retryRoads} />
-      <BuildingInfoPanel selection={selection} onClose={clearSelection} onFlyTo={onFlyTo} />
+      {navigationOpen ? <NavigationMode locations={catalog}
+        destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
+        graph={roadGraph} roadStatus={roadState.status} onClose={closeNavigation} />
+        : <BuildingInfoPanel selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />}
+      <MiniMap twin={twin} selection={activeSelection} onSelect={chooseLocation} />
 
       <header className="scene-header">
         <div className="title-block">
           <span className="eyebrow"><span className="live-dot" /> NIT GOA · CUNCOLIM</span>
           <h1>NIT Goa <span>3D Explorer</span></h1>
-          <p className="title-caption">A new perspective on campus.</p>
+          <p className="title-caption">Digital twin · Explore. Discover. Connect.</p>
         </div>
+        <SearchBar locations={catalog} onSelect={chooseLocation} />
         <div className="scene-toolbar">
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
+          <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>
           <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>
           <button type="button" className="toolbar-button" onClick={onResetCamera}>↺ Reset view</button>
         </div>
       </header>
       <nav className="location-navigation" aria-label="Fly to campus location">
         <span className="eyebrow">Explore campus</span>
-        <div className="location-buttons">{campusLocations.map((location) => <button key={location.id} type="button" onClick={() => onFlyTo(location.id)} disabled={!twin}>
-          {location.name}<span aria-hidden="true">↗</span>
+        <div className="location-buttons">{campusLocations.map((location) => <button key={location.id} type="button" onClick={() => chooseLocation(location.id)}>
+          <span className="location-button-icon" aria-hidden="true">{location.icon}</span>{location.name}<span aria-hidden="true">↗</span>
         </button>)}</div>
         <p className="approximation-note">Illustrative landscaping · approximate POIs</p>
       </nav>
 
+      <CampusStats stats={stats} metrics={metrics} />
       <footer className="scene-footer">
         <div>
           <p className="navigation-hint"><span className="control-icon">↻</span> Rotate <span className="control-detail">Drag</span><span className="control-icon">⊕</span> Zoom <span className="control-detail">Scroll / pinch</span><span className="control-icon">↖</span> Select Building <span className="control-detail">Click</span></p>
@@ -132,10 +168,8 @@ export default function App() {
             {mapState.status === 'ready' && mapState.data.source === 'nearby-fallback' && ' · Nearby buildings (900 m fallback)'}
           </p>
         </div>
-        <div className="scene-statistics">
-          <p>{renderedCount} buildings <span>·</span> {roadData?.roads.length ?? 0} roads <span>·</span> {treeCount} trees</p>
-          <p className="scale-note">1 unit ≈ 1 meter <span>·</span> {showGrid ? `Grid ${sceneConfig.gridSpacing} m` : 'Live OSM geometry'}</p>
-          {import.meta.env.DEV && metrics && <p className="performance-note">{metrics.fps} fps · {metrics.calls} draws · {Math.round(metrics.triangles / 1000)}k triangles</p>}
+        <div className="footer-scale"><p>1 unit ≈ 1 meter · {showGrid ? `Grid ${sceneConfig.gridSpacing} m` : 'Illustrative landscaping'}</p>
+          {import.meta.env.DEV && metrics && <p className="performance-note">{metrics.fps} fps · {metrics.calls} draws · {Math.round(metrics.triangles / 1000)}k triangles · {renderedCount} rendered buildings · {treeCount} trees</p>}
         </div>
       </footer>
     </main>
