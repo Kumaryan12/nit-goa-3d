@@ -1,3 +1,4 @@
+import { fetchWithRetry } from './fetchStrategy.ts'
 import { extractBuildingFootprints, isBuilding } from './buildings.ts'
 import { LAT0, LON0, validClosedRing } from './geo.ts'
 import { extractCampusRoads } from './roads.ts'
@@ -45,7 +46,7 @@ export function campusRoadPolygonQuery(boundary: GeoCoordinate[]): string {
   return `[out:json][timeout:30];way["highway"](poly:"${polygon}");out geom;`
 }
 
-export async function requestOverpass(query: string, signal?: AbortSignal): Promise<OSMResponse> {
+export async function requestOverpass(query: string, signal?: AbortSignal, resilient = false): Promise<OSMResponse> {
   const controller = new AbortController()
   const cancel = () => controller.abort(signal?.reason)
   const timeout = setTimeout(() => controller.abort(new Error('Overpass request timed out after 45 seconds.')), 45000)
@@ -53,7 +54,7 @@ export async function requestOverpass(query: string, signal?: AbortSignal): Prom
   signal?.addEventListener('abort', cancel, { once: true })
 
   try {
-    const response = await fetch(OVERPASS_ENDPOINT, {
+    const response = await (resilient ? fetchWithRetry : fetch)(OVERPASS_ENDPOINT, {
       method: 'POST',
       headers: { Accept: 'application/json' },
       body: new URLSearchParams({ data: query }),
@@ -85,10 +86,10 @@ function mapData(response: OSMResponse, source: CampusMapData['source']): Campus
   }
 }
 
-export async function fetchCampusData(signal?: AbortSignal): Promise<CampusMapData> {
+export async function fetchCampusData(signal?: AbortSignal, resilient = false): Promise<CampusMapData> {
   let areaError: unknown
   try {
-    const campus = mapData(await requestOverpass(CAMPUS_QUERY, signal), 'campus-area')
+    const campus = mapData(await requestOverpass(CAMPUS_QUERY, signal, resilient), 'campus-area')
     if (campus.buildings.length === 0) throw new Error('Campus-area query returned no usable building footprints.')
     return campus
   } catch (error) {
@@ -98,7 +99,7 @@ export async function fetchCampusData(signal?: AbortSignal): Promise<CampusMapDa
   }
 
   try {
-    const nearby = mapData(await requestOverpass(FALLBACK_QUERY, signal), 'nearby-fallback')
+    const nearby = mapData(await requestOverpass(FALLBACK_QUERY, signal, resilient), 'nearby-fallback')
     if (nearby.buildings.length === 0) throw new Error('The 900 m fallback returned no usable building footprints.')
     return nearby
   } catch (error) {
@@ -123,11 +124,11 @@ function roadData(response: OSMResponse, boundary: GeoCoordinate[], source: Camp
 
 // Loading roads is independent of buildings: failure never discards loaded
 // building geometry or selection. The fallback stays within the campus polygon.
-export async function fetchCampusRoads(signal?: AbortSignal): Promise<CampusRoadData> {
+export async function fetchCampusRoads(signal?: AbortSignal, resilient = false): Promise<CampusRoadData> {
   let boundary: GeoCoordinate[] | null = null
   let areaError: unknown
   try {
-    const response = await requestOverpass(ROADS_QUERY, signal)
+    const response = await requestOverpass(ROADS_QUERY, signal, resilient)
     boundary = campusBoundary(response)
     if (!boundary) throw new Error('Overpass did not return a valid NIT Goa campus boundary.')
     const data = roadData(response, boundary, 'campus-area')
@@ -139,9 +140,9 @@ export async function fetchCampusRoads(signal?: AbortSignal): Promise<CampusRoad
     console.warn('[NIT Goa OSM] Road area query failed; trying the campus polygon.', error)
   }
   try {
-    boundary ??= campusBoundary(await requestOverpass(CAMPUS_BOUNDARY_QUERY, signal))
+    boundary ??= campusBoundary(await requestOverpass(CAMPUS_BOUNDARY_QUERY, signal, resilient))
     if (!boundary) throw new Error('Campus roads cannot be bounded without the campus boundary.')
-    return roadData(await requestOverpass(campusRoadPolygonQuery(boundary), signal), boundary, 'campus-polygon')
+    return roadData(await requestOverpass(campusRoadPolygonQuery(boundary), signal, resilient), boundary, 'campus-polygon')
   } catch (error) {
     if (signal?.aborted) throw error
     throw new AggregateError([areaError, error], 'Unable to load OpenStreetMap campus roads.')

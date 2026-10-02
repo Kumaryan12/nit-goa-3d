@@ -3,7 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Sky, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
 import { sceneConfig } from '../lib/sceneConfig'
-import { campusCameraView, flyToLocation } from '../lib/camera'
+import { campusCameraView, flyToLocation, routeCameraView } from '../lib/camera'
 import type { CameraRequest } from '../lib/camera'
 import { gpsToLocal } from '../lib/geo'
 import { generateTerrain } from '../lib/terrain'
@@ -18,9 +18,17 @@ import LocationLabels from './LocationLabels'
 import OSMBuildings from './OSMBuildings'
 import OSMRoads from './OSMRoads'
 import BuildingWindows from './BuildingWindows'
+import RouteOverlay from './RouteOverlay'
+import RouteTraveler from './RouteTraveler'
+import type { Playback, RoutePresentation } from '../lib/traversal'
+import type { LocalCoordinate } from '../lib/geo'
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number }
 interface CampusSceneProps {
+  presentation: RoutePresentation | null
+  playback: Playback
+  travelerPosition: React.RefObject<LocalCoordinate | null>
+  onWalkComplete: () => void
   showGrid: boolean
   night: boolean
   twin: DigitalTwin | null
@@ -45,16 +53,16 @@ function Navigation({ twin, request }: { twin: DigitalTwin | null; request: Came
   const framingKey = points.map((point) => `${point.x},${point.z}`).join(';')
   const home = useMemo(() => campusCameraView(points, width / height), [framingKey, width, height])
   useEffect(() => {
-    const destination = request.locationId ? flyToLocation(request.locationId, twin?.locations,
+    const destination = request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId ? flyToLocation(request.locationId, twin?.locations,
       twin?.locations.find((location) => location.id === request.locationId)?.height) : home
-    if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, true)
+    if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   }, [home])
   useEffect(() => {
     const building = twin?.selections.findIndex((selection) => selection.location.id === request.locationId) ?? -1
-    const destination = request.locationId
+    const destination = request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId
       ? flyToLocation(request.locationId, twin ? [...twin.locations, ...twin.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location)] : undefined, twin?.buildings[building]?.height)
       : home
-    if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, true)
+    if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
     // Requests have a monotonic sequence so repeated clicks on the same place work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request])
@@ -74,7 +82,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ presentation, playback, travelerPosition, onWalkComplete, showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const size = twin?.size ?? 650
   const background = night ? '#111c2d' : '#d9e7ec'
   const heights = useMemo(() => Object.fromEntries(twin?.selections.map((selection, i) => [selection.location.id, twin.buildings[i].height]) ?? []), [twin])
@@ -99,6 +107,7 @@ function CampusScene({ showGrid, night, twin, cameraRequest, onRenderedCount, on
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} />}
       <LocationLabels locations={twin.locations} heights={heights} />
     </>}
+    {twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     <Navigation twin={twin} request={cameraRequest} />
     <RuntimeMetrics onMetrics={onMetrics} />
   </Canvas>

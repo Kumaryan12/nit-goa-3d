@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import CampusScene from './components/CampusScene'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+const CampusScene = lazy(() => import('./components/CampusScene'))
+const GalleryModal = lazy(() => import('./components/GalleryModal'))
+const PhotoUploadDialog = lazy(() => import('./components/PhotoUploadDialog'))
+const AuthDialog = lazy(() => import('./components/AuthDialog'))
 import type { SceneMetrics } from './components/CampusScene'
-import { createDigitalTwin } from './lib/digitalTwin'
+import { useDigitalTwin } from './hooks/useDigitalTwin'
+import { parseURLState, serializeURLState } from './lib/urlState'
+import { loadMapWithCache, cacheAge } from './lib/osmCache'
+import { routePoints } from './lib/traversal'
+import type { Playback, RoutePresentation } from './lib/traversal'
+import type { LocalCoordinate } from './lib/geo'
+import ErrorBoundary from './components/ErrorBoundary'
 import type { CameraRequest } from './lib/camera'
-import { createRoadGraph } from './lib/pathfinding'
+import { createRoadGraph, planWalkingRoute } from './lib/pathfinding'
 import { campusCenter, selectionForLocation } from './lib/locations'
 import { calculateCampusStats } from './lib/stats'
 import SearchBar from './components/SearchBar'
@@ -19,20 +28,40 @@ import { LAT0, LON0 } from './lib/geo'
 import type { CampusMapState, CampusRoadState } from './types/osm'
 import type { BuildingSelection } from './types/campus'
 
+const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
+const readState = () => {
+  const params = new URL(window.location.href).searchParams
+  const extra = ['location','from','to'].map((key) => params.get(key)).filter((id): id is string => !!id && /^osm-(way|relation)-[0-9]+(-[0-9]+)?$/.test(id))
+  return parseURLState(window.location.href, [...campusLocations.map((p) => p.id), ...extra])
+}
 export default function App() {
+  const initial = useRef(readState()).current
+  const [online, setOnline] = useState(navigator.onLine), [mapAttempt, setMapAttempt] = useState(0)
+  const [cacheNotices, setCacheNotices] = useState<Record<string, {timestamp: number; stale: boolean}>>({})
+  const [galleryOpen, setGalleryOpen] = useState(!!initial.photo), [galleryLocation, setGalleryLocation] = useState<string | undefined>(), [photoId, setPhotoId] = useState(initial.photo)
+  const [uploadLocation, setUploadLocation] = useState<string | undefined>(), [uploadOpen, setUploadOpen] = useState(false), [authOpen, setAuthOpen] = useState(false)
+  const [playback, setPlayback] = useState<Playback>({ status: 'stopped', speed: 1, sequence: 0 })
+  const travelerPosition = useRef<LocalCoordinate | null>(null)
+  const onWalkComplete = useCallback(() => setPlayback((p) => ({ ...p, status: 'complete' })), [])
+  const onGallery = useCallback((id?: string, photo?: string) => { setGalleryLocation(id); setGalleryOpen(true); if (photo) setPhotoId(photo) }, [])
+  const onUpload = useCallback((id?: string) => { setUploadLocation(id); setUploadOpen(true) }, [])
+  const closeGallery = () => { setGalleryOpen(false); setPhotoId(null) }
+  const lastURLState = useRef(JSON.stringify({ location: initial.to ?? initial.location, from: initial.to ? initial.from ?? 'main-entrance' : null, to: initial.to, night: initial.night, photo: initial.photo }))
+  const initialSelectionResolved = useRef(!!selectionForLocation(initial.to ?? initial.location ?? ''))
+
   const [showGrid, setShowGrid] = useState(false)
   const [mapState, setMapState] = useState<CampusMapState>({ status: 'loading' })
   const [roadState, setRoadState] = useState<CampusRoadState>({ status: 'loading' })
   const [roadAttempt, setRoadAttempt] = useState(0)
   const [renderedCount, setRenderedCount] = useState(0)
-  const [night, setNight] = useState(false)
+  const [night, setNight] = useState(initial.night)
   const [terrainReady, setTerrainReady] = useState(false)
   const [vegetationReady, setVegetationReady] = useState(false)
   const [treeCount, setTreeCount] = useState(0)
   const [metrics, setMetrics] = useState<SceneMetrics | null>(null)
   const onMetrics = useCallback((next: SceneMetrics) => setMetrics((previous) =>
     previous?.fps === next.fps && previous.calls === next.calls && previous.triangles === next.triangles ? previous : next), [])
-  const [cameraRequest, setCameraRequest] = useState<CameraRequest>({ sequence: 0, locationId: null })
+  const [cameraRequest, setCameraRequest] = useState<CameraRequest>({ sequence: 0, locationId: initial.to ?? initial.location })
   const onFlyTo = useCallback((locationId: string) => setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId })), [])
   const onResetCamera = () => setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null }))
   const onTerrainReady = useCallback(() => setTerrainReady(true), [])
@@ -46,10 +75,10 @@ export default function App() {
   const mapData = mapState.status === 'ready' ? mapState.data : null
   const roadData = roadState.status === 'ready' ? roadState.data : null
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
-  const twin = useMemo(() => mapData || roadData || requestsSettled ? createDigitalTwin(mapData, roadData, requestsSettled) : null, [mapData, roadData, requestsSettled])
-  const [selection, setSelection] = useState<BuildingSelection | null>(null)
-  const [navigationOpen, setNavigationOpen] = useState(false)
-  const [startId, setStartId] = useState('@current')
+  const twin = useDigitalTwin(mapData, roadData, requestsSettled)
+  const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
+  const [navigationOpen, setNavigationOpen] = useState(!!initial.to)
+  const [startId, setStartId] = useState(initial.from ?? '@current')
   const locations = twin?.locations ?? campusLocations
   const catalog = useMemo(() => [...locations, ...(twin?.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location) ?? [])], [locations, twin])
   const activeSelection = useMemo(() => selection ? selectionForLocation(selection.location.id, catalog, twin?.selections) ?? selection : null, [selection, catalog, twin])
@@ -57,6 +86,14 @@ export default function App() {
   // Internal campus estimates assume authorized campus access. General-purpose
   // routing keeps the engine's default exclusion of private roads.
   const roadGraph = useMemo(() => createRoadGraph(roadData?.roads ?? [], { allowPrivate: true }), [roadData])
+  const start = catalog.find((location) => location.id === (startId === '@current' ? 'main-entrance' : startId))
+  const presentation = useMemo<RoutePresentation | null>(() => {
+    if (!navigationOpen || !start || !activeSelection || roadState.status !== 'ready') return null
+    const route = planWalkingRoute(start.coordinates, activeSelection.location.coordinates, roadGraph)
+    return route ? { route, start: start.coordinates, end: activeSelection.location.coordinates, startName: start.name, endName: activeSelection.location.name } : null
+  }, [navigationOpen, start, activeSelection, roadGraph, roadState.status])
+  useEffect(() => { setPlayback((p) => ({...p, status: 'stopped', sequence: p.sequence + 1})); travelerPosition.current = null }, [presentation])
+  const viewRoute = () => { if (presentation) setCameraRequest((p) => ({ sequence: p.sequence + 1, locationId: null, routePoints: routePoints(presentation) })) }
   const stats = useMemo(() => calculateCampusStats(twin), [twin])
   const chooseLocation = useCallback((id: string) => {
     const next = selectionForLocation(id, catalog, twin?.selections)
@@ -76,14 +113,14 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController()
-    fetchCampusRoads(controller.signal)
-      .then((data) => {
+    loadMapWithCache('roads', () => fetchCampusRoads(controller.signal, true), browserStorage, controller.signal, !online)
+      .then(({ data, cache }) => {
         if (controller.signal.aborted) return
         if (import.meta.env.DEV) {
           console.info('[NIT Goa OSM] Road objects returned:', data.returnedRoadCount)
           console.info('[NIT Goa OSM] Campus roads rendered:', data.roads.length, 'source:', data.source)
         }
-        setRoadState({ status: 'ready', data })
+        setCacheNotices((previous) => { const next = {...previous}; if (cache) next.roads = cache; else delete next.roads; return next }); setRoadState({ status: 'ready', data })
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -91,19 +128,19 @@ export default function App() {
         setRoadState({ status: 'error' })
       })
     return () => controller.abort()
-  }, [roadAttempt])
+  }, [roadAttempt, online])
 
   useEffect(() => {
     const controller = new AbortController()
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Campus coordinate origin:', { lat: LAT0, lon: LON0, x: 0, z: 0 })
-    fetchCampusData(controller.signal)
-      .then((data) => {
+    loadMapWithCache('buildings', () => fetchCampusData(controller.signal, true), browserStorage, controller.signal, !online)
+      .then(({ data, cache }) => {
         if (controller.signal.aborted) return
         if (import.meta.env.DEV) {
           console.info('[NIT Goa OSM] Building objects returned:', data.returnedBuildingCount)
           console.info('[NIT Goa OSM] Query source:', data.source)
         }
-        setMapState({ status: 'ready', data })
+        setCacheNotices((previous) => { const next = {...previous}; if (cache) next.buildings = cache; else delete next.buildings; return next }); setMapState({ status: 'ready', data })
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
@@ -111,12 +148,39 @@ export default function App() {
         setMapState({ status: 'error' })
       })
     return () => controller.abort()
+  }, [mapAttempt, online])
+
+  useEffect(() => {
+    const changed = () => setOnline(navigator.onLine)
+    window.addEventListener('online', changed); window.addEventListener('offline', changed)
+    return () => { window.removeEventListener('online', changed); window.removeEventListener('offline', changed) }
   }, [])
+  useEffect(() => {
+    const restore = () => {
+      const state = parseURLState(window.location.href, catalog.map((p) => p.id))
+      lastURLState.current = JSON.stringify({ location: state.to ?? state.location, from: state.to ? state.from ?? 'main-entrance' : null, to: state.to, night: state.night, photo: state.photo })
+      const id = state.to ?? state.location
+      setSelection(id ? selectionForLocation(id, catalog, twin?.selections) : null)
+      setNavigationOpen(!!state.to); setStartId(state.from ?? '@current'); setNight(state.night); setPhotoId(state.photo); setGalleryOpen(!!state.photo)
+      setCameraRequest((p) => ({sequence: p.sequence + 1, locationId: id}))
+    }
+    window.addEventListener('popstate', restore); return () => window.removeEventListener('popstate', restore)
+  }, [catalog, twin])
+  useEffect(() => {
+    const state = { location: activeSelection?.location.id ?? null, from: navigationOpen && activeSelection ? startId === '@current' ? 'main-entrance' : startId : null, to: navigationOpen ? activeSelection?.location.id ?? null : null, night, photo: photoId }
+    const snapshot = JSON.stringify(state)
+    if (lastURLState.current === snapshot) return
+    lastURLState.current = snapshot
+    const url = serializeURLState(state, window.location.href)
+    if (url !== window.location.pathname + window.location.search + window.location.hash) window.history.pushState(null, '', url)
+  }, [activeSelection?.location.id, navigationOpen, startId, night, photoId])
+  useEffect(() => { if (twin && !initialSelectionResolved.current && (initial.to ?? initial.location)) { initialSelectionResolved.current = true; const resolved = selectionForLocation(initial.to ?? initial.location!, catalog, twin.selections); if (resolved) setSelection(resolved) } }, [twin])
 
   return (
     <main className={`explorer ${night ? 'night-mode' : 'day-mode'}`} aria-label="NIT Goa 3D campus explorer">
       <div className="scene-viewport" aria-label="Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.">
-        <CampusScene
+        <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
+          presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           showGrid={showGrid}
           twin={twin}
           night={night}
@@ -128,15 +192,18 @@ export default function App() {
           selectedBuildingId={activeSelection?.buildingId ?? null}
           onSelectBuilding={setSelection}
           onClearSelection={clearSelection}
-        />
+        /></Suspense>
       </div>
       <LoadingOverlay state={mapState} roadState={roadState} terrainReady={terrainReady} vegetationReady={vegetationReady} onRetryRoads={retryRoads} />
       {navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
-        graph={roadGraph} roadStatus={roadState.status} onClose={closeNavigation} />
-        : <BuildingInfoPanel selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />}
-      <MiniMap twin={twin} selection={activeSelection} onSelect={chooseLocation} />
+        presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
+        : <BuildingInfoPanel onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />}
+      <MiniMap presentation={presentation} travelerPosition={travelerPosition} twin={twin} selection={activeSelection} onSelect={chooseLocation} />
 
+      {(!online || Object.keys(cacheNotices).length > 0 || mapState.status === 'error') && <div className="resilience-notice" role="status">
+        {!online && 'Offline · '}{Object.keys(cacheNotices).length > 0 ? `Using cached map data · ${Object.keys(cacheNotices).join(' and ')} · Updated ${cacheAge(Math.min(...Object.values(cacheNotices).map((c) => c.timestamp)))}${Object.values(cacheNotices).some((c) => c.stale) ? ' (older than 24 hours)' : ''}` : mapState.status === 'error' ? 'Map unavailable. Reconnect or retry; no usable building cache is available.' : 'Live map loading paused.'}
+        <button className="text-button" onClick={() => { setMapState({status:'loading'}); setMapAttempt((p) => p+1); retryRoads() }}>Retry map</button></div>}
       <header className="scene-header">
         <div className="title-block">
           <span className="eyebrow"><span className="live-dot" /> NIT GOA · CUNCOLIM</span>
@@ -145,6 +212,7 @@ export default function App() {
         </div>
         <SearchBar locations={catalog} onSelect={chooseLocation} />
         <div className="scene-toolbar">
+          <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
           <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>
           <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>
@@ -159,6 +227,12 @@ export default function App() {
         <p className="approximation-note">Illustrative landscaping · approximate POIs</p>
       </nav>
 
+      <ErrorBoundary onClose={() => { closeGallery(); setUploadOpen(false); setAuthOpen(false) }}>
+      <Suspense fallback={<div className="gallery-opening" role="status">Opening community tools…</div>}>
+      {galleryOpen && <GalleryModal locationId={galleryLocation} photoId={photoId} onPhoto={setPhotoId} onClose={closeGallery} onUpload={onUpload} onAuth={() => setAuthOpen(true)} />}
+      {uploadOpen && <PhotoUploadDialog locationId={uploadLocation} onClose={() => setUploadOpen(false)} onAuth={() => setAuthOpen(true)} />}
+      {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
+      </Suspense></ErrorBoundary>
       <CampusStats stats={stats} metrics={metrics} />
       <footer className="scene-footer">
         <div>

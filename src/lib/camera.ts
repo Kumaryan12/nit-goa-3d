@@ -3,7 +3,7 @@ import type { CampusLocation } from '../types/campus.ts'
 import type { LocalCoordinate } from './geo.ts'
 
 export interface CameraView { position: [number, number, number]; target: [number, number, number] }
-export interface CameraRequest { sequence: number; locationId: string | null }
+export interface CameraRequest { sequence: number; locationId: string | null; routePoints?: LocalCoordinate[] }
 
 export function lookupCameraLocation(locationId: string, locations: CampusLocation[] = campusLocations): CampusLocation | null {
   const location = locations.find((item) => item.id === locationId)
@@ -28,4 +28,13 @@ export function campusCameraView(points: LocalCoordinate[], aspect = 1.5): Camer
   const distance = radius * 1.12 / (Math.sin(Math.PI / 8) * Math.min(1, Math.max(0.3, aspect)))
   const offset = distance / Math.sqrt(3)
   return { position: [x + offset, offset * 1.08, z + offset], target: [x, 0, z] }
+}
+
+export function routeCameraView(points: LocalCoordinate[], aspect = 1.5): CameraView {
+  if (!points.length) return campusCameraView(points, aspect)
+  const xs = points.map((p) => p.x), zs = points.map((p) => p.z)
+  const x = (Math.min(...xs) + Math.max(...xs)) / 2, z = (Math.min(...zs) + Math.max(...zs)) / 2
+  const radius = Math.max(22, Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs)) / 2)
+  const offset = radius * 1.3 / (Math.sin(Math.PI / 8) * Math.max(.25, Math.min(1, aspect))) / Math.sqrt(3)
+  return { position: [x + offset, offset * 1.3, z + offset], target: [x, 0, z] }
 }
