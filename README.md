@@ -1,6 +1,6 @@
 # NIT Goa 3D Explorer
 
-A full-viewport campus explorer using Vite, React, TypeScript, Three.js, React Three Fiber and Drei. Phase 7 adds visible walking routes, traversal previews, directions, shareable URLs, a community gallery with optional Supabase persistence, and resilient map loading. Existing OSM footprints, roofs, terrain, boundary, 640 instanced trees, search, selection, day/night lighting and minimap remain intact.
+A full-viewport campus explorer using Vite, React, TypeScript, Three.js, React Three Fiber and Drei. Phase 7 adds visible walking routes, traversal previews, directions, shareable URLs, a community gallery with optional Supabase persistence, and resilient map loading. The app has two versions: the existing Overview explorer and a third-person Walk with avatar mode. Existing OSM footprints, roofs, terrain, boundary, 640 instanced trees, search, selection, day/night lighting and minimap remain intact.
 
 ## Run and verify
 
@@ -16,6 +16,20 @@ npm run preview
 ```
 
 Tests use Node's TypeScript stripping and recorded genuine OSM responses. PostgreSQL security tests use development-only PGlite; neither PGlite nor test map fixtures are included in the application. See [Phase 7 verification](docs/phase7-verification.md) for results, changed files and QA limitations.
+
+## Two explorer versions
+
+Use the **Overview / Walk with avatar** switch in the header. Both versions share the same real OSM buildings, roads, corrected names/positions, Nescafe-to-sports slope, lighting and gallery.
+
+- **Overview** keeps the existing orbit camera, search, building selection, routes, route previews and campus editor.
+- **Walk with avatar** follows an animated student at ground level. Hold **WASD** to walk/strafe, **Up/Down** to walk, **Left/Right** to turn, and **Shift** to jog. Drag the scene to look around; scroll to adjust follow distance. Touch buttons support movement and turning. **E** or the nearby-place button opens place details.
+- **Start near** moves the avatar to a safe outdoor position near a selected landmark; **Reset walk** returns to Main Entrance. **Pause/Resume** stops/restarts controls. Search and building selection show information without moving the avatar; **Start walking here** in a place card starts nearby in Walk mode.
+
+Open `/?view=walk` directly to start in Walk mode. The `view` parameter preserves night mode, selected places and deployment paths; browser Back/Forward restores the version. The avatar position is retained when switching versions within the session, but is not saved after reloading.
+
+Walking is outdoor exploration: building footprints and campus edges are solid, with clearance for the avatar and preserved courtyard holes. Movement follows the displayed terrain, rejects cliffs, and uses short swept steps to prevent wall tunneling. The follow camera shortens near buildings and rising ground. There are no modeled interiors, stair climbing or surveyed pedestrian accessibility data. Gallery/auth/upload dialogs, text entry, lost focus and hidden tabs stop movement. Walk mode waits for a usable campus boundary; existing map loading/error/retry handling remains available.
+
+Implementation: `components/AvatarExplorer.tsx`, `StudentAvatar.tsx`, `WalkControls.tsx` and `lib/walking.ts`. Animation uses frame callbacks and refs; nearby-place React updates are throttled to five per second. `tests/walking.test.mjs` checks collisions, courtyard clearance, normalized motion, stalled frames, safe spawns on recorded OSM geometry, terrain following, camera obstruction and mode URLs.
 
 ## Architecture
 

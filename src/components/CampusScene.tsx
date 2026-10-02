@@ -10,6 +10,8 @@ import { generateTerrain } from '../lib/terrain'
 import type { DigitalTwin } from '../lib/digitalTwin'
 import type { BuildingSelection } from '../types/campus'
 import Lighting from './Lighting'
+import AvatarExplorer from './AvatarExplorer'
+import type { ExplorerView, WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
 import LocationPicker from './LocationPicker'
 import Terrain from './Terrain'
 import CampusBoundary from './CampusBoundary'
@@ -26,6 +28,13 @@ import type { LocalCoordinate } from '../lib/geo'
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number }
 interface CampusSceneProps {
+  view: ExplorerView
+  walkPaused: boolean
+  walkInput: React.RefObject<WalkInput>
+  avatarPosition: React.RefObject<LocalCoordinate | null>
+  walkSpawn: WalkSpawnRequest
+  onWalkStatus: (status: WalkStatus) => void
+  onWalkInspect: (id: string) => void
   pickingPosition: boolean
   pickedPosition: LocalCoordinate | null
   onPickPosition: (point: LocalCoordinate) => void
@@ -86,7 +95,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const size = twin?.size ?? 650
   const background = night ? '#111c2d' : '#d9e7ec'
   const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
@@ -112,9 +121,9 @@ function CampusScene({ pickingPosition, pickedPosition, onPickPosition, presenta
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.slope ? twin.terrain : undefined} />}
       <LocationLabels locations={labelLocations} heights={heights} />
     </>}
-    {twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
+    {view === 'overview' && twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
-    <Navigation twin={twin} request={cameraRequest} />
+    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
     <RuntimeMetrics onMetrics={onMetrics} />
   </Canvas>
 }

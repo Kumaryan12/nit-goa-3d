@@ -6,6 +6,7 @@ import { locationDistance, nearbyLocations } from '../lib/locations'
 import GalleryPreview from './GalleryPreview'
 
 interface BuildingInfoPanelProps {
+  walkMode?: boolean
   onEdit: (id: string) => void
   onGallery: (id: string, photo?: string) => void
   onUpload: (id: string) => void
@@ -18,7 +19,7 @@ interface BuildingInfoPanelProps {
   onSelectLocation: (locationId: string) => void
 }
 
-function BuildingInfoPanel({ onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
+function BuildingInfoPanel({ walkMode = false, onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
   const nearby = useMemo(() => selection ? nearbyLocations(selection.location, locations) : [], [selection, locations])
@@ -43,7 +44,7 @@ function BuildingInfoPanel({ onEdit, onGallery, onUpload, selection, locations, 
     {!collapsed && <><p className="building-description">{location.description}</p>
     <div className="location-distance"><span aria-hidden="true">◎</span><span>{distance === null ? 'Campus center loading...' : `${distance} m from campus center`}<small>Approximate straight-line distance</small></span></div>
     <div className="panel-actions"><button type="button" className="navigate-button" onClick={onNavigate}>📍 Navigate here</button>
-      <button type="button" className="fly-button" onClick={() => onFlyTo(location.id)}>Fly to location ↗</button></div>
+      <button type="button" className="fly-button" onClick={() => onFlyTo(location.id)}>{walkMode ? 'Start walking here ↗' : 'Fly to location ↗'}</button></div>
     {matchMethod === 'manual' && <p className="building-match-note">Building identity assigned manually in campus metadata.</p>}
     {matchMethod === 'proximity' && <p className="building-match-note">Approximate identification based on campus position.</p>}
     {!selection.buildingId && <p className="building-match-note">Approximate campus location anchor.</p>}

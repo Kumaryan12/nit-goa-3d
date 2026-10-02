@@ -8,6 +8,9 @@ import type { SceneMetrics } from './components/CampusScene'
 import type { MapPickRequest, PickedLocation } from './components/CampusLocationEditor'
 import { applyLocationOverride, readLocationEdits, validateOverrides, writeLocationEdits } from './lib/locationOverrides'
 import type { CampusOverride } from './lib/locationOverrides'
+import WalkControls from './components/WalkControls'
+import { emptyWalkInput, explorerViewFromURL, withExplorerView } from './lib/walking'
+import type { ExplorerView, WalkStatus, WalkSpawnRequest } from './lib/walking'
 import { savedCampusOverrides } from './data/campusOverrides'
 import { useDigitalTwin } from './hooks/useDigitalTwin'
 import { parseURLState, serializeURLState } from './lib/urlState'
@@ -41,6 +44,13 @@ const readState = () => {
 }
 export default function App() {
   const initial = useRef(readState()).current
+  const initialView = useRef(explorerViewFromURL(window.location.href)).current
+  const [view, setView] = useState<ExplorerView>(initialView)
+  const walkInput = useRef(emptyWalkInput()), avatarPosition = useRef<LocalCoordinate | null>(null)
+  const [walkStatus, setWalkStatus] = useState<WalkStatus | null>(null), [walkManualPause, setWalkManualPause] = useState(false)
+  const [walkSpawn, setWalkSpawn] = useState<WalkSpawnRequest>({ sequence: 0, locationId: 'main-entrance' })
+  const onWalkStatus = useCallback((status: WalkStatus) => setWalkStatus(status), [])
+  const spawnNear = useCallback((locationId: string) => { setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId })); setWalkManualPause(false) }, [])
   const [localEdits, setLocalEdits] = useState(() => readLocationEdits(browserStorage))
   const overrides = useMemo(() => validateOverrides({ ...savedCampusOverrides, ...localEdits }), [localEdits])
   const editableMetadata = useMemo(() => campusLocations.map((location) => applyLocationOverride(location, overrides[location.id])), [overrides])
@@ -67,7 +77,7 @@ export default function App() {
   const onGallery = useCallback((id?: string, photo?: string) => { setGalleryLocation(id); setGalleryOpen(true); if (photo) setPhotoId(photo) }, [])
   const onUpload = useCallback((id?: string) => { setUploadLocation(id); setUploadOpen(true) }, [])
   const closeGallery = () => { setGalleryOpen(false); setPhotoId(null) }
-  const lastURLState = useRef(JSON.stringify({ location: initial.to ?? initial.location, from: initial.to ? initial.from ?? 'main-entrance' : null, to: initial.to, night: initial.night, photo: initial.photo }))
+  const lastURLState = useRef(JSON.stringify({ location: initial.to ?? initial.location, from: initial.to ? initial.from ?? 'main-entrance' : null, to: initial.to, night: initial.night, photo: initial.photo, view: initialView }))
   const initialSelectionResolved = useRef(!!selectionForLocation(initial.to ?? initial.location ?? ''))
 
   const [showGrid, setShowGrid] = useState(false)
@@ -83,8 +93,8 @@ export default function App() {
   const onMetrics = useCallback((next: SceneMetrics) => setMetrics((previous) =>
     previous?.fps === next.fps && previous.calls === next.calls && previous.triangles === next.triangles ? previous : next), [])
   const [cameraRequest, setCameraRequest] = useState<CameraRequest>({ sequence: 0, locationId: initial.to ?? initial.location })
-  const onFlyTo = useCallback((locationId: string) => setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId })), [])
-  const onResetCamera = () => setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null }))
+  const onFlyTo = useCallback((locationId: string) => { if (view === 'walk') spawnNear(locationId); else setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId })) }, [view, spawnNear])
+  const onResetCamera = () => { if (view === 'walk') spawnNear('main-entrance'); else setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null })) }
   const onTerrainReady = useCallback(() => setTerrainReady(true), [])
   const onVegetationReady = useCallback((count: number) => { setTreeCount(count); setVegetationReady(true) }, [])
   const retryRoads = useCallback(() => {
@@ -98,7 +108,7 @@ export default function App() {
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useDigitalTwin(mapData, roadData, requestsSettled, overrides)
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
-  const [navigationOpen, setNavigationOpen] = useState(!!initial.to)
+  const [navigationOpen, setNavigationOpen] = useState(initialView === 'overview' && !!initial.to)
   const [startId, setStartId] = useState(initial.from ?? '@current')
   const locations = twin?.locations ?? editableMetadata
   const catalog = useMemo(() => [...locations, ...(twin?.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location) ?? [])], [locations, twin])
@@ -121,18 +131,25 @@ export default function App() {
     if (!next) return
     setSelection(next)
     setNavigationOpen(false)
-    onFlyTo(id)
-  }, [catalog, twin, onFlyTo])
+    if (view === 'overview') onFlyTo(id)
+  }, [catalog, twin, onFlyTo, view])
   const chooseNavigationDestination = useCallback((id: string) => { chooseLocation(id); setNavigationOpen(true) }, [chooseLocation])
   const closeNavigation = useCallback(() => setNavigationOpen(false), [])
-  const openNavigation = useCallback(() => setNavigationOpen(true), [])
+  const openNavigation = useCallback(() => { setView('overview'); setNavigationOpen(true) }, [])
   const clearSelection = useCallback(() => { if (!editorOpen && !picking) setSelection(null) }, [editorOpen, picking])
   const onSelectBuilding = useCallback((next: BuildingSelection) => {
     if (picking?.mode === 'point') return
     if (picking?.mode === 'building' && next.buildingId) { setPicked({ locationId: picking.locationId, buildingId: next.buildingId, coordinates: next.location.coordinates }); setPicking(null); return }
     if (!editorOpen) setSelection(next)
   }, [editorOpen, picking])
-  const editLocation = useCallback((id: string) => { setEditorLocationId(id); setEditorOpen(true); setNavigationOpen(false); setPicking(null); setPicked(null); setSelection(selectionForLocation(id, catalog, twin?.selections)); if (['main-entrance', 'sports-ground'].includes(id)) setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null })) }, [catalog, twin])
+  const editLocation = useCallback((id: string) => { setView('overview'); setEditorLocationId(id); setEditorOpen(true); setNavigationOpen(false); setPicking(null); setPicked(null); setSelection(selectionForLocation(id, catalog, twin?.selections)); if (['main-entrance', 'sports-ground'].includes(id)) setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null })) }, [catalog, twin])
+  const changeView = useCallback((next: ExplorerView) => {
+    setView(next); closeEditor(); setNavigationOpen(false); setSelection(null); setWalkManualPause(false)
+    setPlayback(previous => ({ ...previous, status: 'stopped', sequence: previous.sequence + 1 }))
+    walkInput.current = emptyWalkInput()
+    if (next === 'overview') setCameraRequest(request => ({ sequence: request.sequence + 1, locationId: null }))
+  }, [closeEditor])
+  const walkPaused = walkManualPause || galleryOpen || uploadOpen || authOpen || editorOpen
   const onRenderedCount = useCallback((count: number) => {
     setRenderedCount(count)
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Buildings successfully rendered:', count)
@@ -185,28 +202,30 @@ export default function App() {
   useEffect(() => {
     const restore = () => {
       const state = parseURLState(window.location.href, catalog.map((p) => p.id))
-      lastURLState.current = JSON.stringify({ location: state.to ?? state.location, from: state.to ? state.from ?? 'main-entrance' : null, to: state.to, night: state.night, photo: state.photo })
+      const restoredView = explorerViewFromURL(window.location.href); setView(restoredView); closeEditor(); setWalkManualPause(false)
+      lastURLState.current = JSON.stringify({ location: state.to ?? state.location, from: state.to ? state.from ?? 'main-entrance' : null, to: state.to, night: state.night, photo: state.photo, view: restoredView })
       const id = state.to ?? state.location
       setSelection(id ? selectionForLocation(id, catalog, twin?.selections) : null)
-      setNavigationOpen(!!state.to); setStartId(state.from ?? '@current'); setNight(state.night); setPhotoId(state.photo); setGalleryOpen(!!state.photo)
+      setNavigationOpen(restoredView === 'overview' && !!state.to); setStartId(state.from ?? '@current'); setNight(state.night); setPhotoId(state.photo); setGalleryOpen(!!state.photo)
       setCameraRequest((p) => ({sequence: p.sequence + 1, locationId: id}))
     }
     window.addEventListener('popstate', restore); return () => window.removeEventListener('popstate', restore)
-  }, [catalog, twin])
+  }, [catalog, twin, closeEditor])
   useEffect(() => {
-    const state = { location: activeSelection?.location.id ?? null, from: navigationOpen && activeSelection ? startId === '@current' ? 'main-entrance' : startId : null, to: navigationOpen ? activeSelection?.location.id ?? null : null, night, photo: photoId }
+    const state = { location: activeSelection?.location.id ?? null, from: navigationOpen && activeSelection ? startId === '@current' ? 'main-entrance' : startId : null, to: navigationOpen ? activeSelection?.location.id ?? null : null, night, photo: photoId, view }
     const snapshot = JSON.stringify(state)
     if (lastURLState.current === snapshot) return
     lastURLState.current = snapshot
-    const url = serializeURLState(state, window.location.href)
+    const url = withExplorerView(serializeURLState(state, window.location.href), view)
     if (url !== window.location.pathname + window.location.search + window.location.hash) window.history.pushState(null, '', url)
-  }, [activeSelection?.location.id, navigationOpen, startId, night, photoId])
+  }, [activeSelection?.location.id, navigationOpen, startId, night, photoId, view])
   useEffect(() => { if (twin && !initialSelectionResolved.current && (initial.to ?? initial.location)) { initialSelectionResolved.current = true; const resolved = selectionForLocation(initial.to ?? initial.location!, catalog, twin.selections); if (resolved) setSelection(resolved) } }, [twin])
 
   return (
-    <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking ? 'picking-location' : ''} ${editorOpen ? 'editing-campus' : ''}`} aria-label="NIT Goa 3D campus explorer">
-      <div className="scene-viewport" aria-label="Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.">
+    <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking ? 'picking-location' : ''} ${editorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''}`} aria-label="NIT Goa 3D campus explorer">
+      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to jog, E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
+          view={view} walkPaused={walkPaused} walkInput={walkInput} avatarPosition={avatarPosition} walkSpawn={walkSpawn} onWalkStatus={onWalkStatus} onWalkInspect={chooseLocation}
           presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           pickingPosition={picking?.mode === 'point'} pickedPosition={editorOpen ? picked?.coordinates ?? null : null} onPickPosition={onPickPosition}
           showGrid={showGrid}
@@ -226,11 +245,11 @@ export default function App() {
       {!editorOpen && (navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
-        : <BuildingInfoPanel onEdit={editLocation} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
+        : <BuildingInfoPanel walkMode={view === 'walk'} onEdit={editLocation} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
       {editorOpen && <Suspense fallback={<p className="scene-loading">Opening location editor…</p>}><CampusLocationEditor locations={catalog} locationId={editorLocationId}
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}
         onLocation={(id) => { setEditorLocationId(id); setPicking(null); setPicked(null) }} onPick={setPicking} onSave={saveCorrection} onReset={resetCorrection} onClose={closeEditor} /></Suspense>}
-      <MiniMap presentation={presentation} travelerPosition={travelerPosition} twin={twin} selection={activeSelection} onSelect={(id) => {
+      <MiniMap avatarPosition={view === 'walk' ? avatarPosition : undefined} presentation={view === 'overview' ? presentation : null} travelerPosition={travelerPosition} twin={twin} selection={activeSelection} onSelect={(id) => {
         const match = twin?.selections.find((item) => item.location.id === id)
         if (picking?.mode === 'building' && match) onSelectBuilding(match)
         else if (!picking) chooseLocation(id)
@@ -243,16 +262,19 @@ export default function App() {
         <div className="title-block">
           <span className="eyebrow"><span className="live-dot" /> NIT GOA · CUNCOLIM</span>
           <h1>NIT Goa <span>3D Explorer</span></h1>
-          <p className="title-caption">Digital twin · Explore. Discover. Connect.</p>
+          <div className="explorer-version-switch" role="group" aria-label="Explorer version">
+            <button aria-pressed={view === 'overview'} onClick={() => changeView('overview')}>Overview</button>
+            <button aria-pressed={view === 'walk'} onClick={() => changeView('walk')} disabled={!twin || twin.boundary.length < 3}>Walk with avatar</button>
+          </div>
         </div>
         <SearchBar locations={catalog} onSelect={chooseLocation} />
         <div className="scene-toolbar">
           <button className="toolbar-button edit-campus-toggle" aria-pressed={editorOpen} onClick={() => editorOpen ? closeEditor() : editLocation('main-entrance')}>✎ Edit campus</button>
           <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
-          <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>
+          {view === 'overview' && <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>}
           <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>
-          <button type="button" className="toolbar-button" onClick={onResetCamera}>↺ Reset view</button>
+          <button type="button" className="toolbar-button" onClick={onResetCamera}>{view === 'walk' ? '↺ Reset walk' : '↺ Reset view'}</button>
         </div>
       </header>
       <nav className="location-navigation" aria-label="Fly to campus location">
@@ -269,6 +291,7 @@ export default function App() {
       {uploadOpen && <PhotoUploadDialog locations={locations} locationId={uploadLocation} onClose={() => setUploadOpen(false)} onAuth={() => setAuthOpen(true)} />}
       {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
       </Suspense></ErrorBoundary>
+      {view === 'walk' && <WalkControls input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
       <CampusStats stats={stats} metrics={metrics} />
       <footer className="scene-footer">
         <div>
