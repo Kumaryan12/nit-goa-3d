@@ -60,3 +60,31 @@ test('moving sports ground changes slope direction while an unknown upper anchor
   const base = createDigitalTwin(map, roads, false)
   assert.equal(base.slope, undefined); assert.ok(base.buildings.every(building => building.baseElevation === undefined))
 })
+
+test('published corrections activate the Nescafe slope and preserve the exported field, entrance and building identities', async () => {
+  const { savedCampusOverrides } = await import('../src/data/campusOverrides.ts')
+  const { validateOverrides } = await import('../src/lib/locationOverrides.ts')
+  const twin = createDigitalTwin(map, roads, true, validateOverrides(savedCampusOverrides))
+  assert.equal(twin.upperLocation.id, 'way/1423803659')
+  assert.equal(twin.upperLocation.name, 'Nescafe')
+  close(twin.upperLocation.elevation, 8)
+  const sports = twin.locations.find(location => location.id === 'sports-ground')
+  assert.deepEqual(sports.coordinates, { x: -120.84, z: -380.6 })
+  assert.equal(sports.rotationDegrees, 90)
+  close(sports.elevation, 0)
+  close(twin.clearings[0].halfX, 28); close(twin.clearings[0].halfZ, 47)
+  for (const dx of [-1, 0, 1]) for (const dz of [-1, 0, 1]) close(terrainHeightAt(twin.terrain, sports.coordinates.x + dx * 28, sports.coordinates.z + dz * 47), 0)
+  assert.deepEqual(twin.locations.find(location => location.id === 'main-entrance').coordinates, { x: -545.5, z: -22.49 })
+  for (const [id, buildingId] of [['canteen', 'way/1423803663'], ['administration-block', 'way/1423803681']]) {
+    const selection = twin.selections.find(selection => selection.location.id === id)
+    assert.equal(selection.buildingId, buildingId); assert.equal(selection.matchMethod, 'manual')
+  }
+  assert.equal(twin.selections.find(selection => selection.buildingId === 'relation/19505813/0').location.name, 'Gyan Mandir')
+  assert.equal(twin.selections.find(selection => selection.buildingId === 'way/1423803680').location.name, 'Seminar Complex')
+  assert.equal(twin.selections.find(selection => selection.buildingId === 'relation/19505815/0').location.name, 'Vikram Sarabhai (ECE)')
+  for (const building of twin.buildings) {
+    assert.deepEqual(building.outer, map.buildings.find(source => source.id === building.id).outer)
+    for (const point of building.outer.map(gpsToLocal)) close(terrainHeightAt(twin.terrain, point.x, point.z), building.baseElevation)
+  }
+  assert.equal(twin.trees.length, 640)
+})

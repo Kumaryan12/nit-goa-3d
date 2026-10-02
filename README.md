@@ -77,7 +77,7 @@ Use **Edit campus** in the toolbar, or **Edit name / location** in a selected bu
 - **Buildings:** change the name and save. If a landmark is attached to the wrong building, select that landmark and use **Choose correct building on map** to pick the actual OSM footprint. A manual assignment takes priority over approximate proximity matching. Real footprint geometry stays fixed.
 - **Reset local edit** restores the project's current default for that location. Stable location IDs preserve navigation URLs and gallery associations even after renaming.
 
-Edits persist in this browser under `nit-goa:location-edits:v1`; they do not change OpenStreetMap or other visitors' maps. **Export corrections** downloads `campus-overrides.json` containing saved edits. To publish confirmed corrections for everyone, put that JSON object into the typed `savedCampusOverrides` export in `src/data/campusOverrides.ts`, run tests/build, then commit and deploy. Browser edits take priority over those project defaults. Initial project overrides are empty until actual positions are confirmed.
+Edits persist in this browser under `nit-goa:location-edits:v1`; they do not change OpenStreetMap or other visitors' maps. **Export corrections** downloads `campus-overrides.json` containing saved edits. To publish confirmed corrections for everyone, put that JSON object into the typed `savedCampusOverrides` export in `src/data/campusOverrides.ts`, run tests/build, then commit and deploy. Browser edits take priority over those project defaults. The project defaults include the owner's exported corrections for Main Entrance, Sports Ground (including its 90° rotation), Canteen, Administration Block, Nescafe, Gyan Mandir, Seminar Complex and Vikram Sarabhai (ECE).
 
 Coordinates use local meters: +X east, +Z south, origin 15.16773° N / 74.01548° E. The editor also displays latitude/longitude. Placement raycasts the displayed terrain and is intended for campus metadata corrections, not surveying.
 
@@ -87,7 +87,7 @@ When a corrected OSM building is named **Nescafe** (also accepts Nescafé), the 
 
 Buildings and their windows use a level foundation at their local terrace height. Roads and the entrance pathway are subdivided and draped over terrain; labels, fly-to targets, boundary fencing, vegetation, route overlays and the walking marker use the same surface. X/Z building footprints, road centerlines and selection identities are preserved. Walking distance/time remain planar OSM-network estimates and do not model slope effort or accessibility.
 
-Move Sports Ground in the editor to redirect the slope automatically. Renaming or choosing Nescafe's footprint updates the upper anchor. Export confirmed browser corrections into `src/data/campusOverrides.ts` to make the same campus layout available to all visitors.
+Move Sports Ground in the editor to redirect the slope automatically. Renaming or choosing Nescafe's footprint updates the upper anchor. The owner's exported layout is now included in `src/data/campusOverrides.ts`, so this slope activates for new visitors after OSM buildings load. Export subsequent browser corrections into that file to update the shared layout.
 
 ## Gallery and demo mode
 
