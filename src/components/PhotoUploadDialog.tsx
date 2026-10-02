@@ -4,9 +4,10 @@ import { campusLocations } from '../data/campus'
 import { processImage, validateImage } from '../lib/images'
 import { createGalleryRepository } from '../repositories/createGalleryRepository'
 import { useAuth } from '../hooks/useAuth'
+import type { CampusLocation } from '../types/campus'
 import type { GalleryUploadInput, UploadStage } from '../types/gallery'
-export default function PhotoUploadDialog({ locationId, onClose, onAuth }: { locationId?: string; onClose: () => void; onAuth: () => void }) {
-  const auth = useAuth(), [location, setLocation] = useState(campusLocations.some((p) => p.id === locationId) ? locationId! : campusLocations[0].id)
+export default function PhotoUploadDialog({ locations = campusLocations, locationId, onClose, onAuth }: { locations?: CampusLocation[]; locationId?: string; onClose: () => void; onAuth: () => void }) {
+  const auth = useAuth(), [location, setLocation] = useState(locations.some((p) => p.id === locationId) ? locationId! : locations[0].id)
   const [caption, setCaption] = useState(''), [preview, setPreview] = useState(''), [error, setError] = useState(''), [stage, setStage] = useState<UploadStage | null>(null)
   const [prepared, setPrepared] = useState<Awaited<ReturnType<typeof processImage>> | null>(null), [online, setOnline] = useState(navigator.onLine)
   const pending = useRef(false), uploadId = useRef(crypto.randomUUID()), active = useRef(true), generation = useRef(0)
@@ -31,7 +32,7 @@ export default function PhotoUploadDialog({ locationId, onClose, onAuth }: { loc
         catch (failure) { if (active.current && attempt === generation.current) { setError(failure instanceof Error ? failure.message : 'Unable to decode image.'); setStage(null) } }
       }} /></label>
       {preview && <img className="upload-preview" src={preview} alt="Your processed photo preview" />}
-      <label>Campus location<select name="photo-location" value={location} disabled={busy} onChange={(event) => setLocation(event.target.value)}>{campusLocations.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <label>Campus location<select name="photo-location" value={location} disabled={busy} onChange={(event) => setLocation(event.target.value)}>{locations.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       <label>Caption<textarea name="caption" required maxLength={500} rows={3} value={caption} disabled={busy} onChange={(event) => setCaption(event.target.value)} /></label>
       <p className="panel-muted">{caption.length}/500 characters · location association is chosen by you.</p>
       {error && <p role="alert" className="form-error">{error}</p>}<p role="status">{stage === 'preparing' ? 'Preparing image…' : stage === 'uploading' ? 'Uploading…' : stage === 'submitting' ? 'Submitting…' : ''}</p>

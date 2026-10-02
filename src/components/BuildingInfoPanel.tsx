@@ -6,6 +6,7 @@ import { locationDistance, nearbyLocations } from '../lib/locations'
 import GalleryPreview from './GalleryPreview'
 
 interface BuildingInfoPanelProps {
+  onEdit: (id: string) => void
   onGallery: (id: string, photo?: string) => void
   onUpload: (id: string) => void
   selection: BuildingSelection | null
@@ -17,7 +18,7 @@ interface BuildingInfoPanelProps {
   onSelectLocation: (locationId: string) => void
 }
 
-function BuildingInfoPanel({ onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
+function BuildingInfoPanel({ onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
   const nearby = useMemo(() => selection ? nearbyLocations(selection.location, locations) : [], [selection, locations])
@@ -43,12 +44,14 @@ function BuildingInfoPanel({ onGallery, onUpload, selection, locations, center, 
     <div className="location-distance"><span aria-hidden="true">◎</span><span>{distance === null ? 'Campus center loading...' : `${distance} m from campus center`}<small>Approximate straight-line distance</small></span></div>
     <div className="panel-actions"><button type="button" className="navigate-button" onClick={onNavigate}>📍 Navigate here</button>
       <button type="button" className="fly-button" onClick={() => onFlyTo(location.id)}>Fly to location ↗</button></div>
+    {matchMethod === 'manual' && <p className="building-match-note">Building identity assigned manually in campus metadata.</p>}
     {matchMethod === 'proximity' && <p className="building-match-note">Approximate identification based on campus position.</p>}
     {!selection.buildingId && <p className="building-match-note">Approximate campus location anchor.</p>}
     <section className="panel-section"><h3>Facilities</h3>
       {location.facilities.length ? <ul className="facilities-list">{location.facilities.map((facility) => <li key={facility}>{facility}</li>)}</ul>
         : <p className="panel-muted">Facilities have not yet been assigned.</p>}
     </section>
+    <button type="button" className="fly-button" onClick={() => onEdit(location.id)}>Edit name / location</button>
     <GalleryPreview locationId={location.id} onGallery={onGallery} onUpload={onUpload} />
     <section className="panel-section"><h3>Nearby locations</h3>
       <div className="nearby-locations">{nearby.map((item) => <button type="button" key={item.location.id} onClick={() => onSelectLocation(item.location.id)}>

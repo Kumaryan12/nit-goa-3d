@@ -278,3 +278,23 @@ h1 span { font-weight: 400; }
   .building-info-panel { top: auto; bottom: 230px; max-height: 40dvh; }
   .building-info-panel.panel-collapsed { bottom: 230px; max-height: 90px; }
 }
+/* Editable campus metadata; the non-modal panel leaves map picking available. */
+.campus-editor { position: absolute; z-index: 60; right: 24px; top: 132px; bottom: 24px; width: 330px; overflow-y: auto; padding: 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--glass); color: var(--ink); box-shadow: 0 6px 30px #132b1910; backdrop-filter: blur(16px); }
+.campus-editor h2 { font-size: 21px; margin: 12px 0; }
+.campus-editor label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; margin: 12px 0; }
+.campus-editor input, .campus-editor select { font: inherit; width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--wash); color: var(--ink); }
+.campus-editor p { font-size: 11px; line-height: 1.6; }
+.coordinate-inputs { display: flex; gap: 10px; }.coordinate-inputs label { min-width: 0; flex: 1; }
+.editor-actions { display: flex; gap: 8px; margin: 14px 0; }
+.coordinate-readout { display: block; font-size: 10px; padding: 10px 0; overflow-wrap: anywhere; }
+.editor-message { color: var(--accent); }
+.picking-location .scene-viewport canvas { cursor: crosshair; }
+.editing-campus .campus-minimap { visibility: hidden; }
+.campus-editor.is-picking { bottom: auto; }
+@media (max-width: 760px) {
+  .scene-toolbar { flex-wrap: wrap; justify-content: flex-start; }
+  .edit-campus-toggle { margin-right: auto; }
+  .campus-editor { top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; max-height: 55dvh; padding: 16px; }
+  .campus-editor.is-picking { top: auto; bottom: 12px; max-height: 30dvh; }
+  .editing-campus .location-navigation, .editing-campus .campus-stats, .editing-campus .scene-footer, .editing-campus .map-status { visibility: hidden; }
+}

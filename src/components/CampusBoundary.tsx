@@ -5,12 +5,11 @@ import { campusLocations } from '../data/campus'
 import { distanceToSegment } from '../lib/terrain'
 import type { LocalCoordinate } from '../lib/geo'
 
-export default function CampusBoundary({ points }: { points: LocalCoordinate[] }) {
+export default function CampusBoundary({ points, entrance = campusLocations.find((location) => location.id === 'main-entrance')!.coordinates }: { points: LocalCoordinate[]; entrance?: LocalCoordinate }) {
   const wallsRef = useRef<InstancedMesh>(null)
   const postsRef = useRef<InstancedMesh>(null)
   const outline = useMemo(() => createRoadGeometry(points.length > 2 ? [points] : [], 0.8, 0.12), [points])
   const { walls, posts } = useMemo(() => {
-    const entrance = campusLocations.find((location) => location.id === 'main-entrance')!.coordinates
     const walls: { x: number; z: number; length: number; angle: number }[] = []
     const posts: LocalCoordinate[] = []
     points.slice(1).forEach((b, i) => {
@@ -26,7 +25,7 @@ export default function CampusBoundary({ points }: { points: LocalCoordinate[] }
       }
     })
     return { walls, posts }
-  }, [points])
+  }, [points, entrance])
   useLayoutEffect(() => {
     const dummy = new Object3D()
     walls.forEach((wall, i) => {

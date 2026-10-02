@@ -16,6 +16,9 @@ export interface CampusLocation {
   keywords: string[]
   // Approximate meters from the same LAT0/LON0 origin used by the OSM scene.
   coordinates: { x: number; z: number }
+  // Manual landmark identity binding; geometry always stays at its real OSM position.
+  osmBuildingId?: string | null
+  rotationDegrees?: number
   height: number
   icon: string
   // Image URLs can later come from a gallery API; empty means none verified.
@@ -23,7 +26,7 @@ export interface CampusLocation {
   facilities: string[]
 }
 
-export type BuildingMatchMethod = 'osm-name' | 'proximity' | 'unmatched'
+export type BuildingMatchMethod = 'osm-name' | 'proximity' | 'manual' | 'unmatched'
 
 export interface BuildingSelection {
   // Open places can be selected without inventing an OSM building ID.

@@ -50,12 +50,22 @@ export function assignCampusLocations(
   const usedLocations = new Set<string>()
   const candidates: { buildingIndex: number; location: CampusLocation; distance: number; named: boolean }[] = []
 
+  // Explicit identity assignments take precedence over names and proximity.
+  for (const location of locations) {
+    if (!buildingCategories.has(location.category) || !location.osmBuildingId) continue
+    const buildingIndex = buildings.findIndex((building) => building.id === location.osmBuildingId)
+    if (buildingIndex >= 0 && !assignments.has(buildingIndex)) {
+      assignments.set(buildingIndex, { buildingId: buildings[buildingIndex].id, location, matchMethod: 'manual' })
+      usedLocations.add(location.id)
+    }
+  }
+
   buildings.forEach((building, buildingIndex) => {
     const center = centers[buildingIndex]
     if (!Number.isFinite(center.x) || !Number.isFinite(center.z)) return
     const name = normalizedName(building.tags.name ?? '')
     for (const location of locations) {
-      if (!buildingCategories.has(location.category)) continue
+      if (!buildingCategories.has(location.category) || location.osmBuildingId !== undefined) continue
       const distance = Math.hypot(center.x - location.coordinates.x, center.z - location.coordinates.z)
       if (!Number.isFinite(distance)) continue
       const named = Boolean(name) && [location.name, ...location.keywords].some((keyword) => normalizedName(keyword) === name)

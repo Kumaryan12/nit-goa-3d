@@ -17,6 +17,10 @@ export function gpsToLocal({ lat, lon }: GeoCoordinate): LocalCoordinate {
   }
 }
 
+export function localToGps({ x, z }: LocalCoordinate): GeoCoordinate {
+  return { lat: LAT0 - z / 110540, lon: LON0 + x / LONGITUDE_METERS }
+}
+
 export function isGeoCoordinate(point: unknown): point is GeoCoordinate {
   if (!point || typeof point !== 'object') return false
   const { lat, lon } = point as Partial<GeoCoordinate>

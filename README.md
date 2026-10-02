@@ -69,6 +69,18 @@ Share examples:
 
 Query helpers validate IDs, preserve unrelated query parameters and deployment paths, and update history without reloads. Back/Forward restores meaningful selection, route, night and photo state. Unknown IDs fail gracefully. Photos reload directly by repository ID; closing removes `photo`. Modal openness, playback progress and other transient UI are omitted from URLs.
 
+## Correct campus names and positions
+
+Use **Edit campus** in the toolbar, or **Edit name / location** in a selected building's details.
+
+- **Main Entrance / Sports Ground:** select the location, click **Pick new position on map**, orbit or zoom as needed, then click the ground. A gold marker previews the position. Click **Save changes** to apply it; rotation is editable in degrees. Moving the entrance updates its gate, boundary opening, labels and route start. Moving the sports ground updates its field and terrain clearing.
+- **Buildings:** change the name and save. If a landmark is attached to the wrong building, select that landmark and use **Choose correct building on map** to pick the actual OSM footprint. A manual assignment takes priority over approximate proximity matching. Real footprint geometry stays fixed.
+- **Reset local edit** restores the project's current default for that location. Stable location IDs preserve navigation URLs and gallery associations even after renaming.
+
+Edits persist in this browser under `nit-goa:location-edits:v1`; they do not change OpenStreetMap or other visitors' maps. **Export corrections** downloads `campus-overrides.json` containing saved edits. To publish confirmed corrections for everyone, put that JSON object into the typed `savedCampusOverrides` export in `src/data/campusOverrides.ts`, run tests/build, then commit and deploy. Browser edits take priority over those project defaults. Initial project overrides are empty until actual positions are confirmed.
+
+Coordinates use local meters: +X east, +Z south, origin 15.16773° N / 74.01548° E. The editor also displays latitude/longitude. Placement uses a flat ground projection and is intended for campus metadata corrections, not surveying.
+
 ## Gallery and demo mode
 
 The UI uses `GalleryRepository`, not SDK calls for data operations. `GalleryPhoto` includes location, storage path, original/thumbnail URLs, author, timestamps, dimensions, pending/approved/rejected status and likes. Repository methods provide latest/popular/location queries, lookup, upload, owner deletion, likes/unlikes and reporting.

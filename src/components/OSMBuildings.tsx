@@ -8,6 +8,7 @@ import type { BuildingFootprint } from '../types/osm'
 
 interface OSMBuildingsProps {
   buildings: BuildingFootprint[]
+  assignments?: BuildingSelection[]
   onRenderedCount: (count: number) => void
   selectedBuildingId: string | null
   onSelectBuilding: (selection: BuildingSelection) => void
@@ -51,8 +52,8 @@ function OSMBuilding({ building, selection, selected, onSelect }: {
   )
 }
 
-export default function OSMBuildings({ buildings, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
-  const selections = useMemo(() => assignCampusLocations(buildings), [buildings])
+export default function OSMBuildings({ buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
+  const selections = useMemo(() => assignments ?? assignCampusLocations(buildings), [buildings, assignments])
   useEffect(() => { onRenderedCount(buildings.length) }, [buildings, onRenderedCount])
 
   return (
