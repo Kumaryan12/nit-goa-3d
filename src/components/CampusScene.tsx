@@ -7,6 +7,8 @@ import { campusCameraView, flyToLocation, routeCameraView } from '../lib/camera'
 import type { CameraRequest } from '../lib/camera'
 import { gpsToLocal } from '../lib/geo'
 import { createAdministrationFacade } from '../lib/administrationFacade'
+import { createCampusFacade, campusFacadeCamera } from '../lib/campusFacade'
+import type { CampusFacadePlan } from '../lib/campusFacade'
 import { generateTerrain } from '../lib/terrain'
 import type { DigitalTwin } from '../lib/digitalTwin'
 import type { BuildingSelection } from '../types/campus'
@@ -87,22 +89,27 @@ interface CampusSceneProps {
 const loadingTerrain = generateTerrain(650, { boundary: [], buildings: [], roads: [], clearings: [] }, 48)
 const noop = () => {}
 
-function Navigation({ twin, request }: { twin: DigitalTwin | null; request: CameraRequest }) {
+function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; request: CameraRequest; facades: Map<string, CampusFacadePlan> }) {
   const controls = useRef<CameraControls>(null)
   const { width, height } = useThree((state) => state.size)
   // Road arrival, selection, grid and lighting changes never reframe the camera.
   const points = useMemo(() => twin?.buildings.flatMap((building) => building.outer.map(gpsToLocal)) ?? [], [twin])
   const framingKey = points.map((point) => `${point.x},${point.z}`).join(';')
   const home = useMemo(() => campusCameraView(points, width / height), [framingKey, width, height])
+  const facadeDestination = () => {
+    const index = twin?.selections.findIndex(selection => selection.location.id === request.locationId) ?? -1
+    const building = twin?.buildings[index], plan = building && facades.get(building.id)
+    return plan && building ? campusFacadeCamera(plan, building.baseElevation ?? 0) : null
+  }
   useEffect(() => {
-    const destination = request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId ? flyToLocation(request.locationId, twin?.locations,
+    const destination = request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId ? facadeDestination() ?? flyToLocation(request.locationId, twin?.locations,
       twin?.locations.find((location) => location.id === request.locationId)?.height) : home
     if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   }, [home])
   useEffect(() => {
     const building = twin?.selections.findIndex((selection) => selection.location.id === request.locationId) ?? -1
     const destination = request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId
-      ? flyToLocation(request.locationId, twin ? [...twin.locations, ...twin.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location)] : undefined, twin?.buildings[building]?.height)
+      ? facadeDestination() ?? flyToLocation(request.locationId, twin ? [...twin.locations, ...twin.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location)] : undefined, twin?.buildings[building]?.height)
       : home
     if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
     // Requests have a monotonic sequence so repeated clicks on the same place work.
@@ -135,7 +142,11 @@ function CampusScene({ oatConcert, footballPitch, footballJoined, footballLive, 
     const entrance = twin.locations.find(location => location.id === 'main-entrance')
     return index < 0 || !entrance ? null : createAdministrationFacade(twin.buildings[index], entrance.coordinates, twin.roads)
   }, [twin])
-  const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== administration?.buildingId && !(view === 'walk' && hostelFloor !== null && hostelPlan?.buildingId === building.id)) ?? [], [twin, administration, view, hostelFloor, hostelPlan])
+  const facades = useMemo(() => new Map(twin?.buildings.flatMap((building, i) => {
+    const plan = createCampusFacade(building, twin.selections[i], twin.roads, hostelPlan)
+    return plan ? [[building.id, plan] as const] : []
+  }) ?? []), [twin, hostelPlan])
+  const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== administration?.buildingId && !facades.has(building.id) && !(view === 'walk' && hostelFloor !== null && hostelPlan?.buildingId === building.id)) ?? [], [twin, administration, facades, view, hostelFloor, hostelPlan])
   return <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]}
     onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
     camera={{ position: sceneConfig.cameraPosition, fov: 45, near: 1, far: 10000 }}
@@ -153,7 +164,7 @@ function CampusScene({ oatConcert, footballPitch, footballJoined, footballLive, 
       <CampusBoundary terrain={twin.hasRelief ? twin.terrain : undefined} points={twin.boundary} entrance={twin.locations.find((location) => location.id === 'main-entrance')!.coordinates} />
       <OSMRoads roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />
       {twin.canal && <EntranceCanal canal={twin.canal} terrain={twin.terrain} night={night} />}
-      <OSMBuildings administration={administration} night={night} hostelPlan={view === 'walk' ? hostelPlan : null} insideHostel={view === 'walk' && hostelFloor !== null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
+      <OSMBuildings administration={administration} facades={facades} night={night} hostelPlan={view === 'walk' ? hostelPlan : null} insideHostel={view === 'walk' && hostelFloor !== null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
       <BuildingWindows doorway={view === 'walk' ? hostelPlan : null} buildings={windowBuildings} night={night} />
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
@@ -167,7 +178,7 @@ function CampusScene({ oatConcert, footballPitch, footballJoined, footballLive, 
     {view === 'overview' && twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     {slopePreview && twin && <SlopePreview points={slopePreview} terrain={twin.terrain} />}
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
-    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : undefined} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
+    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : undefined} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
     <RuntimeMetrics onMetrics={onMetrics} />
   </Canvas>
 }

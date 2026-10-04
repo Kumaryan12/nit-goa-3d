@@ -8,8 +8,11 @@ import type { BuildingFootprint } from '../types/osm'
 import type { HostelPlan } from '../lib/hostelInterior'
 import type { AdministrationFacadePlan } from '../lib/administrationFacade'
 import AdministrationBlock from './AdministrationBlock'
+import CampusBuildingFacade from './CampusBuildingFacade'
+import type { CampusFacadePlan } from '../lib/campusFacade'
 
 interface OSMBuildingsProps {
+  facades?: Map<string, CampusFacadePlan>
   administration?: AdministrationFacadePlan | null
   night?: boolean
   hostelPlan?: HostelPlan | null
@@ -21,7 +24,8 @@ interface OSMBuildingsProps {
   onSelectBuilding: (selection: BuildingSelection) => void
 }
 
-function OSMBuilding({ building, selection, selected, onSelect, groundShellHeight = 0, hidden = false, administration, night = false }: {
+function OSMBuilding({ building, selection, selected, onSelect, groundShellHeight = 0, hidden = false, administration, facade, night = false }: {
+  facade?: CampusFacadePlan
   administration?: AdministrationFacadePlan | null
   night?: boolean
   groundShellHeight?: number
@@ -55,18 +59,19 @@ function OSMBuilding({ building, selection, selected, onSelect, groundShellHeigh
     >
       <mesh position={[0, groundShellHeight, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
         <extrudeGeometry args={[shape, extrusion]} />
-        <meshStandardMaterial color={selected ? '#f0c97c' : hovered ? '#f8efd5' : administration ? '#f0deaf' : concrete} roughness={0.94} metalness={0} />
+        <meshStandardMaterial color={selected ? '#f0c97c' : hovered ? '#f8efd5' : administration ? '#f0deaf' : facade?.appearance.wall ?? concrete} roughness={0.94} metalness={0} />
       </mesh>
       {!administration?.pitchedRoof && <mesh position={[0, building.height + 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
         <extrudeGeometry args={[roof, roofExtrusion]} />
         <meshStandardMaterial color={selected ? '#d8954a' : '#b86640'} roughness={0.92} onBeforeCompile={applyRoofTiles} />
       </mesh>}
       {administration && <AdministrationBlock plan={administration} night={night} />}
+      {facade && <CampusBuildingFacade plan={facade} night={night} />}
     </group>
   )
 }
 
-export default function OSMBuildings({ administration, night = false, hostelPlan, insideHostel = false, buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
+export default function OSMBuildings({ administration, facades, night = false, hostelPlan, insideHostel = false, buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
   const selections = useMemo(() => assignments ?? assignCampusLocations(buildings), [buildings, assignments])
   useEffect(() => { onRenderedCount(buildings.length) }, [buildings, onRenderedCount])
 
@@ -74,6 +79,7 @@ export default function OSMBuildings({ administration, night = false, hostelPlan
     <group>
       {buildings.map((building, index) => (
         <OSMBuilding
+          facade={facades?.get(building.id)}
           administration={administration?.buildingId === building.id ? administration : null}
           night={night}
           groundShellHeight={hostelPlan?.buildingId === building.id ? hostelPlan.floorHeight : 0}

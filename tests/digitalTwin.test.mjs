@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { ExtrudeGeometry, ShapeUtils } from 'three'
 import { defaultTerrainSettings } from '../src/data/topography.ts'
+import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
 import { buildingOverrides } from '../src/data/buildingOverrides.ts'
 import { buildingHeight, DEFAULT_BUILDING_HEIGHT, extractBuildingFootprints } from '../src/lib/buildings.ts'
 import { roofShape, buildingShape } from '../src/lib/buildingGeometry.ts'
@@ -32,12 +33,13 @@ test('height priority honors OSM height, OSM levels, manual override, then defau
   assert.equal(buildingHeight({}, 'boys-hostel', [{ id: 'boys-hostel', height: -1, floors: 5 }]), DEFAULT_BUILDING_HEIGHT)
 })
 
-test('all five overrides are finite estimates applied after stable campus matching', () => {
-  assert.deepEqual(new Set(buildingOverrides.map((item) => item.id)), new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen']))
+test('visual height overrides are finite estimates applied after corrected campus matching', () => {
+  const corrected = createDigitalTwin(map, roadData, false, savedCampusOverrides, { ...defaultTerrainSettings, customSlopes: [] })
+  assert.deepEqual(new Set(buildingOverrides.map((item) => item.id)), new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen', 'way/1423803660', 'way/1423803662', 'way/1423803680']))
   for (const override of buildingOverrides) {
-    const index = twin.selections.findIndex((selection) => selection.location.id === override.id)
+    const index = corrected.selections.findIndex((selection) => selection.location.id === override.id)
     assert.ok(index >= 0)
-    assert.equal(twin.buildings[index].height, override.height)
+    assert.equal(corrected.buildings[index].height, override.height)
     assert.ok(override.floors > 0)
   }
   assert.equal(map.buildings.find((building) => building.tags.name === 'Talpona').height, 10, 'original OSM extraction is not mutated')
