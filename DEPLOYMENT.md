@@ -11,7 +11,7 @@ The app runs as one Node 24 service on Render: the landing page, profiles, authe
 - Real hosted Google sign-in completed and campus admission succeeded. Authenticated football joined with one player; OAT admission showed 1 / 24 visitors. Independent-account play and voice transmission still require rehearsal.
 - Firebase and moderation keys uploaded as private runtime files. Neither is in Git, browser code or the Docker image.
 - `/readyz` and the landing page return 200; anonymous admission/crowd requests are denied, and credential file URLs return 404.
-- Both GitHub verification jobs pass; 241 tests pass and the production dependency audit reports zero vulnerabilities.
+- Both GitHub verification jobs pass; 246 tests pass and the production dependency audit reports zero vulnerabilities.
 
 ## Provisioned Firebase project
 

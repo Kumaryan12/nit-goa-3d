@@ -16,3 +16,8 @@ export const applyRoofTiles: Material['onBeforeCompile'] = (shader) => {
     diffuseColor.rgb *= mix(0.95, mix(0.57, 0.9 + variation * 0.2, seam), detail);
   `)
 }
+// Sloping roofs use local X/Z coordinates instead of the extruded roof's X/Y.
+export const applyPitchedRoofTiles: Material['onBeforeCompile'] = (shader, renderer) => {
+  applyRoofTiles(shader, renderer)
+  shader.vertexShader = shader.vertexShader.replace('vRoofTile = position.xy;', 'vRoofTile = position.xz;')
+}

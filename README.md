@@ -170,6 +170,10 @@ The UI uses `GalleryRepository`, not SDK calls for data operations. `GalleryPhot
 
 The current release uses an explicitly labelled demo gallery with eight illustrations. Uploads, likes and reports are disabled until a Firebase photo-storage pipeline is connected. Image preparation and previews remain available, without pretending to persist submissions. The previous Supabase gallery adapter and SQL migrations are retained as legacy code; the app does not select that adapter or use Supabase for sign-in.
 
+## Administration Block appearance
+
+Administration Block has a dedicated facade inspired by the institute's [public campus photograph](https://nitgoa.ac.in/static/slideshow1.jpg): cream walls, white-framed windows, a pillared red-tiled entrance, a curved central pediment, and blue English/Hindi institute lettering. The facade follows the owner's corrected building assignment and faces Main Entrance; selecting the block shows that public face. Its mapped footprint, height and terrain elevation remain authoritative. This is a visual approximation, not a surveyed architectural model. Courtyard/irregular footprints retain their original roof openings if the owner reassigns the block. Window details are instanced, and sign textures are generated locally without an external font request.
+
 ## Firebase authentication, profiles and moderation
 
 Google sign-in is available on the landing page. Firebase ID tokens are verified on the Node server with expiry and revocation checks. A verified Google account creates an ordinary campus membership and a private profile. Profiles can be completed later, with a unique handle, bio, course, interests and avatar colour. Publishing is opt-in. Public profile copies contain only allowed display fields; private emails and membership roles are excluded.

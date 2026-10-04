@@ -6,6 +6,7 @@ import { sceneConfig } from '../lib/sceneConfig'
 import { campusCameraView, flyToLocation, routeCameraView } from '../lib/camera'
 import type { CameraRequest } from '../lib/camera'
 import { gpsToLocal } from '../lib/geo'
+import { createAdministrationFacade } from '../lib/administrationFacade'
 import { generateTerrain } from '../lib/terrain'
 import type { DigitalTwin } from '../lib/digitalTwin'
 import type { BuildingSelection } from '../types/campus'
@@ -128,6 +129,13 @@ function CampusScene({ oatConcert, footballPitch, footballJoined, footballLive, 
   const background = night ? '#111c2d' : '#d9e7ec'
   const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
   const heights = useMemo(() => Object.fromEntries(twin?.selections.map((selection, i) => [selection.location.id, twin.buildings[i].height]) ?? []), [twin])
+  const administration = useMemo(() => {
+    if (!twin) return null
+    const index = twin.selections.findIndex(selection => selection.location.id === 'administration-block')
+    const entrance = twin.locations.find(location => location.id === 'main-entrance')
+    return index < 0 || !entrance ? null : createAdministrationFacade(twin.buildings[index], entrance.coordinates, twin.roads)
+  }, [twin])
+  const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== administration?.buildingId && !(view === 'walk' && hostelFloor !== null && hostelPlan?.buildingId === building.id)) ?? [], [twin, administration, view, hostelFloor, hostelPlan])
   return <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]}
     onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
     camera={{ position: sceneConfig.cameraPosition, fov: 45, near: 1, far: 10000 }}
@@ -145,8 +153,8 @@ function CampusScene({ oatConcert, footballPitch, footballJoined, footballLive, 
       <CampusBoundary terrain={twin.hasRelief ? twin.terrain : undefined} points={twin.boundary} entrance={twin.locations.find((location) => location.id === 'main-entrance')!.coordinates} />
       <OSMRoads roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />
       {twin.canal && <EntranceCanal canal={twin.canal} terrain={twin.terrain} night={night} />}
-      <OSMBuildings hostelPlan={view === 'walk' ? hostelPlan : null} insideHostel={view === 'walk' && hostelFloor !== null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
-      <BuildingWindows doorway={view === 'walk' ? hostelPlan : null} buildings={view === 'walk' && hostelFloor !== null && hostelPlan ? twin.buildings.filter(building => building.id !== hostelPlan.buildingId) : twin.buildings} night={night} />
+      <OSMBuildings administration={administration} night={night} hostelPlan={view === 'walk' ? hostelPlan : null} insideHostel={view === 'walk' && hostelFloor !== null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
+      <BuildingWindows doorway={view === 'walk' ? hostelPlan : null} buildings={windowBuildings} night={night} />
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
