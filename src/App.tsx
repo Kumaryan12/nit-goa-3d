@@ -157,14 +157,14 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
     if (!twin) return null
     const building = twin.buildings[twin.selections.findIndex(item => item.location.id === 'boys-hostel')]
     if (!building) return null
-    const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain)
+    const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees)
     return createHostelPlan(building, twin.roads, point => isWalkable(point, world))
   }, [twin])
   const gyanPlan = useMemo(() => {
     if(!twin)return null
     const building=twin.buildings[twin.selections.findIndex(item=>item.location.id===GYAN_MANDIR_ID)]
     if(!building)return null
-    const world=createWalkWorld(twin.buildings,twin.boundary,twin.terrain)
+    const world=createWalkWorld(twin.buildings,twin.boundary,twin.terrain,twin.trees)
     return createGyanMandirPlan(building,twin.roads,p=>isWalkable(p,world),twin.selections.find(s=>s.location.id==='way/1423803680')?.location.coordinates)
   },[twin])
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
@@ -312,7 +312,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
 
   return (
     <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
-      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
+      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
           oatConcert={oat.snapshot}
           campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}

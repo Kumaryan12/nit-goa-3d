@@ -225,3 +225,5 @@ The landing page and Firebase sign-in load before the 3D explorer. The campus sc
 ## Production deployment
 
 `render.yaml` prepares a single Docker web service on Render in Singapore. The website and live rooms share one HTTPS origin and one instance. Firebase supplies Google sign-in and persistent profiles. The initial free Render plan is for testing: it can sleep and resets in-memory game/concert state when the service restarts. Select an always-on plan before scheduling public concerts. Follow [DEPLOYMENT.md](DEPLOYMENT.md) for deployment and outstanding account steps. A static-only `dist` upload cannot serve live rooms.
+
+Avatar exploration supports a short gravity-based jump with Space, J, or the touch Jump button. During live football, Space remains kick and J jumps. Ground movement and jumps use swept wall/trunk collision checks; low tree crowns and interior door headers limit jump height. Jump height is shared through campus presence, including football avatars.

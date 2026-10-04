@@ -1,6 +1,6 @@
 import type { LocalCoordinate } from './geo.ts'
 
-export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean }
+export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean }
 export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0
@@ -32,17 +32,18 @@ export function stridePhase(phase: number, distance: number, running: boolean) {
   return (phase + Math.max(0, Math.min(.8, distance)) * Math.PI * 2 / (running ? 2.5 : 1.65)) % (Math.PI * 2)
 }
 
-export function avatarPose(phase: number, speed: number, running: boolean, time: number, turn = 0, kick = 0) {
+export function avatarPose(phase: number, speed: number, running: boolean, time: number, turn = 0, kick = 0, airborne = false) {
   const amount = Math.min(1, Math.max(0, speed) / (running ? 4 : 1.8)), wave = Math.sin(phase)
   const swing = amount * (running ? .72 : .44)
   const hips = [wave * swing, -wave * swing]
   const knees = [-Math.max(0, -wave) * amount * (running ? 1.15 : .7), -Math.max(0, wave) * amount * (running ? 1.15 : .7)]
   if (kick > 0) { hips[1] = Math.sin(kick * Math.PI) * 1.1; knees[1] = -.25 * Math.sin(kick * Math.PI) }
+  if (airborne) { hips[0] = .25; hips[1] = .25; knees[0] = -.55; knees[1] = -.55 }
   // Keep the supporting sneaker on the ground, with a small breathing motion.
   const lowestSole = Math.min(...hips.map((hip, i) => .88 - .37 * Math.cos(hip) - .37 * Math.cos(hip + knees[i]) - .129))
   return {
     hips, knees, ankles: hips.map((hip, i) => -hip - knees[i]),
-    arms: [-wave * swing * .85, wave * swing * .85], elbows: [-.16 - amount * (running ? .65 : .16), -.16 - amount * (running ? .65 : .16)],
+    arms: airborne ? [-.35, -.35] : [-wave * swing * .85, wave * swing * .85], elbows: [-.16 - amount * (running ? .65 : .16), -.16 - amount * (running ? .65 : .16)],
     rootY: .011 - lowestSole + Math.sin(time * 1.8) * .0025,
     lean: -amount * (running ? .13 : .035), sway: wave * amount * .025,
     bank: Math.max(-.09, Math.min(.09, turn * amount * .045)),

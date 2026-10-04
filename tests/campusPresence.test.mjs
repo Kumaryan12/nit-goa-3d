@@ -12,6 +12,7 @@ import { createCampusRoom, publishedCampusBoundary } from '../server/campusRoom.
 import { attachCampusServer } from '../server/campusServer.ts'
 import { createCrowdAPI } from '../server/crowdApi.ts'
 import { createAccessVerifier } from '../server/access.ts'
+import { advanceJump, freshJump } from '../src/lib/avatarJump.ts'
 import { fakeFirestore } from './firestoreFake.mjs'
 
 const boundary = [{ x: -200, z: -200 }, { x: 200, z: -200 }, { x: 200, z: 200 }, { x: -200, z: 200 }, { x: -200, z: -200 }]
@@ -224,4 +225,17 @@ test('owner moderation includes campus occupancy and evicts/removes chat only af
   assert.equal((await fetch(origin + '/api/crowd', options)).status, 403); assert.equal(kicked.length, 0)
   assert.equal((await fetch(origin + '/api/crowd', { ...options, headers: { ...headers, 'X-Moderator-Token': 'verified' } })).status, 200)
   assert.deepEqual(calls, ['audit:alice', 'remove:alice']); assert.deepEqual(kicked, ['alice', 'alice', 'alice'])
+})
+
+test('jump height is accepted and shared by presence without relaxing movement limits',()=> {
+  const room=createCampusRoom(boundary);room.add(identity('alice'));room.add(identity('bob'))
+  assert.equal(room.pose('alice',pose(),'walk',1000),true)
+  const jump=freshJump();let apex=0
+  for(let i=0;i<10;i++) {
+    advanceJump(jump,0,.1,i===0);apex=Math.max(apex,jump.y)
+    assert.equal(room.pose('alice',pose({y:jump.y}),'walk',1100+i*100),true)
+    assert.equal(room.snapshot(1100+i*100).people.find(p=>p.id==='alice').pose.y,jump.y)
+  }
+  assert.ok(apex>.68);assert.equal(jump.y,0)
+  assert.equal(room.pose('alice',pose({y:10}),'walk',2100),false)
 })

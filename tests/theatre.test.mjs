@@ -41,7 +41,7 @@ test('the theatre fills the large academic patch inside the ECE/CSE L-road, with
     close(terrainHeightAt(twin.terrain, p.x, p.z), theatre.elevation)
     for (const building of createWalkWorld(twin.buildings, twin.boundary, { ...twin.terrain, theatre: undefined }).buildings) {
       // Use the existing collision system to check actual polygons and holes.
-      assert.ok(isWalkable(p, { boundary: [], terrain: { ...twin.terrain, theatre: undefined }, buildings: [building] }), 'theatre must remain outside building walls')
+      assert.ok(isWalkable(p, { boundary: [], terrain: { ...twin.terrain, theatre: undefined }, buildings: [building], trees: new Map() }), 'theatre must remain outside building walls')
     }
     for (const road of twin.roads) for (const path of road.paths) for (let i = 1; i < path.length; i++) {
       assert.ok(distanceToSegment(p, path[i - 1], path[i]) > road.width / 2, 'theatre must not cover mapped roads')

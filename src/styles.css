@@ -379,6 +379,7 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .walk-direction:active { background: var(--accent); color: var(--glass); }
 .walk-forward { grid-area: 1 / 2; }.walk-left { grid-area: 2 / 1; }.walk-back { grid-area: 2 / 2; }.walk-right { grid-area: 2 / 3; }
 .walk-look { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; flex: 1; }
+.walk-jump { grid-column: 1 / -1; gap: 6px; }.walk-jump small { opacity: .6; }
 .walk-look .walk-direction { height: 42px; }.walk-look .fly-button { justify-content: center; padding: 8px; }
 .walk-note { margin-bottom: 0; font-size: 9px; }
 .walk-mode .location-navigation, .walk-mode .campus-stats, .walk-mode .scene-footer, .walk-mode .map-status-complete { display: none; }

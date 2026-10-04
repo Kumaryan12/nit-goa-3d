@@ -13,6 +13,6 @@ export default function FootballControls({ input, status, connection, players, s
     <p className="football-event" role="status">{live ? paused ? 'Your player is paused' : `${eventText(status)}${status?.countdown ? ` · Kickoff in ${status.countdown}` : ''}` : connection === 'waiting' ? 'You’ll enter automatically when a place opens.' : 'Reconnect to play with everyone.'}</p>
     <div className="football-actions"><button className="navigate-button" disabled={!live || paused || !status?.canKick} onClick={() => { input.current.kick++ }}>Kick · Space</button>{!live && connection !== 'connecting' && connection !== 'waiting' && <button className="fly-button" onClick={onRetry}>Reconnect</button>}</div>
     <button className="text-button football-reset" disabled={!live || paused} onClick={() => { input.current.reset++ }}>Return ball to center</button>
-    <p className="football-help">Move to dribble. Aim by turning or dragging. Space kicks; Shift + Space shoots harder. Blue attacks the blue goal; Gold attacks gold.</p>
+    <p className="football-help">Move to dribble. Aim by turning or dragging. Space kicks; Shift + Space shoots harder. J jumps. Blue attacks the blue goal; Gold attacks gold.</p>
   </aside>
 }

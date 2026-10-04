@@ -56,7 +56,7 @@ export default function StudentAvatar({ motion, jersey = '#277c77' }: { motion: 
     speed.current += (actualSpeed - speed.current) * (1 - Math.exp(-dt * 14))
     if ((state.kick ?? 0) !== lastKick.current) { lastKick.current = state.kick ?? 0; kickTime.current = .45 }
     kickTime.current = Math.max(0, kickTime.current - dt)
-    const pose = avatarPose(state.phase, speed.current, !!state.running, clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0)
+    const pose = avatarPose(state.phase, speed.current, !!state.running, clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0, !!state.airborne)
     ;[leftHip, rightHip].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.hips[i] })
     ;[leftKnee, rightKnee].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.knees[i] })
     ;[leftFoot, rightFoot].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.ankles[i] })

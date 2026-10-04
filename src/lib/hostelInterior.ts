@@ -1,3 +1,4 @@
+import { AVATAR_HEIGHT } from './avatarJump.ts'
 import { gpsToLocal } from './geo.ts'
 import type { LocalCoordinate as Point } from './geo.ts'
 import { pointInCampus } from './roads.ts'
@@ -110,15 +111,16 @@ export function isInteriorWalkable(point: Point, plan: HostelPlan, radius=0.42):
     return (Math.abs(bed.x)<0.5+radius&&Math.abs(bed.z)<1+radius)||(Math.abs(desk.x)<0.4+radius&&Math.abs(desk.z)<0.55+radius)||(Math.abs(local.x-1.35)<.325+radius&&Math.abs(local.z-1.1)<.375+radius)
   })
 }
-export function stepInterior(point: Point,direction:Point,speed:number,delta:number,plan:HostelPlan):Point {
+export function stepInterior(point: Point,direction:Point,speed:number,delta:number,plan:HostelPlan,feetY?:number,floor=0):Point {
   const length=Math.hypot(direction.x,direction.z)
   if(!length||!Number.isFinite(length)||!Number.isFinite(speed)||!Number.isFinite(delta))return point
   const distance=Math.max(0,Math.min(5.5,speed))*Math.max(0,Math.min(.1,delta)),steps=Math.max(1,Math.ceil(distance/.12)),dx=direction.x/length*distance/steps,dz=direction.z/length*distance/steps
+  const legal=(p:Point)=>isInteriorWalkable(p,plan)&&(feetY===undefined||feetY+AVATAR_HEIGHT<=interiorJumpCeiling(plan,p,floor))
   let p={...point}
   for(let i=0;i<steps;i++) {
     const next={x:p.x+dx,z:p.z+dz}
-    if(isInteriorWalkable(next,plan))p=next
-    else {const a={x:p.x+dx,z:p.z};if(isInteriorWalkable(a,plan))p=a;const b={x:p.x,z:p.z+dz};if(isInteriorWalkable(b,plan))p=b}
+    if(legal(next))p=next
+    else {const a={x:p.x+dx,z:p.z};if(legal(a))p=a;const b={x:p.x,z:p.z+dz};if(legal(b))p=b}
   }
   // Stair flights are traversed with E / the stair buttons so a floor cannot
   // change accidentally while strafing past a landing.
@@ -127,6 +129,18 @@ export function stepInterior(point: Point,direction:Point,speed:number,delta:num
     if(t>0.15&&t<plan.stairs.length-.15)return point
   }
   return p
+}
+export function interiorJumpCeiling(plan: HostelPlan, point: Point, floor: number): number {
+  const surface = plan.base + floor * plan.floorHeight + .14
+  let ceiling = plan.base + (floor + 1) * plan.floorHeight
+  for (const door of [
+    { point: plan.entrance.point, along: plan.entrance.along, width: 2.2 },
+    ...[...plan.rooms, ...(plan.readingRoom ? [plan.readingRoom] : [])].map(room => ({ point: room.door, along: room.along, width: 1.44 })),
+  ]) {
+    const relative = { x: point.x - door.point.x, z: point.z - door.point.z }
+    if (Math.abs(dot(relative, door.along)) <= door.width / 2 + .42 && Math.abs(relative.x * door.along.z - relative.z * door.along.x) <= .51) ceiling = Math.min(ceiling, surface + 2.1)
+  }
+  return ceiling
 }
 export function stairLanding(plan:HostelPlan,up:boolean):Point {return add(up?plan.stairs.start:plan.stairs.end,plan.stairs.along,up?-1.2:1.2)}
 // Turn toward an open corridor on arrival rather than facing a nearby wall.

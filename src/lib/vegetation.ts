@@ -6,6 +6,8 @@ import type { BuildingFootprint, RoadFootprint } from '../types/osm.ts'
 import { inCanalOpening } from './canal.ts'
 
 export interface TreeInstance { x: number; y: number; z: number; scale: number; rotation: number; palm: boolean; shade: number }
+// Match Vegetation's base cylinder radius and palm lean about its midpoint.
+export const treeTrunkRadius = (tree: TreeInstance) => (tree.palm ? .3 + 4 * Math.sin(.045) : .45) * tree.scale
 export const TREE_TARGET = 640
 
 export function seededRandom(seed: number): () => number {

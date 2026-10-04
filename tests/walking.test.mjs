@@ -7,7 +7,7 @@ import { extractBuildingFootprints } from '../src/lib/buildings.ts'
 import { extractCampusRoads } from '../src/lib/roads.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
-import { createWalkWorld, isWalkable, stepWalking, findWalkSpawn, nearestWalkLocation, placeDistance, cameraBoomFraction, explorerViewFromURL, withExplorerView, emptyWalkInput } from '../src/lib/walking.ts'
+import { createWalkWorld, isWalkable, stepWalking, treeCeilingAt, findWalkSpawn, nearestWalkLocation, placeDistance, cameraBoomFraction, explorerViewFromURL, withExplorerView, emptyWalkInput } from '../src/lib/walking.ts'
 const ring = (x1,z1,x2,z2) => [{x:x1,z:z1},{x:x2,z:z1},{x:x2,z:z2},{x:x1,z:z2},{x:x1,z:z1}]
 const flat = { size:400, segments:40, heights:new Float32Array(41**2), colors:new Float32Array(41**2*3) }
 const building = (outer, holes=[]) => ({id:'way/1',osmType:'way',osmId:1,tags:{},outer:outer.map(localToGps),holes:holes.map(h=>h.map(localToGps)),height:10})
@@ -84,7 +84,7 @@ const boundary=roads.find(e=>e.id===1259742369).geometry
 const map={buildings:extractBuildingFootprints(elements),boundary,source:'campus-area',returnedBuildingCount:22}
 const roadData={roads:extractCampusRoads(roads,boundary),boundary,source:'campus-area',returnedRoadCount:20}
 const twin=createDigitalTwin(map,roadData,true,savedCampusOverrides)
-const actual=createWalkWorld(twin.buildings,twin.boundary,twin.terrain)
+const actual=createWalkWorld(twin.buildings,twin.boundary,twin.terrain,twin.trees)
 test('all corrected campus landmarks have safe spawn positions on the real OSM campus', () => {
   const locations=[...twin.locations,...twin.selections.filter(s=>s.matchMethod==='unmatched').map(s=>s.location)]
   for(const location of locations.filter(l=>l.name!=='Unnamed campus building')) {
@@ -96,4 +96,42 @@ test('all corrected campus landmarks have safe spawn positions on the real OSM c
   const lower=findWalkSpawn(sports.coordinates,actual), upper=findWalkSpawn(cafe.coordinates,actual)
   close(terrainHeightAt(actual.terrain,lower.x,lower.z),0)
   assert.ok(terrainHeightAt(actual.terrain,upper.x,upper.z)>7)
+})
+
+const tree=(extra={})=>({x:0,y:0,z:0,scale:1,rotation:0,palm:false,shade:0,...extra})
+test('rendered tree trunks stay solid on the ground and during a jump, including leaned palms',()=> {
+  for(const palm of [false,true]) {
+    const wooded=createWalkWorld([],world.boundary,flat,[tree({palm})])
+    assert.equal(isWalkable({x:.6,z:0},wooded),false)
+    assert.equal(isWalkable({x:.6,z:0},wooded,.42,.65),false)
+    for(const y of [0,.65]) {
+      const next=stepWalking({x:-1.1,z:0},{x:1,z:0},8,.1,wooded,y)
+      assert.ok(next.x<-.85);assert.ok(isWalkable(next,wooded,.42,y))
+    }
+    const spawn=findWalkSpawn({x:0,z:0},wooded);assert.ok(spawn);assert.ok(isWalkable(spawn,wooded,3))
+  }
+})
+test('tree colliders work across negative bucket boundaries and permit sliding around trunks',()=> {
+  const wooded=createWalkWorld([],world.boundary,flat,[tree({x:-8,z:-8})])
+  assert.equal(isWalkable({x:-7.5,z:-8},wooded),false)
+  const start={x:-9,z:-8},next=stepWalking(start,{x:1,z:1},8,.1,wooded,.4)
+  assert.ok(next.z>start.z+.2);assert.ok(isWalkable(next,wooded,.42,.4))
+})
+test('low foliage permits ground walking but caps airborne headroom; cameras can see above crowns',()=> {
+  const wooded=createWalkWorld([],world.boundary,flat,[tree({scale:.8})]),p={x:.9,z:0}
+  assert.equal(isWalkable(p,wooded),true)
+  assert.equal(isWalkable(p,wooded,.42,.65),false)
+  assert.ok(treeCeilingAt(p,wooded)<2.76)
+  assert.ok(cameraBoomFraction({x:-3,y:3,z:0},{x:3,y:3,z:0},wooded)<1)
+  assert.ok(cameraBoomFraction({x:-3,y:1,z:0},{x:3,y:1,z:0},wooded)<1)
+  assert.equal(cameraBoomFraction({x:-3,y:10,z:0},{x:3,y:10,z:0},wooded),1)
+})
+test('airborne sweeps cannot bypass thin building walls',()=> {
+  const thin=createWalkWorld([building(ring(0,-10,.05,10))],world.boundary,flat)
+  const next=stepWalking({x:-.6,z:0},{x:1,z:0},8,.1,thin,.69)
+  assert.ok(next.x<-.42)
+})
+test('every tree in the real campus has a solid trunk and all landmark spawns avoid vegetation',()=> {
+  assert.ok(twin.trees.length>500)
+  for(const tree of twin.trees) assert.equal(isWalkable(tree,actual),false)
 })
