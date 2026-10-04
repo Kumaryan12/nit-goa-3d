@@ -11,7 +11,7 @@ The app runs as one Node 24 service on Render: the landing page, profiles, share
 - Real hosted Google sign-in completed and campus admission succeeded. Authenticated football joined with one player; OAT admission showed 1 / 24 visitors. Independent-account play and voice transmission still require rehearsal.
 - Firebase and moderation keys uploaded as private runtime files. Neither is in Git, browser code or the Docker image.
 - `/readyz` and the landing page return 200; anonymous admission/crowd requests are denied, and credential file URLs return 404.
-- Both GitHub verification jobs pass; 246 tests pass and the production dependency audit reports zero vulnerabilities.
+- Both GitHub verification jobs pass; 271 tests pass and the production dependency audit reports zero vulnerabilities.
 
 ## Provisioned Firebase project
 
@@ -90,4 +90,4 @@ Open `/admin`, then Crowd desk, confirm the same Google account, and enroll an a
 - Audio uploads are temporary: 12 MB each, four retained files. Their random links can be shared while active. Restarts clear music, queues and game state.
 - Schedule Firestore backups, monitor provider quotas/errors, and review moderation logs. The repository does not claim a completed independent security audit or production load test.
 
-Shared-campus verification: `tests/campusPresence.test.mjs` exercises two independent socket clients, movement and text delivery, nearby isolation, verified profile metadata, duplicate-account denial, full-room queue promotion, and audited owner moderation. These test identities replace Google verification only inside the test harness; production still uses Firebase verification and the pinned owner policy. Rehearse with two independent Google accounts on the hosted service before a public event.
+Shared-campus verification: `tests/campusPresence.test.mjs` exercises two independent socket clients, movement and text delivery, nearby isolation, verified profile metadata, duplicate-account denial, full-room queue promotion, audited owner moderation, and startup using the Docker runtime files without browser-only data modules. These test identities replace Google verification only inside the test harness; production still uses Firebase verification and the pinned owner policy. Rehearse with two independent Google accounts on the hosted service before a public event.

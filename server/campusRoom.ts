@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { gpsToLocal, validClosedRing } from '../src/lib/geo.ts'
+import { gpsToLocal, localToGps, pointInRing, validClosedRing } from '../src/lib/geo.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
-import { pointInCampus } from '../src/lib/roads.ts'
 import { PROFILE_COLORS } from '../src/lib/profile.ts'
 import { CAMPUS_CAPACITY, campusName, campusHandle, chatText, canHearNearby, parseCampusPose } from '../src/lib/campusProtocol.ts'
 import type { CampusPerson, CampusSnapshot, CampusChat, CampusActivity } from '../src/lib/campusProtocol.ts'
@@ -19,6 +18,7 @@ export function publishedCampusBoundary(): LocalCoordinate[] {
 }
 export function createCampusRoom(boundary: LocalCoordinate[]) {
   if (boundary.length < 4) throw new Error('Campus presence requires a closed boundary.')
+  const region = boundary.map(localToGps)
   const members = new Map<string, { person: CampusPerson; poseAt: number; spawnAt: number }>()
   const chatLimits = new Map<string, number[]>(), history: CampusChat[] = []
   let sequence = 0
@@ -41,7 +41,7 @@ export function createCampusRoom(boundary: LocalCoordinate[]) {
     removeMessages(id: string) { for (let i = history.length - 1; i >= 0; i--) if (history[i].sender === id) history.splice(i, 1) },
     pose(id: string, input: unknown, activity: unknown, now = Date.now()) {
       const member = members.get(id), pose = parseCampusPose(input)
-      if (!member || !pose || !['walk', 'overview', 'football', 'concert'].includes(activity as string) || !pointInCampus(pose, boundary) || now - member.poseAt < 70) return false
+      if (!member || !pose || !['walk', 'overview', 'football', 'concert'].includes(activity as string) || !pointInRing(localToGps(pose), region) || now - member.poseAt < 70) return false
       const previous = member.person.pose
       const relocated = !previous || previous.epoch !== pose.epoch
       if (relocated && now - member.spawnAt < 1000) return false

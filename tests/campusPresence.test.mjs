@@ -2,6 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
+import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { WebSocket } from 'ws'
 import { CAMPUS_CAPACITY, canHearNearby, chatText, parseCampusChat, parseCampusPose, parseCampusSnapshot } from '../src/lib/campusProtocol.ts'
 import { createCampusRoom, publishedCampusBoundary } from '../server/campusRoom.ts'
@@ -111,6 +115,19 @@ test('published campus boundary is usable and rejects points outside the actual 
   const actual = publishedCampusBoundary(), room = createCampusRoom(actual); room.add(identity('alice'))
   assert.ok(actual.length >= 4)
   assert.equal(room.pose('alice', pose({ x: 1100, z: 1100 }), 'walk', 1000), false)
+})
+
+test('presence starts using the Docker runtime files without browser-only data modules', () => {
+  const runtime = mkdtempSync(join(tmpdir(), 'nitg-presence-runtime-'))
+  try {
+    writeFileSync(join(runtime, 'package.json'), '{"type":"module"}')
+    cpSync('server', join(runtime, 'server'), { recursive: true })
+    mkdirSync(join(runtime, 'src'), { recursive: true }); cpSync('src/lib', join(runtime, 'src/lib'), { recursive: true })
+    mkdirSync(join(runtime, 'dist/map'), { recursive: true }); cpSync('public/map/nit-goa-campus.json', join(runtime, 'dist/map/nit-goa-campus.json'))
+    symlinkSync(resolve('node_modules'), join(runtime, 'node_modules'), 'dir')
+    const result = spawnSync(process.execPath, ['--experimental-strip-types', '--input-type=module', '-e', "import { EventEmitter } from 'node:events'; import { attachCampusServer } from './server/campusServer.ts'; const campus = attachCampusServer(new EventEmitter(), undefined, async () => ({ id: 'test', name: 'Test', role: 'member', expiresAt: Date.now() + 60000 })); campus.close();"], { cwd: runtime, encoding: 'utf8', timeout: 10000 })
+    assert.equal(result.status, 0, result.stderr)
+  } finally { rmSync(runtime, { recursive: true, force: true }) }
 })
 
 const waitFor = async (condition, timeout = 6000) => { const end = Date.now() + timeout; while (Date.now() < end) { const value = condition(); if (value) return value; await new Promise(resolve => setTimeout(resolve, 15)) } throw new Error('Timed out waiting for shared campus') }
