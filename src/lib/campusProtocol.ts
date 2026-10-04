@@ -44,5 +44,5 @@ export function parseCampusChat(value: unknown): CampusChat | null {
   return { type: 'chat', id: m.id, sender: m.sender, name: m.name, scope: m.scope, text: m.text, time: m.time }
 }
 export function canHearNearby(a: CampusPose | null, b: CampusPose | null) {
-  return !!(a?.visible && b?.visible && a.space === b.space && Math.abs(a.y - b.y) < 3 && Math.hypot(a.x - b.x, a.z - b.z) <= NEARBY_CHAT_RADIUS)
+  return !!(a?.visible && b?.visible && a.space === b.space && Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) <= NEARBY_CHAT_RADIUS)
 }
