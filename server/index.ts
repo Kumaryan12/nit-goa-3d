@@ -11,7 +11,7 @@ import { createReadiness } from './readiness.ts'
 import { createCrowdAPI } from './crowdApi.ts'
 const project = firebaseProject(),
   production = process.env.NODE_ENV === 'production'
-const site = process.env.SITE_URL
+const site = process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL
 if (production && (!project || !site || !/^https:\/\/[^/]+\/?$/.test(site)))
   throw new Error(
     'Production requires Firebase configuration and an HTTPS SITE_URL. See DEPLOYMENT.md.',

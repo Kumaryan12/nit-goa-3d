@@ -16,8 +16,6 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
-      - key: SITE_URL
-        sync: false
       - key: VITE_FIREBASE_API_KEY
         sync: false
       - key: VITE_FIREBASE_AUTH_DOMAIN
@@ -28,9 +26,9 @@ services:
         value: 1:830799515806:web:2ba1ce8264601a6907ab8f
       - key: FIREBASE_PROJECT_ID
         value: nitg-explored-2026
-      - key: FIREBASE_SERVICE_ACCOUNT
-        sync: false
-      - key: MODERATOR_SECRET_KEY
-        generateValue: true
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/firebase-admin.json
+      - key: MODERATOR_SECRET_KEY_FILE
+        value: /etc/secrets/moderator-secret.key
       - key: VITE_OVERPASS_ENDPOINT
         value: https://overpass-api.de/api/interpreter

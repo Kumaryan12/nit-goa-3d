@@ -1,12 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Secret, TOTP } from 'otpauth'
 import { fakeFirestore } from './firestoreFake.mjs'
 import { createProfileStore } from '../server/profileStore.ts'
 import {
   createModeratorService,
   createModerationStore,
+  moderatorKey,
 } from '../server/moderation.ts'
 import { firebaseProject, firebaseAdmin } from '../server/firebaseAdmin.ts'
 const now = Date.now(),
@@ -33,6 +37,20 @@ const make = () =>
     'profiles/studentUID': profile,
     'campusMembers/studentUID': { role: 'member', status: 'active' },
   })
+test('moderator keys load from runtime files and inaccessible files fail without exposing their path', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'campus-key-'))
+  try {
+    const path = join(dir, 'moderator-secret.key'), key = randomBytes(32).toString('base64')
+    writeFileSync(path, key + '\n', { mode: 0o600 })
+    assert.equal(moderatorKey({ MODERATOR_SECRET_KEY_FILE: path }), key)
+    assert.equal(moderatorKey({ MODERATOR_SECRET_KEY: key, MODERATOR_SECRET_KEY_FILE: 'missing' }), key)
+    assert.throws(() => moderatorKey({ MODERATOR_SECRET_KEY_FILE: join(dir, 'missing') }), /^Error: Moderator verification is not configured\.$/)
+    const { db } = make()
+    assert.throws(() => createModeratorService(db, 'invalid'), /not configured/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
 test('profiles are private by default; publish, change handle and unpublish remove old public records', async () => {
   const { db, data } = make(),
     store = createProfileStore(db)

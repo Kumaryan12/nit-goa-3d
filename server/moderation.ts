@@ -8,12 +8,23 @@ import {
 import type { Firestore } from 'firebase-admin/firestore'
 import { Secret, TOTP } from 'otpauth'
 import QRCode from 'qrcode'
+import { readFileSync } from 'node:fs'
 import type { CampusIdentity } from './access.ts'
 import type { CampusProfile } from '../src/lib/profile.ts'
 
+export function moderatorKey(env: NodeJS.ProcessEnv = process.env) {
+  if (env.MODERATOR_SECRET_KEY) return env.MODERATOR_SECRET_KEY
+  if (!env.MODERATOR_SECRET_KEY_FILE) return undefined
+  try {
+    return readFileSync(env.MODERATOR_SECRET_KEY_FILE, 'utf8').trim()
+  } catch {
+    throw new Error('Moderator verification is not configured.')
+  }
+}
+
 export function createModeratorService(
   db: Firestore,
-  key: string | undefined = process.env.MODERATOR_SECRET_KEY,
+  key: string | undefined = moderatorKey(),
   clock = Date.now,
 ) {
   const bytes = Buffer.from(key || '', 'base64')

@@ -14,3 +14,5 @@ tests
 docs
 
 .secrets
+firebase-admin.json
+moderator-secret.key

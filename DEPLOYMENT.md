@@ -13,26 +13,26 @@ The app runs as one Node 24 service on Render: the landing page, profiles, authe
 - Localhost and `127.0.0.1` are authorized for local sign-in testing. Add the actual Render hostname before testing hosted sign-in.
 - Billing is not attached. No photo-storage bucket is provisioned. The gallery remains an explicit read-only illustration demo.
 
-## Runtime permissions awaiting approval
+## Runtime permissions
 
-A dedicated identity exists: `campus-runtime@nitg-explored-2026.iam.gserviceaccount.com`. No application roles or private key have been granted/created yet. Automatic approval review rejected the attempted project-wide database permission because its exact recipient, role and scope were not explicitly approved.
+The dedicated identity is `campus-runtime@nitg-explored-2026.iam.gserviceaccount.com`. The user explicitly approved the following roles and private key setup after automatic permission review required their exact scope. Both roles are now applied, and live SDK checks verified Firestore access and Firebase account read permissions. The local key is held in ignored `.secrets/firebase-admin.json` with owner-only directory/file permissions (700/600).
 
-For this app's runtime only, the proposed project-level roles are:
+For this app's runtime only, the approved project-level roles are:
 
 | Role | Purpose |
 | --- | --- |
 | `roles/datastore.user` | Read and write this project's Firestore profiles, protected memberships, public profile copies, handle registry, authenticator records and audit logs |
 | `roles/firebaseauth.viewer` | Read Firebase user status for verified email, disabled-account and revoked-token checks |
 
-These roles give the runtime access to private campus data and are server privileges. They are not granted to visitors or stored in the browser. After approval, create a service-account JSON key for Render, store it only in Render's secret environment variable `FIREBASE_SERVICE_ACCOUNT`, and keep any local copy in ignored `.secrets/` with owner-only permissions. Never commit it or put it under `VITE_*`. Rotate/revoke the key in IAM if compromised. Prefer workload identity over long-lived keys if the selected host later supports it.
+These roles give the runtime access to private campus data and are server privileges. They are not granted to visitors or stored in the browser. Store the dedicated service-account JSON key as Render's private runtime file `firebase-admin.json`, accessed through `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-admin.json`, and keep any local copy in ignored `.secrets/` with owner-only permissions. Never commit it or put it under `VITE_*`. Rotate/revoke the key in IAM if compromised. Prefer workload identity over long-lived keys if the selected host later supports it.
 
-The checked-in deployment is concrete, but cannot pass `/readyz` or admit signed-in users until runtime permissions and credentials are available.
+The checked-in deployment requires the runtime secret in Render before `/readyz` can pass. Local Google sign-in and campus admission have succeeded; hosted sign-in still requires the Render domain and deployment.
 
 ## Render setup
 
 1. Sign in to [Render](https://dashboard.render.com). Connect the campus repository, use the `deploy/firebase-community` branch, and create a Blueprint from `render.yaml` (or a Docker Web Service with the same settings).
-2. Provide `VITE_FIREBASE_API_KEY` from local `.env.local` and the private runtime JSON through secret settings. Render automatically generates the 32-byte base64 `MODERATOR_SECRET_KEY`. Preserve that key across deployments: replacing it makes existing authenticator records unreadable and invalidates tickets.
-3. Set `SITE_URL` to the exact assigned HTTPS origin, such as `https://YOUR-SERVICE.onrender.com`. This is a runtime setting, without any path or wildcard. Public `VITE_FIREBASE_*` settings must be present while Docker builds; the Dockerfile declares their build arguments.
+2. Provide `VITE_FIREBASE_API_KEY` from local `.env.local`. Upload `firebase-admin.json` and `moderator-secret.key` as Render secret files. The latter contains 32 random bytes encoded as base64 and is read through `MODERATOR_SECRET_KEY_FILE`. Both filenames are excluded from the Docker build context. Preserve the moderation key across deployments: replacing it makes existing authenticator records unreadable and invalidates tickets.
+3. The server defaults to Render's assigned HTTPS origin through `RENDER_EXTERNAL_URL`. For a custom domain, set `SITE_URL` to its exact HTTPS origin, without any path or wildcard. Public `VITE_FIREBASE_*` settings must be present while Docker builds; the Dockerfile declares their build arguments.
 4. In Firebase Authentication → Settings → Authorized domains, add the exact assigned Render hostname. Keep `VITE_FIREBASE_AUTH_DOMAIN=nitg-explored-2026.firebaseapp.com` unless explicitly configuring a custom authentication domain.
 5. Build/deploy and check `/healthz` and `/readyz`. Readiness tests Firestore access and returns 503 while the database/credentials are unavailable. Never change the readiness check to bypass missing permissions.
 6. Complete a real Google sign-in, create a profile, test public/private switching, then exercise live rooms with two independent Google accounts.
