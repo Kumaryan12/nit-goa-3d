@@ -39,7 +39,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (!snapshot || (session.current.snapshot && snapshot.sequence <= session.current.snapshot.sequence)) return
       session.current.snapshot = snapshot
       // Per-frame poses stay in a ref; names/activity update React only as needed.
-      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.name, p.handle, p.color, p.activity, p.pose?.space, p.pose?.visible]))
+      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.name, p.handle, p.color, p.activity, p.pose?.space, p.pose?.visible, p.pose?.vehicle]))
       if (key !== rosterKey) { rosterKey = key; setPeople(snapshot.people) }
     }
     ws.onerror = () => { if (active) setError('The live connection was interrupted. Rejoin to try again.') }

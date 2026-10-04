@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { BoxGeometry, CapsuleGeometry, Euler, Matrix4, Quaternion, SphereGeometry, Vector3 } from 'three'
 import type { Group } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { avatarPose, motionDelta } from '../lib/avatarMotion'
+import { avatarPose, motionDelta, ridingPose } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
 
 type Triple = [number, number, number]
@@ -56,7 +56,7 @@ export default function StudentAvatar({ motion, jersey = '#277c77' }: { motion: 
     speed.current += (actualSpeed - speed.current) * (1 - Math.exp(-dt * 14))
     if ((state.kick ?? 0) !== lastKick.current) { lastKick.current = state.kick ?? 0; kickTime.current = .45 }
     kickTime.current = Math.max(0, kickTime.current - dt)
-    const pose = avatarPose(state.phase, speed.current, !!state.running, clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0, !!state.airborne)
+    const pose = state.vehicle && state.vehicle !== 'walk' ? ridingPose(state.vehicle, state.phase, speed.current) : avatarPose(state.phase, speed.current, !!state.running, clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0, !!state.airborne)
     ;[leftHip, rightHip].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.hips[i] })
     ;[leftKnee, rightKnee].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.knees[i] })
     ;[leftFoot, rightFoot].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.ankles[i] })

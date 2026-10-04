@@ -14,9 +14,11 @@ import { LAMP_POLE_RADIUS } from './nightLighting.ts'
 import type { CampusLamp } from './nightLighting.ts'
 import { AVATAR_HEIGHT } from './avatarJump.ts'
 
+import type { TransportMode } from './vehicles.ts'
+
 export type ExplorerView = 'overview' | 'walk'
-export interface WalkInput { forward: number; side: number; turn: number; running: boolean; jump?: boolean; action?: HostelAction }
-export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string; canJump?: boolean; canEnterHostel?: boolean; canEnterGyan?: boolean; interior?: { kind?: 'classroom'; name?: string; levels?: number; floor: number; room: string | null; canGoUp: boolean; canGoDown: boolean; stairLowFloor: number | null } }
+export interface WalkInput { forward: number; side: number; turn: number; running: boolean; jump?: boolean; brake?: boolean; vehicle?: TransportMode; action?: HostelAction }
+export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string; vehicle?: TransportMode; speed?: number; rideMessage?: string; canRide?: boolean; canJump?: boolean; canEnterHostel?: boolean; canEnterGyan?: boolean; interior?: { kind?: 'classroom'; name?: string; levels?: number; floor: number; room: string | null; canGoUp: boolean; canGoDown: boolean; stairLowFloor: number | null } }
 export interface WalkSpawnRequest { sequence: number; locationId: string; enterHostel?: boolean; enterGyan?: boolean; football?: boolean }
 interface Collider { id: string; outer: LocalCoordinate[]; holes: LocalCoordinate[][]; minX: number; maxX: number; minZ: number; maxZ: number; base: number; height: number }
 export interface WalkWorld { boundary: LocalCoordinate[]; buildings: Collider[]; terrain: TerrainModel; trees: Map<string, TreeInstance[]>; lamps?: CampusLamp[] }

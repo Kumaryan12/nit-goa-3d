@@ -4,7 +4,7 @@ export const CAMPUS_CAPACITY = 32
 export const NEARBY_CHAT_RADIUS = 35
 export const CAMPUS_COLORS = { forest: '#277c77', clay: '#ad684c', ocean: '#388fc1', plum: '#866086' }
 export type CampusActivity = 'walk' | 'overview' | 'football' | 'concert'
-export interface CampusPose { x: number; y: number; z: number; yaw: number; moving: boolean; running: boolean; active: boolean; visible: boolean; space: string; epoch: number }
+export interface CampusPose { vehicle?: 'walk' | 'bicycle' | 'car'; x: number; y: number; z: number; yaw: number; moving: boolean; running: boolean; active: boolean; visible: boolean; space: string; epoch: number }
 export interface CampusPerson { id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
 export interface CampusSnapshot { type: 'campus-state'; sequence: number; serverTime: number; people: CampusPerson[] }
 export interface CampusChat { type: 'chat'; id: string; sender: string; name: string; scope: 'campus' | 'nearby'; text: string; time: number }
@@ -22,7 +22,8 @@ export function parseCampusPose(value: unknown): CampusPose | null {
   if (!value || typeof value !== 'object') return null
   const p = value as CampusPose
   if (![p.x, p.z].every(v => finite(v, 1200)) || !finite(p.y, 64) || !finite(p.yaw, Math.PI + .001) || ![p.moving, p.running, p.active, p.visible].every(v => typeof v === 'boolean') || !Number.isSafeInteger(p.epoch) || p.epoch < 0 || p.epoch > 1e9 || typeof p.space !== 'string' || !/^(outdoors|hostel:[0-4]|gyan:[0-2])$/.test(p.space)) return null
-  return { x: p.x, y: p.y, z: p.z, yaw: p.yaw, moving: p.moving, running: p.running, active: p.active, visible: p.visible, space: p.space, epoch: p.epoch }
+  if (p.vehicle !== undefined && (!['walk', 'bicycle', 'car'].includes(p.vehicle) || p.vehicle !== 'walk' && p.space !== 'outdoors')) return null
+  return { ...(p.vehicle === undefined ? {} : { vehicle: p.vehicle }), x: p.x, y: p.y, z: p.z, yaw: p.yaw, moving: p.moving, running: p.running, active: p.active, visible: p.visible, space: p.space, epoch: p.epoch }
 }
 export function parseCampusSnapshot(value: unknown): CampusSnapshot | null {
   if (!value || typeof value !== 'object') return null

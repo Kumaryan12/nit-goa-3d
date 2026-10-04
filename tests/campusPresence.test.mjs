@@ -173,6 +173,18 @@ test('two signed-in visitors receive walking positions, chat, public profiles an
   assert.equal(campus.room.history().length, 0)
 })
 
+test('authenticated peers see bicycle, car and dismount updates over the live connection', async t => {
+  const { peer } = await campusFixture(t), a = peer('alice'), b = peer('bob')
+  await waitFor(() => a.messages.some(m => m.type === 'campus-welcome') && b.messages.some(m => m.type === 'campus-welcome'))
+  for (const vehicle of ['bicycle', 'car', 'walk']) {
+    b.messages.length = 0
+    a.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle }) }))
+    const shared = await waitFor(() => b.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'alice' && p.pose?.vehicle === vehicle)))
+    assert.equal(parseCampusSnapshot(shared).people.find(p => p.id === 'alice').pose.vehicle, vehicle)
+    await new Promise(resolve => setTimeout(resolve, 90))
+  }
+})
+
 test('anonymous, wrong-origin, invalid-account and duplicate-account campus joins cannot receive shared state', async t => {
   const { peer } = await campusFixture(t), a = peer('alice')
   await waitFor(() => a.messages.some(m => m.type === 'campus-welcome'))

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import type { Group } from 'three'
@@ -8,7 +8,9 @@ import { cameraBoomFraction, createWalkWorld, emptyWalkInput, findWalkSpawn, isW
 import type { WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
 import { footballToLocal, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch } from '../lib/football'
-import StudentAvatar from './StudentAvatar'
+import CampusVehicle from './CampusVehicle'
+import { advanceVehicle, findVehicleMount, findVehicleDismount, freshVehicle } from '../lib/vehicles'
+import type { TransportMode } from '../lib/vehicles'
 import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, stridePhase } from '../lib/avatarMotion'
 import { advanceJump, freshJump } from '../lib/avatarJump'
 import type { AvatarMotion } from '../lib/avatarMotion'
@@ -27,6 +29,8 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
   twin: DigitalTwin; paused: boolean; input: React.RefObject<WalkInput>; position: React.RefObject<LocalCoordinate | null>; spawn: WalkSpawnRequest;
   onStatus: (status: WalkStatus) => void; onInspect: (id: string) => void
 }) {
+  const [rideMode, setRideMode] = useState<TransportMode>('walk')
+  const ride = useRef<TransportMode>('walk'), vehicle = useRef(freshVehicle()), rideMessage = useRef<string | undefined>(undefined)
   const jump = useRef(freshJump())
   const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
   const campusEpoch = useRef((campusPose.current?.epoch ?? 0) + 1)
@@ -43,13 +47,13 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     nearest.current = place && place.distance <= 25 ? place.id : null
     const room = pose && plan ? roomAtPoint(plan, p) : null
     const status: WalkStatus = {
-      position: { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving, blocked, error, canJump: jump.current.grounded && !journey.current,
-      canEnterHostel: jump.current.grounded && !pose && !!hostelPlan && pointDistance(p, hostelPlan.entrance.outside) <= 5,
-      canEnterGyan: jump.current.grounded && !pose && !!gyanPlan && pointDistance(p, gyanPlan.entrance.outside) <= 5,
+      position: { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving, blocked, error, vehicle: ride.current, speed: Math.abs(vehicle.current.speed), rideMessage: rideMessage.current, canRide: !pose && !footballPitch && jump.current.grounded, canJump: ride.current === 'walk' && jump.current.grounded && !journey.current,
+      canEnterHostel: ride.current === 'walk' && jump.current.grounded && !pose && !!hostelPlan && pointDistance(p, hostelPlan.entrance.outside) <= 5,
+      canEnterGyan: ride.current === 'walk' && jump.current.grounded && !pose && !!gyanPlan && pointDistance(p, gyanPlan.entrance.outside) <= 5,
       interior: pose && plan ? { kind: plan.kind, name: plan.name, levels: plan.levels, floor: pose.floor, room: room ? interiorRoomLabel(plan, pose.floor, room.id) : null, canGoUp: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, true), canGoDown: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, false), stairLowFloor: journey.current?.lowFloor ?? null } : undefined,
     }
     actionContext.current = status; onStatus(status)
-  }, [hostelPlan, gyanPlan, activePlan, interiorPose, position, locations, world, onStatus])
+  }, [hostelPlan, gyanPlan, activePlan, interiorPose, position, locations, world, onStatus, footballPitch])
   useEffect(() => {
     const anchor = locations.find(location => location.id === spawn.locationId) ?? twin.locations.find(location => location.id === 'main-entrance')!
     const changed = processedSpawn.current !== spawn.sequence, pose = interiorPose.current, plan = activePlan()
@@ -66,6 +70,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     } else if (pose && !validInside) interiorPose.current = null
     // Switching modes during a stair walk returns to a safe same-floor landing.
     if (validInside && position.current && plan && pointDistance(position.current, plan.stairs.start) + pointDistance(position.current, plan.stairs.end) < plan.stairs.length + .3) position.current = stairLanding(plan, pose!.floor < plan.levels - 1)
+    ride.current = 'walk'; setRideMode('walk'); vehicle.current = freshVehicle(); rideMessage.current = undefined
     journey.current = null; jump.current = freshJump(); campusEpoch.current++; locomotion.current = freshLocomotion(); motion.current = { phase: 0, moving: false, speed: 0, running: false }; processedSpawn.current = spawn.sequence
     if (avatar.current) avatar.current.visible = !!position.current
     nearest.current = null
@@ -91,7 +96,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
   }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, gyanPlan, activePlan, onStatus, publish, footballPitch, gl])
   const act = useCallback((action: HostelAction) => {
     const plan = action==='enter-gyan'?gyanPlan:action==='enter-hostel'?hostelPlan:activePlan(), p = position.current, pose = interiorPose.current
-    if (!plan || !p || journey.current || !jump.current.grounded) return
+    if (ride.current !== 'walk' || !plan || !p || journey.current || !jump.current.grounded) return
     if ((action === 'enter-hostel'||action==='enter-gyan') && !pose && pointDistance(p, plan.entrance.outside) <= 5) {
       interiorPose.current = { buildingId: plan.buildingId, floor: 0 }; position.current = { ...plan.entrance.inside }
       yaw.current = Math.atan2(-plan.entrance.inward.x, -plan.entrance.inward.z)
@@ -119,7 +124,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     return () => { camera.near = near; if ('fov' in camera && typeof fov === 'number') camera.fov = fov; camera.updateProjectionMatrix() }
   }, [camera])
   useEffect(() => {
-    const clear = () => { keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current } }
+    const clear = () => { keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); vehicle.current.speed = 0; lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current } }
     if (paused) clear()
     const down = (event: KeyboardEvent) => {
       if (paused || editingText() || event.metaKey || event.ctrlKey || event.altKey) return
@@ -127,10 +132,12 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
       if ((event.code === 'Space' || event.code === 'KeyJ') && !(event.code === 'Space' && event.target instanceof HTMLElement && event.target.closest('button'))) {
         event.preventDefault()
         if (!event.repeat) {
-          if (event.code === 'Space' && footballPitch && footballLive) footballControls.current.kick++
+          if (ride.current !== 'walk') { if (event.code === 'Space') keys.current.add('Space') }
+          else if (event.code === 'Space' && footballPitch && footballLive) footballControls.current.kick++
           else input.current.jump = true
         }
       }
+      if (event.code === 'KeyF' && !event.repeat && ride.current !== 'walk') { event.preventDefault(); input.current.vehicle = 'walk' }
       if (event.code === 'KeyE' && !event.repeat) {
         event.preventDefault(); clear()
         const context = actionContext.current
@@ -171,7 +178,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     const side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
     const turn = allowed ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0
     if (allowed) {
-      const rotation = Math.max(-1, Math.min(1, turn)) * delta * WALK_CONTROLS.turnSpeed
+      const rotation = (ride.current === 'walk' ? Math.max(-1, Math.min(1, turn)) : 0) * delta * WALK_CONTROLS.turnSpeed
       yaw.current += rotation; lookTarget.current.yaw += rotation
       yaw.current = smoothLookAngle(yaw.current, lookTarget.current.yaw, delta)
       const blend = 1 - Math.exp(-delta * 12)
@@ -181,13 +188,44 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     const direction = { x: -Math.sin(yaw.current) * forward + Math.cos(yaw.current) * side, z: -Math.cos(yaw.current) * forward - Math.sin(yaw.current) * side }
     if (input.current.action) { const action = input.current.action; delete input.current.action; if (allowed) act(action) }
     const requestedJump = !!input.current.jump; delete input.current.jump
+    if (input.current.vehicle) {
+      const requested = input.current.vehicle; delete input.current.vehicle
+      if (allowed && requested !== ride.current) {
+        rideMessage.current = undefined
+        if (requested === 'walk' && ride.current !== 'walk') {
+          const dismount = findVehicleDismount(position.current, vehicle.current.yaw, ride.current, world)
+          if (dismount) { position.current = dismount; ride.current = 'walk'; setRideMode('walk'); vehicle.current.speed = 0; locomotion.current = freshLocomotion(); jump.current = freshJump() }
+          else rideMessage.current = 'Move to open space before dismounting.'
+        } else if (requested !== 'walk' && !interiorPose.current && !footballPitch && jump.current.grounded) {
+          const mount = findVehicleMount(position.current, avatar.current.rotation.y, requested, world, twin.roads)
+          if (mount) { position.current = mount.point; ride.current = requested; setRideMode(requested); vehicle.current = freshVehicle(mount.yaw); avatar.current.rotation.y = mount.yaw; yaw.current = mount.yaw; lookTarget.current.yaw = mount.yaw; jump.current = freshJump(); locomotion.current = freshLocomotion(); campusEpoch.current++ }
+          else rideMessage.current = requested === 'car' ? 'Move closer to a wider campus road to take the car.' : 'Move closer to an open road or path to take the bicycle.'
+        } else rideMessage.current = 'Vehicles are available outdoors, outside football, while standing on the ground.'
+        if (ride.current === requested && !rideMessage.current) { gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }) }
+        publish()
+      }
+    }
     const before = position.current, pose = interiorPose.current, plan = activePlan()
     // Room admission can relocate a football player between render frames.
     if (Math.hypot(before.x - avatar.current.position.x, before.z - avatar.current.position.z) > 2) { campusEpoch.current++; jump.current = freshJump() }
     const running = !!(allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running))
     const travel = advanceLocomotion(locomotion.current, direction, walkSpeed(running, !!pose), delta, allowed && !journey.current)
+    let vehicleBlocked = false
     let next = before, surfaceY = walkSurfaceHeightAt(twin.terrain, before.x, before.z)
-    if (pose && plan) {
+    if (ride.current !== 'walk') {
+      const result = advanceVehicle(vehicle.current, before, ride.current, forward, side - turn, !!input.current.brake || !!key('Space'), delta, world, twin.roads, allowed)
+      next = result.point; vehicleBlocked = result.blocked
+      surfaceY = walkSurfaceHeightAt(twin.terrain, next.x, next.z)
+      avatar.current.rotation.order = 'YXZ'
+      avatar.current.rotation.y = vehicle.current.yaw
+      const difference = Math.atan2(Math.sin(vehicle.current.yaw - yaw.current), Math.cos(vehicle.current.yaw - yaw.current))
+      yaw.current += difference * (1 - Math.exp(-delta * 3)); lookTarget.current.yaw = yaw.current
+      // Follow the slope without pitching the rider through the road surface.
+      const frontY = walkSurfaceHeightAt(twin.terrain, next.x - Math.sin(vehicle.current.yaw), next.z - Math.cos(vehicle.current.yaw))
+      const rearY = walkSurfaceHeightAt(twin.terrain, next.x + Math.sin(vehicle.current.yaw), next.z + Math.cos(vehicle.current.yaw))
+      avatar.current.rotation.x = Math.atan2(rearY - frontY, 2)
+    } else if (pose && plan) {
+      avatar.current.rotation.x = 0
       surfaceY = plan.base + pose.floor * plan.floorHeight + .14
       if (journey.current) {
         jump.current = freshJump()
@@ -201,25 +239,28 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
         }
       } else next = stepInterior(before, travel.direction, travel.speed, travel.delta, plan, jump.current.grounded ? undefined : jump.current.y ?? undefined, pose.floor)
     } else {
+      avatar.current.rotation.x = 0
       next = stepWalking(before, travel.direction, travel.speed, travel.delta, world, jump.current.grounded ? undefined : jump.current.y ?? undefined)
       surfaceY = walkSurfaceHeightAt(twin.terrain, next.x, next.z)
     }
     if (footballPitch && !pose) { const local = footballToLocal(next, footballPitch); next = footballToWorld({ x:Math.max(-44,Math.min(44,local.x)), z:Math.max(-24,Math.min(24,local.z)) }, footballPitch); surfaceY = footballPitch.elevation + .11 }
-    if (!journey.current) advanceJump(jump.current, surfaceY, delta, requestedJump, allowed, pose && plan ? interiorJumpCeiling(plan, next, pose.floor) : treeCeilingAt(next, world))
+    if (!journey.current) advanceJump(jump.current, surfaceY, delta, requestedJump && ride.current === 'walk', allowed, pose && plan ? interiorJumpCeiling(plan, next, pose.floor) : treeCeilingAt(next, world))
     const feetY = journey.current ? surfaceY : jump.current.y ?? surfaceY
     reconcileLocomotion(locomotion.current, before, next, travel)
-    const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = Math.hypot(direction.x, direction.z) > 0 && moved < .001 && !journey.current
+    const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = vehicleBlocked || Math.hypot(direction.x, direction.z) > 0 && moved < .001 && !journey.current
     footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running, active:allowed && footballLive && !pose } : null
     position.current = next
     motion.current.moving = moved > .001
     motion.current.speed = delta > 0 ? Math.min(5.5, moved / delta) : 0
-    motion.current.running = running
+    motion.current.driveSpeed = vehicle.current.speed
+    motion.current.vehicle = ride.current
+    motion.current.running = ride.current === 'walk' && running
     motion.current.paused = !allowed
     motion.current.airborne = !jump.current.grounded
     motion.current.phase = stridePhase(motion.current.phase, moved, running)
-    motion.current.turn = 0
+    motion.current.turn = ride.current === 'walk' ? 0 : -vehicle.current.steering
     avatar.current.position.set(next.x, feetY, next.z)
-    if (moved > .001) {
+    if (moved > .001 && ride.current === 'walk') {
       const heading = Math.atan2(before.x - next.x, before.z - next.z), difference = Math.atan2(Math.sin(heading - avatar.current.rotation.y), Math.cos(heading - avatar.current.rotation.y))
       const rotation = difference * (1 - Math.exp(-delta * 9))
       avatar.current.rotation.y += rotation
@@ -229,7 +270,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
       if (motion.current.kick !== undefined) avatar.current.rotation.y = yaw.current
       motion.current.kick = footballControls.current.kick
     }
-    campusPose.current = { x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
+    campusPose.current = { vehicle: ride.current, x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
     target.set(next.x, feetY + 1.35, next.z)
     const indoorFov = pose ? 75 : 60
     if ('fov' in camera && camera.fov !== indoorFov) { camera.fov = indoorFov; camera.updateProjectionMatrix() }
@@ -251,5 +292,5 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     }
   })
   useEffect(() => () => { footballControls.current.actor = null }, [footballControls])
-  return <group ref={avatar}><StudentAvatar motion={motion} jersey={footballJersey} /></group>
+  return <group ref={avatar}><CampusVehicle mode={rideMode} motion={motion} jersey={footballJersey} /></group>
 }

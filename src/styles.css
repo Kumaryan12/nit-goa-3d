@@ -517,3 +517,7 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .night-mode .minimap-road { stroke: #a6b7cb; }.night-mode .minimap-building { fill: #779f9d; stroke: #a4c4b4; }
 .night-mode .minimap-selected, .night-mode .minimap-building:hover { fill: #e9bb76; stroke: #f3d49f; }
 .night-mode button:disabled { cursor: default; }
+
+.walk-transport { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; margin: .75rem 0; }
+.walk-transport button[aria-pressed="true"] { background: var(--accent, #277c77); color: #fff; border-color: #277c77; }
+.walk-speed { font-size: .8rem; font-variant-numeric: tabular-nums; margin-left: auto; opacity: .85; }
