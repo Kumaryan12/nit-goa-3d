@@ -4,3 +4,14 @@ dist/
 .DS_Store
 .env.local
 .env.*.local
+
+# Local credentials and generated test/hosting files
+.env
+.env.*
+!.env.example
+.railway/
+playwright-report/
+test-results/
+
+.secrets/
+*debug.log

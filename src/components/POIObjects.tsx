@@ -6,8 +6,12 @@ import type { RoadFootprint } from '../types/osm'
 
 function Goal({ x }: { x: number }) {
   return <group position={[x, 0.14, 0]}>
-    {[-3.6, 3.6].map((z) => <mesh key={z} position={[0, 1.25, z]} castShadow><boxGeometry args={[0.16, 2.5, 0.16]} /><meshStandardMaterial color="#f6f2df" roughness={0.6} /></mesh>)}
-    <mesh position={[0, 2.5, 0]} castShadow><boxGeometry args={[0.16, 0.16, 7.35]} /><meshStandardMaterial color="#f6f2df" roughness={0.6} /></mesh>
+    {[-3.6, 3.6].map((z) => <mesh key={z} position={[0, 1.25, z]} castShadow><boxGeometry args={[0.16, 2.5, 0.16]} /><meshStandardMaterial color={x > 0 ? '#5cadd5' : '#d3b35a'} roughness={0.6} /></mesh>)}
+    <group position={[x > 0 ? 1.4 : -1.4, 0, 0]}>
+      {Array.from({length:15},(_,i)=><mesh key={`net-v${i}`} position={[0,1.25,-3.6+i*.514]}><boxGeometry args={[.025,2.5,.025]} /><meshStandardMaterial color="#ebe8da" transparent opacity={.55} /></mesh>)}
+      {Array.from({length:6},(_,i)=><mesh key={`net-h${i}`} position={[0,i*.5,0]}><boxGeometry args={[.025,.025,7.2]} /><meshStandardMaterial color="#ebe8da" transparent opacity={.55} /></mesh>)}
+    </group>
+    <mesh position={[0, 2.5, 0]} castShadow><boxGeometry args={[0.16, 0.16, 7.35]} /><meshStandardMaterial color={x > 0 ? '#5cadd5' : '#d3b35a'} roughness={0.6} /></mesh>
   </group>
 }
 
