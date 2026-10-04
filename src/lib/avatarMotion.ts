@@ -1,6 +1,6 @@
 import type { LocalCoordinate } from './geo.ts'
 
-export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; vehicle?: 'walk' | 'bicycle' | 'car'; driveSpeed?: number }
+export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number }
 export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0
@@ -57,7 +57,7 @@ export function joystickInput(x: number, y: number, radius: number) {
   return { forward: length ? -y / length * response : 0, side: length ? x / length * response : 0, x: length ? x / length * Math.min(radius, length) : 0, y: length ? y / length * Math.min(radius, length) : 0 }
 }
 
-export function ridingPose(kind: 'bicycle' | 'car', phase: number, speed: number) {
+export function ridingPose(kind: 'bicycle' | 'buggy', phase: number, speed: number) {
   const cycling = kind === 'bicycle', pedal = cycling ? Math.sin(phase) * Math.min(1, speed / .8) : 0
   const hips = cycling ? [.8 + pedal * .25, .8 - pedal * .25] : [1.2, 1.2]
   const knees = cycling ? [-1.25 - pedal * .35, -1.25 + pedal * .35] : [-1.4, -1.4]

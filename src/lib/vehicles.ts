@@ -5,12 +5,12 @@ import { distanceToSegment } from './terrain.ts'
 import { isWalkable, stepWalking, walkSurfaceHeightAt } from './walking.ts'
 import type { WalkWorld } from './walking.ts'
 
-export type TransportMode = 'walk' | 'bicycle' | 'car'
+export type TransportMode = 'walk' | 'bicycle' | 'buggy'
 export type VehicleKind = Exclude<TransportMode, 'walk'>
 export interface VehicleState { speed: number; yaw: number; steering: number }
 export const VEHICLES = {
   bicycle: { speed: 3.8, reverse: 0, acceleration: 1.8, brake: 5, radius: .3, halfLength: .7, wheelbase: 1.4, wheelRadius: .37 },
-  car: { speed: 5.2, reverse: 1.4, acceleration: 1.6, brake: 6, radius: .92, halfLength: .9, wheelbase: 2.1, wheelRadius: .33 },
+  buggy: { speed: 5.2, reverse: 1.4, acceleration: 1.6, brake: 6, radius: .92, halfLength: .9, wheelbase: 2.1, wheelRadius: .33 },
 } as const
 export const freshVehicle = (yaw = 0): VehicleState => ({ speed: 0, yaw, steering: 0 })
 const clamp = (n: number) => Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0
@@ -52,7 +52,7 @@ export function findVehicleMount(point: LocalCoordinate, yaw: number, kind: Vehi
   const candidates: { point: LocalCoordinate; yaw: number; distance: number }[] = []
   if (canRideAt(point, yaw, kind, world, roads)) return { point: { ...point }, yaw }
   for (const road of roads) {
-    if (kind === 'car' && road.kind !== 'road') continue
+    if (kind === 'buggy' && road.kind !== 'road') continue
     for (const path of road.paths) for (let i = 1; i < path.length; i++) {
       const a = path[i - 1], b = path[i], dx = b.x - a.x, dz = b.z - a.z, squared = dx * dx + dz * dz
       if (!squared) continue

@@ -173,16 +173,37 @@ test('two signed-in visitors receive walking positions, chat, public profiles an
   assert.equal(campus.room.history().length, 0)
 })
 
-test('authenticated peers see bicycle, car and dismount updates over the live connection', async t => {
+test('authenticated peers see bicycle, buggy and dismount updates over the live connection', async t => {
   const { peer } = await campusFixture(t), a = peer('alice'), b = peer('bob')
   await waitFor(() => a.messages.some(m => m.type === 'campus-welcome') && b.messages.some(m => m.type === 'campus-welcome'))
-  for (const vehicle of ['bicycle', 'car', 'walk']) {
+  for (const vehicle of ['bicycle', 'buggy', 'walk']) {
     b.messages.length = 0
     a.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle }) }))
     const shared = await waitFor(() => b.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'alice' && p.pose?.vehicle === vehicle)))
     assert.equal(parseCampusSnapshot(shared).people.find(p => p.id === 'alice').pose.vehicle, vehicle)
     await new Promise(resolve => setTimeout(resolve, 90))
   }
+})
+
+test('live buggy boarding follows a driver, rejects position spoofing, and frees seats on departure', async t => {
+  const { peer } = await campusFixture(t), driver = peer('alice'), rider = peer('bob')
+  await waitFor(() => driver.messages.some(m => m.type === 'campus-welcome') && rider.messages.some(m => m.type === 'campus-welcome'))
+  driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy' }) }))
+  rider.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: 1, vehicle: 'walk' }) }))
+  await waitFor(() => rider.messages.some(m => m.type === 'campus-state' && m.people.every(p => p.pose)))
+  rider.ws.send(JSON.stringify({ type: 'buggy-ride', driverId: 'alice', seat: 0, sender: 'alice' }))
+  const boarded = await waitFor(() => driver.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'bob' && p.ride)))
+  const seated = boarded.people.find(p => p.id === 'bob'); assert.equal(seated.ride.driverId, 'alice'); assert.equal(seated.ride.seat, 1)
+  await new Promise(resolve => setTimeout(resolve, 120))
+  driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', z: -.5 }) }))
+  const moved = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'bob' && p.pose?.z < -.8)))
+  assert.ok(parseCampusSnapshot(moved))
+  rider.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'walk', epoch: seated.pose.epoch, x: 100 }) }))
+  await new Promise(resolve => setTimeout(resolve, 150))
+  assert.ok(rider.messages.filter(m => m.type === 'campus-state').at(-1).people.find(p => p.id === 'bob').pose.x < 2)
+  driver.ws.close()
+  const released = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.length === 1 && !m.people[0].ride))
+  assert.equal(released.people[0].pose.vehicle, 'walk'); assert.equal(released.people[0].pose.y, 0)
 })
 
 test('anonymous, wrong-origin, invalid-account and duplicate-account campus joins cannot receive shared state', async t => {

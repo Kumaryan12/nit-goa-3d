@@ -5,6 +5,7 @@ import type { Group } from 'three'
 import StudentAvatar from './StudentAvatar'
 import type { AvatarMotion } from '../lib/avatarMotion'
 import { motionDelta } from '../lib/avatarMotion'
+import { BUGGY_SEATS } from '../lib/campusProtocol'
 import { VEHICLES } from '../lib/vehicles'
 import type { TransportMode } from '../lib/vehicles'
 
@@ -47,18 +48,22 @@ export default function CampusVehicle({ mode, motion, jersey }: { mode: Transpor
       <mesh position={[0, .96, .34]}><boxGeometry args={[.08, .05, .035]} /><meshStandardMaterial color="#ff654d" emissive="#ff4029" emissiveIntensity={.8} /></mesh>
     </group>
   </group>
-  return <group name="campus-car">
-    <mesh position={[0, .6, 0]} castShadow receiveShadow><boxGeometry args={[1.66, .52, 3.5]} /><meshStandardMaterial color="#4b9993" roughness={.55} metalness={.22} /></mesh>
-    <mesh position={[0, .93, -1.12]} castShadow><boxGeometry args={[1.6, .14, 1.16]} /><meshStandardMaterial color="#7dbab0" roughness={.5} /></mesh>
-    <mesh position={[0, .98, 1.35]} castShadow><boxGeometry args={[1.6, .22, .65]} /><meshStandardMaterial color="#7dbab0" /></mesh>
-    <group position={[.34, .23, .05]}><StudentAvatar motion={motion} jersey={jersey} /></group>
-    <mesh position={[0, 1.42, -.58]} rotation={[-.2, 0, 0]}><boxGeometry args={[1.47, .9, .03]} /><meshStandardMaterial color="#b3d7e0" transparent opacity={.24} roughness={.2} depthWrite={false} /></mesh>
-    <mesh position={[0, 1.44, .92]} rotation={[.15, 0, 0]}><boxGeometry args={[1.47, .85, .03]} /><meshStandardMaterial color="#b3d7e0" transparent opacity={.26} depthWrite={false} /></mesh>
-    <mesh position={[0, 1.96, .17]} castShadow><boxGeometry args={[1.65, .1, 1.58]} /><meshStandardMaterial color="#e4e5cf" /></mesh>
-    {[-.76, .76].flatMap(x => [-.58, .91].map(z => <Tube key={`${x}:${z}`} a={[x, .85, z]} b={[x, 1.91, z + (z < 0 ? .1 : -.06)]} radius={.045} color="#d9e1d4" />))}
+  return <group name="campus-buggy">
+    <mesh position={[0, .35, 0]} castShadow receiveShadow><boxGeometry args={[1.66, .18, 3.5]} /><meshStandardMaterial color="#31554f" roughness={.7} /></mesh>
+    <mesh position={[0, .64, -1.23]} castShadow><boxGeometry args={[1.6, .42, .9]} /><meshStandardMaterial color="#72b4a1" roughness={.55} /></mesh>
+    <mesh position={[0, .66, 1.43]} castShadow><boxGeometry args={[1.6, .38, .45]} /><meshStandardMaterial color="#72b4a1" /></mesh>
+    <group position={[BUGGY_SEATS[0].x, .23, BUGGY_SEATS[0].z]}><StudentAvatar motion={motion} jersey={jersey} /></group>
+    {[-.46, .62].map(z => <group key={z}>
+      <mesh position={[0, .74, z + .07]} castShadow><boxGeometry args={[1.4, .15, .53]} /><meshStandardMaterial color="#e5c899" roughness={.9} /></mesh>
+      <mesh position={[0, 1.02, z + .28]} castShadow><boxGeometry args={[1.4, .5, .13]} /><meshStandardMaterial color="#e5c899" roughness={.9} /></mesh>
+      <mesh position={[0, 1.02, z + .352]}><boxGeometry args={[.025, .46, .015]} /><meshStandardMaterial color="#aa865d" /></mesh>
+    </group>)}
+    <mesh position={[0, 1.34, -.95]} rotation={[-.12, 0, 0]}><boxGeometry args={[1.47, .77, .025]} /><meshStandardMaterial color="#b3d7e0" transparent opacity={.19} roughness={.2} depthWrite={false} /></mesh>
+    <mesh position={[0, 1.98, .08]} castShadow><boxGeometry args={[1.75, .12, 2.75]} /><meshStandardMaterial color="#f0e4c8" roughness={.8} /></mesh>
+    {[-.77, .77].flatMap(x => [-1.1, 1.24].map(z => <Tube key={`${x}:${z}`} a={[x, .45, z]} b={[x, 1.92, z + (z < 0 ? .1 : -.08)]} radius={.035} color="#405d57" />))}
     {[-.81, .81].flatMap(x => [-1.08, 1.08].map((z, i) => <group key={`${x}:${z}`} ref={node => { wheels.current[(x < 0 ? 0 : 2) + i] = node }} position={[x, .33, z]}><Wheel radius={.33} width={.2} car /></group>))}
-    {[-.56, .56].map(x => <group key={x}><mesh position={[x, .74, -1.76]}><boxGeometry args={[.38, .16, .035]} /><meshStandardMaterial color="#fff3ce" emissive="#fff3ce" emissiveIntensity={2} /></mesh><mesh position={[x, .74, 1.76]}><boxGeometry args={[.3, .12, .035]} /><meshStandardMaterial color="#f87157" emissive="#ff4c3b" emissiveIntensity={1.2} /></mesh></group>)}
-    <mesh position={[0, .45, -1.78]}><boxGeometry args={[1.5, .12, .05]} /><meshStandardMaterial color="#32494d" /></mesh>
-    <mesh position={[.34, 1.05, -.3]} rotation={[.7, 0, 0]}><torusGeometry args={[.16, .022, 6, 12]} /><meshStandardMaterial color="#26393d" /></mesh>
+    {[-.56, .56].map(x => <group key={x}><mesh position={[x, .7, -1.7]}><boxGeometry args={[.28, .14, .035]} /><meshStandardMaterial color="#fff3ce" emissive="#fff3ce" emissiveIntensity={2} /></mesh><mesh position={[x, .7, 1.67]}><boxGeometry args={[.22, .12, .035]} /><meshStandardMaterial color="#f87157" emissive="#ff4c3b" emissiveIntensity={1.2} /></mesh></group>)}
+    <mesh position={[0, .44, -1.78]}><boxGeometry args={[1.5, .12, .05]} /><meshStandardMaterial color="#32494d" /></mesh>
+    <mesh position={[.36, 1.08, -.83]} rotation={[.7, 0, 0]}><torusGeometry args={[.16, .022, 6, 12]} /><meshStandardMaterial color="#26393d" /></mesh>
   </group>
 }

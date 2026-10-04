@@ -22,6 +22,10 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
       try { msg = JSON.parse(bytes.toString()) } catch { return }
       if (!msg || typeof msg !== 'object') return
       if (msg.type === 'pose') room.pose(identity.id, msg.pose, msg.activity)
+      if (msg.type === 'buggy-ride') {
+        const result = room.ride(identity.id, msg.driverId)
+        send(ws, { type: 'buggy-result', ...result })
+      }
       if (msg.type === 'chat') {
         const result = room.chat(identity.id, msg.text, msg.scope)
         if ('error' in result) send(ws, { type: 'notice', message: result.error })
