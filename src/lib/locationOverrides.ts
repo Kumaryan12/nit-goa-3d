@@ -9,7 +9,8 @@ export interface CampusOverride {
 export type CampusOverrides = Record<string, CampusOverride>
 export const LOCATION_EDITS_KEY = 'nit-goa:location-edits:v1'
 export const isBuildingId = (id: string) => /^(way\/[0-9]+|relation\/[0-9]+\/[0-9]+)$/.test(id)
-const landmarkIds = new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen', 'sports-ground', 'main-entrance'])
+const landmarkIds = new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen', 'sports-ground', 'main-entrance', 'open-air-theatre'])
+export const isOpenPlace = (id: string) => ['sports-ground', 'main-entrance', 'open-air-theatre'].includes(id)
 
 // Sanitize stored/exported data without allowing unknown properties or prototype keys.
 export function validateOverrides(value: unknown): CampusOverrides {
@@ -24,19 +25,19 @@ export function validateOverrides(value: unknown): CampusOverrides {
       edit.name = data.name.trim()
     }
     if (data.coordinates !== undefined) {
-      if (!['sports-ground', 'main-entrance'].includes(id)) throw new Error('Assign buildings to an OSM footprint instead of moving real geometry.')
+      if (!isOpenPlace(id)) throw new Error('Assign buildings to an OSM footprint instead of moving real geometry.')
       const point = data.coordinates
       if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.z) || Math.max(Math.abs(point.x), Math.abs(point.z)) > 5000) throw new Error('Choose a campus position within 5 km of the map origin.')
       edit.coordinates = { x: Math.round(point.x * 100) / 100, z: Math.round(point.z * 100) / 100 }
     }
     if (data.buildingId !== undefined) {
-      if (!landmarkIds.has(id) || ['sports-ground', 'main-entrance'].includes(id) || data.buildingId !== null && !isBuildingId(data.buildingId)) throw new Error('Choose a valid OSM building footprint.')
+      if (!landmarkIds.has(id) || isOpenPlace(id) || data.buildingId !== null && !isBuildingId(data.buildingId)) throw new Error('Choose a valid OSM building footprint.')
       if (data.buildingId && claimed.has(data.buildingId)) throw new Error('Two landmarks cannot use the same building. Reset its existing assignment first.')
       if (data.buildingId) claimed.add(data.buildingId)
       edit.buildingId = data.buildingId
     }
     if (data.rotationDegrees !== undefined) {
-      if (!['sports-ground', 'main-entrance'].includes(id) || !Number.isFinite(data.rotationDegrees) || Math.abs(data.rotationDegrees) > 360) throw new Error('Rotation must be between -360 and 360 degrees.')
+      if (!isOpenPlace(id) || !Number.isFinite(data.rotationDegrees) || Math.abs(data.rotationDegrees) > 360) throw new Error('Rotation must be between -360 and 360 degrees.')
       edit.rotationDegrees = data.rotationDegrees
     }
     result[id] = edit

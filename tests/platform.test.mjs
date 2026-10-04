@@ -20,7 +20,7 @@ const roadData = { roads: extractCampusRoads(roadResponse.elements, boundary), b
 const twin = createDigitalTwin(map, roadData)
 
 test('location schema prepares every landmark for icons, height, facilities and future photo URLs', () => {
-  assert.equal(new Set(campusLocations.map((item) => item.id)).size, 7)
+  assert.equal(new Set(campusLocations.map((item) => item.id)).size, 8)
   for (const location of campusLocations) {
     assert.ok(location.icon && Number.isFinite(location.height) && location.height >= 0)
     assert.ok(Array.isArray(location.images) && Array.isArray(location.facilities))
@@ -48,7 +48,8 @@ test('gallery cards link only to valid location IDs and the future repository is
   }
   for (const location of campusLocations) {
     const linked = galleryForLocation(location.id)
-    assert.ok(linked.length > 0)
+    if (location.id === 'open-air-theatre') assert.deepEqual(linked, [], 'new theatre has no verified or demo photos yet')
+    else assert.ok(linked.length > 0)
     assert.ok(linked.every((photo) => photo.locationId === location.id))
     assert.deepEqual(await demoGalleryRepository.getByLocation(location.id), linked)
   }

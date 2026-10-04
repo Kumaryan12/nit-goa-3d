@@ -1,10 +1,12 @@
-# NIT Goa 3D Explorer
+# NITG Explored
 
-A full-viewport campus explorer using Vite, React, TypeScript, Three.js, React Three Fiber and Drei. Phase 7 adds visible walking routes, traversal previews, directions, shareable URLs, a community gallery with optional Supabase persistence, and resilient map loading. The app has two versions: the existing Overview explorer and a third-person Walk with avatar mode. Existing OSM footprints, roofs, terrain, boundary, 640 instanced trees, search, selection, day/night lighting and minimap remain intact.
+A campus community with verified email sign-in, optional private/public profiles, live football and OAT concerts. A responsive welcome page introduces the experience; people can enter first and build their profile later. Crowd admission, waiting queues and MFA-protected moderation run on the live server. See [DEPLOYMENT.md](DEPLOYMENT.md) for backend setup, deployment and operating limits.
+
+The 3D campus explorer uses Vite, React, TypeScript, Three.js, React Three Fiber and Drei. Phase 7 adds visible walking routes, traversal previews, directions, shareable URLs, an illustrative gallery, and resilient map loading. The app has two versions: the existing Overview explorer and a third-person Walk with avatar mode. Existing OSM footprints, roofs, terrain, boundary, 640 instanced trees, search, selection, day/night lighting and minimap remain intact.
 
 ## Run and verify
 
-Use Node.js 22.12+ or a supported newer version. No Supabase configuration is needed to explore campus and browse labelled demo illustrations.
+Use Node.js 22.12+ or a supported newer version. Firebase is required for campus entry and live rooms. Without it, `npm run dev` offers a labelled local preview from `/campus`; production access stays closed.
 
 ```sh
 npm install
@@ -17,6 +19,16 @@ npm run preview
 
 Tests use Node's TypeScript stripping and recorded genuine OSM responses. PostgreSQL security tests use development-only PGlite; neither PGlite nor test map fixtures are included in the application. See [Phase 7 verification](docs/phase7-verification.md) for results, changed files and QA limitations.
 
+## Shared football on Sports Ground
+
+Click **⚽ Play football** in the toolbar or **Join live football** in Sports Ground's details. Members with a verified email can join. A full pitch uses a waiting queue; profiles are optional. The avatar starts on the existing pitch; move with WASD or the touch pad, turn with arrows/drag, and kick with **Space** or the **Kick** button. **Shift + Space** (or Jog + Kick on touch) shoots harder. Walking into the ball dribbles. Blue attacks the blue goal; Gold attacks gold. Goals update the shared score and return the ball to the center after 2.5 seconds; out-of-play balls restart after 1.5 seconds. **Return ball to center** retains the score; **Leave** returns to normal campus walking.
+
+A Node WebSocket server verifies each account and owns one ball and score for up to 24 simultaneous players, with up to 100 waiting. One account can occupy one pitch place. The client sends bounded player poses and kick requests; the server checks reach, movement speed and input, simulates friction/posts/goal crossings, and broadcasts at 20 Hz. Other visitors appear in team jerseys. Pausing, opening dialogs, editing text, hiding the tab or leaving stops your player's input; other visitors continue playing. Closing a tab removes its player, and stale connections are cleaned up by heartbeats. The score is in memory and resets when the server restarts.
+
+`npm run dev` and `npm run preview` include the game server automatically. For a production build, use **`npm run build` then `npm start`** with Node 24+; this serves both `dist` and `/football` on port 4173 by default (`PORT` and `HOST` are configurable). To serve a LAN or container, set `HOST=0.0.0.0`. A public deployment needs a Node host with WebSocket upgrades; putting `dist` alone on a static host does not provide multiplayer. Serve the app, protected APIs and both WebSocket paths on the same HTTPS origin; the included production server and Dockerfile handle them together. Development and production use [ws](https://github.com/websockets/ws) with the browser's native WebSocket client.
+
+Implementation: `lib/football.ts`, `lib/footballProtocol.ts`, `hooks/useFootballSession.ts`, `components/FootballScene.tsx`, `FootballControls.tsx`, and `server/`. `tests/football.test.mjs` checks rotation, kick reach, scoring, posts/out-of-play, invalid input, and two actual WebSocket clients sharing a goal and disconnecting.
+
 ## Two explorer versions
 
 Use the **Overview / Walk with avatar** switch in the header. Both versions share the same real OSM buildings, roads, corrected names/positions, Nescafe-to-sports slope, lighting and gallery.
@@ -25,7 +37,7 @@ Use the **Overview / Walk with avatar** switch in the header. Both versions shar
 - **Walk with avatar** follows an animated student at ground level. Hold **WASD** to walk/strafe, **Up/Down** to walk, **Left/Right** to turn, and **Shift** to jog. Drag the scene to look around; scroll to adjust follow distance. Touch buttons support movement and turning. **E** or the nearby-place button opens place details.
 - **Start near** moves the avatar to a safe outdoor position near a selected landmark; **Reset walk** returns to Main Entrance. **Pause/Resume** stops/restarts controls. Search and building selection show information without moving the avatar; **Start walking here** in a place card starts nearby in Walk mode.
 
-Open `/?view=walk` directly to start in Walk mode. The `view` parameter preserves night mode, selected places and deployment paths; browser Back/Forward restores the version. The avatar position is retained when switching versions within the session, but is not saved after reloading.
+Open `/campus?view=walk` directly to start in Walk mode. The `view` parameter preserves night mode, selected places and deployment paths; browser Back/Forward restores the version. The avatar position is retained when switching versions within the session, but is not saved after reloading.
 
 Outdoor walking treats building footprints and campus edges as solid, with clearance for the avatar and preserved courtyard holes. Boys Hostel additionally offers an explicitly approximate interior with room doorways and interactive stairs. Movement follows the displayed terrain, rejects cliffs, and uses short swept steps to prevent wall tunneling. The follow camera shortens near buildings, interior walls, stairs and rising ground. Gallery/auth/upload dialogs, text entry, lost focus and hidden tabs stop movement, including stair journeys. Walk mode waits for a usable campus boundary; existing map loading/error/retry handling remains available. Pedestrian accessibility has not been surveyed.
 
@@ -42,7 +54,7 @@ Implementation: `components/AvatarExplorer.tsx`, `StudentAvatar.tsx`, `WalkContr
 | Metadata/search/selection | `data/campus.ts`, `data/buildingOverrides.ts`, `lib/campus.ts`, `SearchBar.tsx`, `BuildingInfoPanel.tsx` |
 | Navigation | `lib/pathfinding.ts`, `directions.ts`, `traversal.ts`, `camera.ts`, `RouteOverlay.tsx`, `RouteTraveler.tsx`, `DirectionsPanel.tsx`, `NavigationMode.tsx` |
 | Community gallery | `types/gallery.ts`, `repositories/`, `GalleryPreview.tsx`, `GalleryModal.tsx`, `PhotoViewer.tsx`, `PhotoUploadDialog.tsx` |
-| Backend/auth | `lib/supabase.ts`, `hooks/useAuth.ts`, `AuthDialog.tsx`, `supabase/migrations/001_gallery.sql` |
+| Backend/auth | `lib/firebase.ts`, `hooks/useAuth.ts`, `server/access.ts`, `server/profileStore.ts`, `firestore.rules` |
 | Resilience/accessibility | `lib/fetchStrategy.ts`, `osmCache.ts`, `urlState.ts`, `components/Modal.tsx`, `ErrorBoundary.tsx` |
 
 ## 3D/GIS pipeline and data honesty
@@ -76,9 +88,9 @@ Directions simplify heading noise for instructions only; the rendered route and 
 Share examples:
 
 ```text
-/?location=boys-hostel
-/?from=main-entrance&to=boys-hostel&mode=night
-/?photo=academic-evening-demo
+/campus?location=boys-hostel
+/campus?from=main-entrance&to=boys-hostel&mode=night
+/campus?photo=academic-evening-demo
 ```
 
 Query helpers validate IDs, preserve unrelated query parameters and deployment paths, and update history without reloads. Back/Forward restores meaningful selection, route, night and photo state. Unknown IDs fail gracefully. Photos reload directly by repository ID; closing removes `photo`. Modal openness, playback progress and other transient UI are omitted from URLs.
@@ -118,50 +130,57 @@ Buildings and their windows use a level foundation at their local terrace height
 
 Move Sports Ground in the editor to redirect the slope automatically. Renaming or choosing Nescafe's footprint updates the upper anchor. The owner's exported layout is now included in `src/data/campusOverrides.ts`, so this slope activates for new visitors after OSM buildings load. Export subsequent browser corrections into that file to update the shared layout.
 
+Open **Terrain** to adjust the relative rises for Nescafe above Sports Ground (8 m), Administration above Main Gate (6 m), and Faculty Quarters above Girls Hostel (4 m). These are editable estimates. **Apply terrain** saves them in this browser independently of name/location corrections; **Reset defaults** stages the original estimates until applied. **View Nescafe–Sports slope** applies the settings and frames both terraces in Overview for inspection. Enable **Show height contours** to trace the displayed surface at 2 m intervals.
+
+The campus owner clarified that the slopes are visible in the roads, with no exposed brown earth. The terrain retains its ordinary ground/grass colors and models the described relative grades without additional raised mounds. Saved settings from the earlier hillside version discard the removed hillside value while retaining slope heights. Roads approaching lower building terraces blend over 16 m to avoid an abrupt step. Trees follow the surface and avoid steep slopes. The default road geometry is checked against the avatar's walking slope limit; larger custom rises can make terrain steeper.
+
+Main Gate to Administration has **two rises separated by a level section**, with a total estimated rise of 6 m. The road from Girls Hostel toward Faculty Quarters climbs continuously, joining level building terraces; its estimated total rise is 4 m. The stage positions, widths and heights remain approximate pending on-site details.
+
+The owner’s exported **admin to upwards** section is included in `src/data/topography.ts`: lower X/Z −383.23/−106.08, higher −319.58/−106.24, 4 m rise, 40 m blend width. It loads for new visitors. Older browser saves inherit this published slope once while retaining local edits; subsequent edits or removals remain saved locally.
+
+Use **Terrain → Map campus slopes** to name another slope, pick its lower and higher ends on the 3D map, and set an estimated rise and blending width. Endpoint markers preview the section; **Save slope** updates roads, foundations, vegetation and avatar ground height. Edit or remove saved slopes in the same panel. Slopes are stored in this browser; **Export terrain** downloads `campus-terrain.json` for sharing. **Reset defaults** restores published slopes and clears additional browser-only slopes when applied.
+
+To identify another slope, provide a campus-map screenshot with arrows pointing uphill, or name the lower and upper landmarks and describe where the slope starts and ends. A gentle/moderate/steep estimate is enough to draft it; exact relative heights or photos of the road can refine it later. Additional slopes should follow owner-provided locations rather than inferred hills around every clearing.
+
+## Open Air Theatre
+
+The owner's screenshots place the theatre in the **large planted plaza between Gyan Mandir and Academic Block, inside the L-shaped road near ECE/CSE**. Choose **Open Air Theatre** in Explore Campus, search for **OAT**, click its 3D model, or select it on the minimap. The illustrative model fills a roughly 69 × 39 m plaza with six semicircular seating tiers, a raised stage with a shallow ramp, central and rear steps, a roadside path and evening lights. Its plaza shares Academic Block's terrain bench, and generated trees leave the theatre and approach clear.
+
+The theatre faces 90° counterclockwise from its initial placement, with seating proportions fitted to keep the same plaza clear of nearby buildings. In Walk mode, **Start walking here** places the avatar at the roadside entrance facing the theatre. The steps and ramp support walking; benches block passage. **Edit name / location** lets the owner refine the position and rotation and export those corrections. The footprint, seating and stage dimensions are estimates pending a photograph or measured layout; no theatre photograph is fabricated in the gallery.
+
+### Live concerts
+
+Choose **OAT concerts** in the toolbar or **Open live concert** in the theatre panel. Enter a stage name to join the shared concert, then **Take the stage** to perform. The current performer can name the concert, play the included original backing track, share an audio file (up to 12 MB), or load a direct HTTPS audio URL. Play, pause and restart are shared; late arrivals join at the current playback position. Listener volume and mute affect only their own sound. YouTube/Spotify page links are not direct audio sources.
+
+**Start live microphone** explicitly requests microphone access and sends the performer's audio to the audience over WebRTC. Backing music is mixed with the microphone into the same stream, so listeners hear music and singing together; local music resumes when the microphone stops. External audio links must permit cross-origin audio access; upload a file or use the included backing track if a link cannot play. The microphone starts off, and stops on leaving, disconnecting or ending a stage turn. Voice is not recorded. Use headphones to keep the backing track out of the microphone. Performers join a FIFO queue; the next person gets the stage when the current turn ends. Stage speakers, a microphone, the performer and seated audience appear in the 3D theatre. Copy the invitation link to bring others into the same concert.
+
+The `/oat` WebSocket room supports 24 connected visitors and runs alongside football under `npm run dev`, `npm run preview`, or `npm start` after a build. One concert is active per server process; state and shared audio files are temporary and reset when the room empties or the server restarts. Recent unplayed uploads expire after 30 minutes, with at most four files retained. Audio uploads require the current performer's connection token and the accepted website origin; media requests support byte ranges.
+
+For deployment, route `/oat` WebSocket upgrades and `/oat/audio` HTTP requests to the same Node process. Use HTTPS for microphone access. `OAT_ORIGIN` restricts the accepted browser origin; `VITE_OAT_URL` can point to a separate concert server. Configure `VITE_OAT_ICE_SERVERS` with your STUN/TURN service (use short-lived TURN credentials) to support visitors behind restrictive networks. The default STUN server allows direct connections but does not provide a relay. The current design sends a separate voice stream from the performer to each listener; larger concerts need an SFU and authenticated event administration.
+
+## Entrance canal and bridge
+
+The owner confirmed a small canal crossing **just inside Main Entrance**. `src/data/waterways.ts` holds its approximate course and dimensions: a 3 m water channel, 1.2 m depth, and a 7 m bridge span roughly 36 m inside the corrected gate. The crossing aligns with both mapped entrance carriageways and appears only once those roads are available. The course, length, lining, railings and water-flow direction remain illustrative pending a marked map or photograph.
+
+The terrain mesh has an actual opening at the channel, with recessed teal water, restrained flowing ripples and grey concrete lining. A structural deck, abutments and outer railings support the existing road surfaces. The bridge follows the road grade, keeping avatars and route previews on the same surface. Walking blocks the channel and outer railings; tree placement keeps the banks clear. The canal is also shown on the minimap. Reduced motion keeps the ripples stationary. Select **Main Entrance** to inspect the crossing. `tests/canal.test.mjs` checks placement, exact terrain cuts, recessed water, deck elevations, pedestrian crossing and route connectivity.
+
 ## Gallery and demo mode
 
 The UI uses `GalleryRepository`, not SDK calls for data operations. `GalleryPhoto` includes location, storage path, original/thumbnail URLs, author, timestamps, dimensions, pending/approved/rejected status and likes. Repository methods provide latest/popular/location queries, lookup, upload, owner deletion, likes/unlikes and reporting.
 
-With no valid public configuration, `DemoGalleryRepository` returns eight explicitly labelled illustrations. Demo mode never pretends to save uploads, accounts, likes or reports. Browsing requires no sign-in. Latest/Popular and location filters, lazy thumbnails, full viewer, keyboard arrows, Escape and swipe navigation are available. Empty real locations invite the first contribution. Anonymous contribution/like/report actions signpost authentication when configured.
+The current release uses an explicitly labelled demo gallery with eight illustrations. Uploads, likes and reports are disabled until a Firebase photo-storage pipeline is connected. Image preparation and previews remain available, without pretending to persist submissions. The previous Supabase gallery adapter and SQL migrations are retained as legacy code; the app does not select that adapter or use Supabase for sign-in.
 
-`createGalleryRepository()` dynamically selects the Supabase adapter when both public settings are valid; malformed or privileged key configuration falls back safely to demo. The SDK, repository and optional gallery/auth/upload/viewer dialogs are separate lazy chunks. Optional backend/render failures are contained by an error boundary so the campus can remain usable.
+## Firebase authentication, profiles and moderation
 
-## Supabase configuration and migration
+Google sign-in is available on the landing page. Firebase ID tokens are verified on the Node server with expiry and revocation checks. A verified Google account creates an ordinary campus membership and a private profile. Profiles can be completed later, with a unique handle, bio, course, interests and avatar colour. Publishing is opt-in. Public profile copies contain only allowed display fields; private emails and membership roles are excluded.
 
-1. Create a Supabase project in your own account.
-2. In SQL Editor, run **`supabase/migrations/001_gallery.sql` once** as the project owner. It creates `profiles`, `photos`, `photo_likes`, `photo_reports`, constraints/indexes/triggers, grants/RLS policies and the private `campus-gallery` bucket. Use a new migration for future changes; the initial migration is deliberately not a repeatable reset script.
-3. Confirm the bucket is **private**, allows only `image/webp`, and has a **4 MiB per-object limit**. Do not change it to public: pending media must remain private.
-4. Enable email magic-link sign-in. Configure Auth Site URL and redirect allowlist for local and deployed origins/paths. Configure appropriate email delivery/SMTP for your deployment and verify a real email link. Account identity is verified with `auth.getUser()` before repository mutations.
-5. Copy `.env.example` to `.env.local`, set the project URL and its **publishable key or legacy anon key**, then restart Vite. Production builds receive these settings at build time.
+The browser cannot read or write Firestore directly: `firestore.rules` denies all direct client access. The authenticated `/api/me` API validates profile fields and unique handles in a transaction. `/api/people` exposes only published copies with cursor pagination. Protected memberships, authenticator secrets and moderation logs stay behind the server.
 
-```dotenv
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-VITE_OVERPASS_ENDPOINT=https://overpass-api.de/api/interpreter
-```
+Live football and OAT admission authenticates before sharing room state, caps each room at 24 participants, queues up to 100 visitors in arrival order and rejects duplicate accounts in the same room. Moderators can remove visitors, suspend campus access, restore access and end a stage turn. Actions recheck protected role hierarchy and write an audit record before changing live state. Suspensions also remove the public profile copy.
 
-These are public browser settings. Never put a service-role key, database password or administrative secret in frontend environment variables. The public configuration validator rejects recognized privileged keys, but server policy enforcement remains essential.
+Moderator actions require recent Google reauthentication and an app authenticator code. Secrets are encrypted with a runtime-only key; repeated failures lock verification, reused codes are rejected, and moderation tickets expire after ten minutes. This protects campus actions; it does not replace Google account security or Firebase's managed MFA.
 
-Storage paths are immutable and scoped to the authenticated identity:
-
-```text
-userId/photoUUID/original.webp
-userId/photoUUID/thumbnail.webp
-```
-
-Uploads use `upsert: false`. Read access to approved media uses **one-hour signed URLs**, created through storage RLS. Owners can read their pending objects; anonymous users cannot. Current Supabase [storage access-control guidance](https://supabase.com/docs/guides/storage/security/access-control) explains the separate object policies; the [bucket documentation](https://supabase.com/docs/guides/storage/buckets/fundamentals) explains private reads and bucket MIME/size limits.
-
-## Uploads, privacy and security
-
-The image dialog preselects a location when opened from its card, allows changes, preserves the caption on retry and reports Preparing/Uploading/Submitting/Complete. Browser processing accepts JPEG/PNG/WebP input up to **12 MiB and 32 megapixels**. Signature/dimension checks precede decoding, orientation follows browser image decoding, long edge is capped at 2048 px, and thumbnails at 480 px without upscaling. Canvas re-encodes both as WebP, removing original EXIF/GPS metadata rather than intentionally preserving it. Preview blob URLs and decoded bitmap resources are released.
-
-The UI locks concurrent submission, and a stable photo UUID survives retries. The adapter recovers owned submissions after lost responses and reuses immutable owner objects without duplicating metadata. Pending confirmation does not claim public publication. Offline upload is disabled; auth expiry, processing, storage and database failures show retryable messages.
-
-RLS/grants enforce approved-only anonymous reads, pending-only own insertion, owner-only deletion and no ordinary photo UPDATE/approval permission. Like/report insertion requires approved photos and the current authenticated identity. Likes have unique user/photo pairs and trigger-maintained atomic counts; unlike scopes to the current identity. Reports are unique per reporter/photo and private to moderators. Storage insertion validates bucket, owner prefix, UUID/object name and WebP MIME metadata; no client storage UPDATE policy exists. React renders captions/names/reasons as text, without HTML injection APIs.
-
-Manual moderation: inspect pending photo metadata and original/thumbnail objects through the Supabase dashboard; verify consent, campus association and content before changing `status` to `approved` or `rejected`. Review private reports there. Ordinary users have no moderation controls. Optional profile display names are owner-managed and snapshot on submission; otherwise the author label is “Campus member”.
-
-Remaining security/operational work before a large public launch: direct API callers can bypass browser byte checks, so MIME/path restrictions are not server-side content decoding. Add a trusted server image-validation/re-encoding pipeline, abuse/rate limits, quotas and operational monitoring as usage grows. Signed URLs already issued can remain usable until expiry after moderation changes. Storage/metadata deletion is not atomic; uncertain submissions intentionally retain retry objects, so periodically reconcile orphaned storage through supported Storage APIs/dashboard (do not delete only storage metadata in SQL). No privileged keys were used or deployed during Phase 7 QA.
+Use `.env.example` for public Firebase web settings and private server credentials. Follow [DEPLOYMENT.md](DEPLOYMENT.md) for Render setup, runtime permissions, moderator bootstrap and launch verification.
 
 ## Map cache, retries and offline behavior
 
@@ -177,29 +196,10 @@ Native modal dialogs provide top-layer focus containment, background inertness, 
 
 Day/night colors remain readable. Reduced-motion CSS removes UI transitions; walking preview never auto-starts. Mobile information and navigation panels scroll and collapse above the minimap/statistics, leaving the map usable. Browser emulation checked 390 × 844, 360 × 800 and 430 × 932; this is not a physical-device compatibility certification.
 
-## Measured performance
+## Performance
 
-Vite output uses decimal kB and gzip estimates. Phase 6 initial JS was **1,257.37 kB / 346.42 kB gzip**. Phase 7 entry is **278.53 kB / 87.90 kB gzip**, about 78% smaller before the scene loads. Gallery and Supabase stay deferred until used.
+The landing page and Firebase sign-in load before the 3D explorer. The campus scene and optional dialogs load as separate chunks. The scene still exceeds Vite's 500 kB chunk advisory; the production build succeeds. DPR is capped at 1.5, trees stay instanced and geometry is memoized/disposed. Performance depends on the device, power settings and OSM coverage. Earlier renderer measurements describe prior builds and are not a benchmark of the authenticated release.
 
-| Chunk | Minified kB | Gzip kB |
-| --- | ---: | ---: |
-| Initial entry | 278.53 | 87.90 |
-| CampusScene | 642.94 | 172.83 |
-| Shared campus/Three module | 381.61 | 102.58 |
-| Digital twin model | 2.38 | 1.20 |
-| Supabase SDK | 214.18 | 55.01 |
-| Supabase gallery adapter | 4.92 | 1.90 |
-| GalleryModal | 4.87 | 2.02 |
-| PhotoViewer | 2.82 | 1.33 |
-| PhotoUploadDialog | 6.22 | 2.75 |
-| AuthDialog | 1.48 | 0.83 |
+## Production deployment
 
-The 3D scene loads immediately after the shell; entry + scene/shared/model total approximately **1,305 kB / 364.51 kB gzip**, so splitting does not reduce the total JS required to view the complete campus. It improves initial scheduling and defers optional features. The 643 kB scene still triggers Vite's 500 kB notice; the build succeeds.
-
-On the local Chrome Guest QA machine, desktop route/day/night interactions sampled **60 FPS**, approximately **153–155 draw calls and 177k triangles**. Prior Phase 6 home-camera observations were 60 FPS, 148 calls and 176k triangles; these are different views, not a claimed renderer speedup. DPR remains capped at 1.5, trees stay instanced, route geometry is memoized/disposed and traveler animation avoids per-frame React updates. Performance depends on GPU, power settings and OSM coverage.
-
-## Static deployment
-
-Build with `npm run build` and serve `dist/` over HTTPS on a static host. Set public environment variables before building. Vite uses a relative asset base and demo images follow `import.meta.env.BASE_URL`, supporting root hosting and subdirectories such as GitHub Pages. Query-only deep links use the same index document and require no client-route rewrite; preserve the deployment directory/trailing slash in links. Configure Supabase Auth redirects to the actual deployed URL.
-
-Keep source `.env.local` ignored; publish only `dist`, never private operational credentials. A zero-configuration build remains a functional demo gallery and live/cached OSM explorer. Live hosted auth/storage/database operations still require project provisioning and an end-to-end deployment smoke test.
+`render.yaml` prepares a single Docker web service on Render in Singapore. The website and live rooms share one HTTPS origin and one instance. Firebase supplies Google sign-in and persistent profiles. The initial free Render plan is for testing: it can sleep and resets in-memory game/concert state when the service restarts. Select an always-on plan before scheduling public concerts. Follow [DEPLOYMENT.md](DEPLOYMENT.md) for deployment and outstanding account steps. A static-only `dist` upload cannot serve live rooms.

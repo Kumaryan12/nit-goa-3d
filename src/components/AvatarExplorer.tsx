@@ -4,16 +4,18 @@ import { Vector3 } from 'three'
 import type { Group } from 'three'
 import type { DigitalTwin } from '../lib/digitalTwin'
 import type { LocalCoordinate } from '../lib/geo'
-import { terrainHeightAt } from '../lib/terrain'
-import { cameraBoomFraction, createWalkWorld, emptyWalkInput, findWalkSpawn, isWalkable, nearestWalkLocation, stepWalking } from '../lib/walking'
+import { cameraBoomFraction, createWalkWorld, emptyWalkInput, findWalkSpawn, isWalkable, nearestWalkLocation, stepWalking, walkSurfaceHeightAt } from '../lib/walking'
 import type { WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
+import { footballToLocal, footballToWorld } from '../lib/football'
+import type { FootballControls, FootballPitch } from '../lib/football'
 import StudentAvatar from './StudentAvatar'
 import { canUseStairs, demoRoomNumber, interiorCameraFraction, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ footballPitch, footballControls, footballLive, footballJersey, hostelPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+  footballPitch: FootballPitch | null; footballControls: React.RefObject<FootballControls>; footballLive: boolean; footballJersey?: string
   hostelPlan: HostelPlan | null; interiorPose: React.RefObject<InteriorPose | null>
   processedSpawn: React.RefObject<number>
   twin: DigitalTwin; paused: boolean; input: React.RefObject<WalkInput>; position: React.RefObject<LocalCoordinate | null>; spawn: WalkSpawnRequest;
@@ -45,6 +47,8 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
     if (relocating) {
       interiorPose.current = null
       if (hostelPlan && spawn.enterHostel) { interiorPose.current = { buildingId: hostelPlan.buildingId, floor: 0 }; position.current = { ...hostelPlan.entrance.inside } }
+      else if (spawn.football && footballPitch) position.current = footballToWorld({ x:-1.4,z:0 }, footballPitch)
+      else if (spawn.locationId === 'open-air-theatre') position.current = findWalkSpawn(twin.theatre.entrance, world)
       else position.current = hostelPlan && spawn.locationId === 'boys-hostel' ? { ...hostelPlan.entrance.outside } : findWalkSpawn(anchor.coordinates, world)
     } else if (pose && !validInside) interiorPose.current = null
     // Switching modes during a stair walk returns to a safe same-floor landing.
@@ -59,14 +63,17 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
         const center = points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, z: sum.z + point.z / points.length }), { x: 0, z: 0 })
         const nearBuilding = relocating && world.buildings.some(building => building.id === (anchor.osmBuildingId ?? anchor.id))
         yaw.current = nearBuilding ? Math.atan2(anchor.coordinates.x - position.current.x, anchor.coordinates.z - position.current.z) : Math.atan2(position.current.x - center.x, position.current.z - center.z)
+        if (spawn.football && footballPitch) yaw.current = Math.atan2(-Math.cos(footballPitch.rotation), Math.sin(footballPitch.rotation))
+        if (spawn.locationId === 'open-air-theatre') yaw.current = Math.atan2(position.current.x - twin.theatre.center.x, position.current.z - twin.theatre.center.z)
         if (hostelPlan && spawn.locationId === 'boys-hostel') yaw.current = Math.atan2(-hostelPlan.entrance.inward.x, -hostelPlan.entrance.inward.z)
         if (avatar.current) avatar.current.rotation.y = yaw.current
         oriented.current = true
       }
       publish()
     }
+    if (spawn.football && relocating) { gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }) }
     snapped.current = false; keys.current.clear(); input.current = emptyWalkInput()
-  }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, onStatus, publish])
+  }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, onStatus, publish, footballPitch, gl])
   const act = useCallback((action: HostelAction) => {
     const plan = hostelPlan, p = position.current, pose = interiorPose.current
     if (!plan || !p || journey.current) return
@@ -98,6 +105,7 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
     const down = (event: KeyboardEvent) => {
       if (paused || editingText() || event.metaKey || event.ctrlKey || event.altKey) return
       if (movementKeys.has(event.code)) { event.preventDefault(); keys.current.add(event.code) }
+      if (event.code === 'Space' && footballPitch && !event.repeat && !(event.target instanceof HTMLElement && event.target.closest('button'))) { event.preventDefault(); footballControls.current.kick++ }
       if (event.code === 'KeyE' && !event.repeat) {
         event.preventDefault(); clear()
         const context = actionContext.current
@@ -113,7 +121,7 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
     const hidden = () => { if (document.hidden) clear() }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear); document.addEventListener('visibilitychange', hidden)
     return () => { clear(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
-  }, [paused, input, onInspect, act, hostelPlan, interiorPose, position])
+  }, [paused, input, onInspect, act, hostelPlan, interiorPose, position, footballPitch, footballControls])
   useEffect(() => {
     const canvas = gl.domElement
     let drag: { id: number; x: number; y: number } | null = null
@@ -138,7 +146,7 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
     const direction = { x: -Math.sin(yaw.current) * forward + Math.cos(yaw.current) * side, z: -Math.cos(yaw.current) * forward - Math.sin(yaw.current) * side }
     if (input.current.action) { const action = input.current.action; delete input.current.action; if (allowed) act(action) }
     const before = position.current, pose = interiorPose.current
-    let next = before, surfaceY = terrainHeightAt(twin.terrain, before.x, before.z)
+    let next = before, surfaceY = walkSurfaceHeightAt(twin.terrain, before.x, before.z)
     if (pose && hostelPlan) {
       surfaceY = hostelPlan.base + pose.floor * hostelPlan.floorHeight + .14
       if (journey.current) {
@@ -152,9 +160,11 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
       } else next = stepInterior(before, direction, allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running) ? 3.5 : 2.3, delta, hostelPlan)
     } else {
       next = stepWalking(before, direction, allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running) ? 5.5 : 2.3, delta, world)
-      surfaceY = terrainHeightAt(twin.terrain, next.x, next.z)
+      surfaceY = walkSurfaceHeightAt(twin.terrain, next.x, next.z)
     }
+    if (footballPitch && !pose) { const local = footballToLocal(next, footballPitch); next = footballToWorld({ x:Math.max(-44,Math.min(44,local.x)), z:Math.max(-24,Math.min(24,local.z)) }, footballPitch); surfaceY = footballPitch.elevation + .11 }
     const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = Math.hypot(direction.x, direction.z) > 0 && moved < .001 && !journey.current
+    footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running:!!(key('ShiftLeft') || key('ShiftRight') || input.current.running), active:allowed && footballLive && !pose } : null
     position.current = next; motion.current.moving = moved > .001; motion.current.phase += moved * 7
     avatar.current.position.set(next.x, surfaceY, next.z)
     if (moved > .001) {
@@ -170,7 +180,7 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
     desired.lerpVectors(target, desired, fraction(desired))
     if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * 12))
     camera.position.lerpVectors(target, camera.position, fraction(camera.position))
-    camera.position.y = Math.max(camera.position.y, (pose ? surfaceY : terrainHeightAt(twin.terrain, camera.position.x, camera.position.z)) + .3)
+    camera.position.y = Math.max(camera.position.y, (pose ? surfaceY : walkSurfaceHeightAt(twin.terrain, camera.position.x, camera.position.z)) + .3)
     // Tight doorways sometimes shorten the boom into the avatar. Show the
     // corridor instead of filling the screen with the back of its head.
     avatar.current.visible = camera.position.distanceTo(target) > 1.4
@@ -181,5 +191,6 @@ export default function AvatarExplorer({ hostelPlan, interiorPose, processedSpaw
       publish(moved > .001, blocked)
     }
   })
-  return <group ref={avatar}><StudentAvatar motion={motion} /></group>
+  useEffect(() => () => { footballControls.current.actor = null }, [footballControls])
+  return <group ref={avatar}><StudentAvatar motion={motion} jersey={footballJersey} /></group>
 }

@@ -6,11 +6,13 @@ import type { TerrainModel } from './terrain.ts'
 import type { BuildingFootprint } from '../types/osm.ts'
 import type { CampusLocation } from '../types/campus.ts'
 import type { HostelAction } from './hostelInterior.ts'
+import { canalBlocksWalking } from './canal.ts'
+import { theatreBlocksWalking, theatreSurfaceHeightAt } from './theatre.ts'
 
 export type ExplorerView = 'overview' | 'walk'
 export interface WalkInput { forward: number; side: number; turn: number; running: boolean; action?: HostelAction }
 export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string; canEnterHostel?: boolean; interior?: { floor: number; room: string | null; canGoUp: boolean; canGoDown: boolean; stairLowFloor: number | null } }
-export interface WalkSpawnRequest { sequence: number; locationId: string; enterHostel?: boolean }
+export interface WalkSpawnRequest { sequence: number; locationId: string; enterHostel?: boolean; football?: boolean }
 interface Collider { id: string; outer: LocalCoordinate[]; holes: LocalCoordinate[][]; minX: number; maxX: number; minZ: number; maxZ: number; base: number; height: number }
 export interface WalkWorld { boundary: LocalCoordinate[]; buildings: Collider[]; terrain: TerrainModel }
 export const AVATAR_RADIUS = 0.42
@@ -36,6 +38,8 @@ function hitsBuilding(point: LocalCoordinate, building: Collider, radius: number
 export function isWalkable(point: LocalCoordinate, world: WalkWorld, radius = AVATAR_RADIUS): boolean {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.z) || Math.max(Math.abs(point.x), Math.abs(point.z)) > world.terrain.size / 2 - radius) return false
   if (world.boundary.length >= 3 && (!pointInCampus(point, world.boundary) || ringDistance(point, world.boundary) < radius)) return false
+  if (world.terrain.canal && canalBlocksWalking(point, world.terrain.canal, radius)) return false
+  if (world.terrain.theatre && theatreBlocksWalking(point, world.terrain.theatre, radius)) return false
   return !world.buildings.some(building => hitsBuilding(point, building, radius))
 }
 // Clamp delta and substep movement so frame stalls/jogging cannot tunnel through walls.
@@ -46,7 +50,10 @@ export function stepWalking(point: LocalCoordinate, direction: LocalCoordinate, 
   const distance = Math.max(0, Math.min(8, speed)) * Math.max(0, Math.min(0.1, delta))
   const steps = Math.max(1, Math.ceil(distance / 0.15)), dx = direction.x / length * distance / steps, dz = direction.z / length * distance / steps
   let current = { ...point }
-  const legal = (next: LocalCoordinate) => isWalkable(next, world) && Math.abs(terrainHeightAt(world.terrain, next.x, next.z) - terrainHeightAt(world.terrain, current.x, current.z)) <= Math.hypot(next.x - current.x, next.z - current.z) * 1.2 + 0.02
+  const legal = (next: LocalCoordinate) => {
+    const theatreStep = world.terrain.theatre && theatreSurfaceHeightAt(next, world.terrain.theatre) !== null && theatreSurfaceHeightAt(current, world.terrain.theatre) !== null ? .17 : .02
+    return isWalkable(next, world) && Math.abs(walkSurfaceHeightAt(world.terrain, next.x, next.z) - walkSurfaceHeightAt(world.terrain, current.x, current.z)) <= Math.hypot(next.x - current.x, next.z - current.z) * 1.2 + theatreStep
+  }
   for (let i = 0; i < steps; i++) {
     const next = { x: current.x + dx, z: current.z + dz }
     if (legal(next)) current = next
@@ -56,6 +63,9 @@ export function stepWalking(point: LocalCoordinate, direction: LocalCoordinate, 
     }
   }
   return current
+}
+export function walkSurfaceHeightAt(terrain: TerrainModel, x: number, z: number): number {
+  return (terrain.theatre && theatreSurfaceHeightAt({ x, z }, terrain.theatre)) ?? terrainHeightAt(terrain, x, z)
 }
 // Prefer open ground with room for the follow camera; fall back to body clearance
 // in tight campuses. Never spawn inside a classroom or wall.
@@ -90,7 +100,7 @@ export function cameraBoomFraction(origin: { x: number; y: number; z: number }, 
   const distance = Math.hypot(end.x - origin.x, end.y - origin.y, end.z - origin.z), steps = Math.max(1, Math.ceil(distance / 0.3))
   for (let i = 1; i <= steps; i++) {
     const t = i / steps, point = { x: origin.x + (end.x - origin.x) * t, y: origin.y + (end.y - origin.y) * t, z: origin.z + (end.z - origin.z) * t }
-    if (point.y < terrainHeightAt(world.terrain, point.x, point.z) + 0.25 || world.buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
+    if (point.y < walkSurfaceHeightAt(world.terrain, point.x, point.z) + 0.25 || world.buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
   }
   return 1
 }

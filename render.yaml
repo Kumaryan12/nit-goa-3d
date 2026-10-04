@@ -1,0 +1,36 @@
+# Initial test deployment. An always-on production plan is selected separately.
+services:
+  - type: web
+    name: nitg-explored
+    runtime: docker
+    repo: https://github.com/Kumaryan12/nit-goa-3d
+    branch: deploy/firebase-community
+    region: singapore
+    plan: free
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /readyz
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: SITE_URL
+        sync: false
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        value: nitg-explored-2026.firebaseapp.com
+      - key: VITE_FIREBASE_PROJECT_ID
+        value: nitg-explored-2026
+      - key: VITE_FIREBASE_APP_ID
+        value: 1:830799515806:web:2ba1ce8264601a6907ab8f
+      - key: FIREBASE_PROJECT_ID
+        value: nitg-explored-2026
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: MODERATOR_SECRET_KEY
+        generateValue: true
+      - key: VITE_OVERPASS_ENDPOINT
+        value: https://overpass-api.de/api/interpreter

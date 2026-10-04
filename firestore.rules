@@ -1,0 +1,8 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // All profile reads and writes use the Node API. Firebase Admin credentials
+    // stay on the server; neither members nor moderators write roles directly.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

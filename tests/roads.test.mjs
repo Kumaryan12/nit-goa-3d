@@ -5,6 +5,7 @@ import { LAT0, LON0, gpsToLocal } from '../src/lib/geo.ts'
 import { clipRoadToCampus, extractCampusRoads, pointInCampus, roadCoordinates, roadKind, roadWidth } from '../src/lib/roads.ts'
 import { createRoadGeometry, FOOTPATH_ELEVATION, ROAD_ELEVATION } from '../src/lib/roadGeometry.ts'
 import { CAMPUS_BOUNDARY_QUERY, ROADS_QUERY, campusRoadPolygonQuery, fetchCampusRoads } from '../src/lib/osm.ts'
+import { terrainHeightAt } from '../src/lib/terrain.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/nit-goa-roads.json', import.meta.url), 'utf8'))
 const boundary = fixture.elements[0].geometry
@@ -111,6 +112,43 @@ test('closed road loops join at their seam and sharp bends cannot create infinit
       assert.deepEqual(positions.slice(0, 6), positions.slice(-6))
     }
     geometry.dispose()
+  }
+})
+
+test('sloped road interiors follow terrain triangles without ground poking through or changing the road footprint', () => {
+  const segments = 12, size = 24
+  const heights = Float32Array.from({ length: (segments + 1) ** 2 }, (_, i) => {
+    const x = i % (segments + 1) * 2 - size / 2, z = Math.floor(i / (segments + 1)) * 2 - size / 2
+    return Math.max(0, 3 - Math.abs(z)) + Math.sin(x * .7) * .5
+  })
+  const terrain = { size, segments, heights, colors: new Float32Array(heights.length * 3) }
+  const area = geometry => {
+    const p = geometry.getAttribute('position'), indices = geometry.getIndex()
+    let total = 0
+    for (let i = 0; i < indices.count; i += 3) {
+      const [a, b, c] = [0, 1, 2].map(j => indices.getX(i + j))
+      total += Math.abs((p.getX(b) - p.getX(a)) * (p.getZ(c) - p.getZ(a)) - (p.getZ(b) - p.getZ(a)) * (p.getX(c) - p.getX(a))) / 2
+    }
+    return total
+  }
+  for (const path of [[{ x: -8, z: 0 }, { x: 8, z: 0 }], [{ x: -8, z: -3 }, { x: 0, z: 0 }, { x: 8, z: 4 }]]) {
+    const flat = createRoadGeometry([path], 6), draped = createRoadGeometry([path], 6, ROAD_ELEVATION, terrain)
+    try {
+      assert.ok(Math.abs(area(draped) - area(flat)) < 1e-4, 'draping preserves road width, bends and coverage')
+      const p = draped.getAttribute('position'), indices = draped.getIndex()
+      assert.ok(p.array.every(Number.isFinite))
+      for (let i = 0; i < indices.count; i += 3) {
+        const points = [0, 1, 2].map(j => indices.getX(i + j))
+        for (const weights of [[1/3, 1/3, 1/3], [.6, .2, .2], [.1, .7, .2]]) {
+          const sample = getter => points.reduce((sum, index, j) => sum + getter.call(p, index) * weights[j], 0)
+          const x = sample(p.getX), y = sample(p.getY), z = sample(p.getZ)
+          assert.ok(Math.abs(y - terrainHeightAt(terrain, x, z) - ROAD_ELEVATION) < 1e-5, 'road interior has continuous clearance above the actual terrain')
+        }
+      }
+      const normals = draped.getAttribute('normal')
+      assert.ok(normals.array.every(Number.isFinite))
+      for (let i = 0; i < normals.count; i++) assert.ok(normals.getY(i) > 0, 'surface faces upward')
+    } finally { flat.dispose(); draped.dispose() }
   }
 })
 

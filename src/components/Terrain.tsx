@@ -5,5 +5,5 @@ import type { TerrainModel } from '../lib/terrain'
 export default function Terrain({ model, onReady }: { model: TerrainModel; onReady: () => void }) {
   const geometry = useMemo(() => createTerrainGeometry(model), [model])
   useEffect(() => { onReady(); return () => geometry.dispose() }, [geometry, onReady])
-  return <mesh name="campus-terrain" geometry={geometry} receiveShadow><meshStandardMaterial vertexColors roughness={1} metalness={0} /></mesh>
+  return <mesh name="campus-terrain" geometry={geometry} castShadow receiveShadow><meshStandardMaterial vertexColors roughness={1} metalness={0} /></mesh>
 }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
+import { defaultTerrainSettings } from '../src/data/topography.ts'
 import { slopeElevationAt } from '../src/lib/topography.ts'
 import { generateTerrain, terrainHeightAt, footprintRect } from '../src/lib/terrain.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
@@ -57,7 +58,7 @@ test('moving sports ground changes slope direction while an unknown upper anchor
   const first = createDigitalTwin(map, roads, false, edits), second = createDigitalTwin(map, roads, false, { ...edits, 'sports-ground': { coordinates: { x: 80, z: -280 } } })
   assert.notDeepEqual(first.slope.lower, second.slope.lower)
   close(terrainHeightAt(second.terrain, 80, -280), 0)
-  const base = createDigitalTwin(map, roads, false)
+  const base = createDigitalTwin(map, roads, false, {}, { ...defaultTerrainSettings, customSlopes: [] })
   assert.equal(base.slope, undefined); assert.ok(base.buildings.every(building => building.baseElevation === undefined))
 })
 

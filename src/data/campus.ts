@@ -83,6 +83,23 @@ export const campusLocations: CampusLocation[] = [
     facilities: ['Outdoor recreation', 'Sports activities'],
   },
   {
+    id: 'open-air-theatre',
+    name: 'Open Air Theatre',
+    category: 'amenity',
+    description: 'An outdoor performance and gathering space in the large plaza behind Gyan Mandir, beside Academic Block and the L-shaped road near ECE/CSE.',
+    keywords: ['open air theatre', 'open-air theater', 'OAT', 'amphitheatre', 'stage', 'performances', 'Gyan Mandir'],
+    // Owner's wider screenshot: the large planted academic plaza inside the
+    // ECE/CSE L-road, between Gyan Mandir and Academic Block.
+    // Rotate around the plaza's existing center (-232, -164.5).
+    coordinates: { x: -248.80769230769232, z: -164.5 },
+    osmBuildingId: null,
+    rotationDegrees: 90,
+    height: 2.4,
+    icon: '🎭',
+    images: [],
+    facilities: ['Open stage', 'Tiered outdoor seating', 'Central steps', 'Roadside entrance', 'Live concerts', 'Shared music', 'Live singing'],
+  },
+  {
     id: 'main-entrance',
     name: 'Main Entrance',
     category: 'entrance',
