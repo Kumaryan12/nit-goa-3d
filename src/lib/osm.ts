@@ -2,6 +2,7 @@ import { fetchWithRetry } from './fetchStrategy.ts'
 import { extractBuildingFootprints, isBuilding } from './buildings.ts'
 import { LAT0, LON0, validClosedRing } from './geo.ts'
 import { extractCampusRoads } from './roads.ts'
+import { validMapPayload } from './osmCache.ts'
 import type { CampusMapData, CampusRoadData, GeoCoordinate, OSMResponse } from '../types/osm.ts'
 
 // Override in .env.local to use another public or self-hosted Overpass instance.
@@ -9,6 +10,33 @@ export const OVERPASS_ENDPOINT = import.meta.env?.VITE_OVERPASS_ENDPOINT
   || 'https://overpass-api.de/api/interpreter'
 export const CAMPUS_WAY_ID = 1259742369
 export const FALLBACK_RADIUS_METERS = 900
+export const PUBLISHED_MAP_DATE = '2026-10-01'
+
+// Published visitors use the verified OSM snapshot served with the app. This
+// avoids an external map API request for every visitor entering a live room.
+async function publishedSnapshot(kind: 'campus' | 'roads', signal?: AbortSignal): Promise<OSMResponse> {
+  signal?.throwIfAborted()
+  const response = await fetch(`/map/nit-goa-${kind}.json`, { signal })
+  if (!response.ok) throw new Error('The campus map is temporarily unavailable.')
+  const data = await response.json() as OSMResponse
+  signal?.throwIfAborted()
+  if (!data || !Array.isArray(data.elements) || data.remark) throw new Error('Invalid published campus map.')
+  return data
+}
+
+export async function fetchPublishedCampusData(signal?: AbortSignal): Promise<CampusMapData> {
+  const data = mapData(await publishedSnapshot('campus', signal), 'campus-area')
+  if (!data.boundary || !validMapPayload('buildings', data)) throw new Error('Invalid published campus buildings.')
+  return data
+}
+
+export async function fetchPublishedCampusRoads(signal?: AbortSignal): Promise<CampusRoadData> {
+  const response = await publishedSnapshot('roads', signal), boundary = campusBoundary(response)
+  if (!boundary) throw new Error('Invalid published campus boundary.')
+  const data = roadData(response, boundary, 'campus-area')
+  if (!data.roads.length || !validMapPayload('roads', data)) throw new Error('Invalid published campus roads.')
+  return data
+}
 
 export const CAMPUS_QUERY = `[out:json][timeout:30];
 way(${CAMPUS_WAY_ID})->.campus;

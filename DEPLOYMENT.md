@@ -2,6 +2,17 @@
 
 The app runs as one Node 24 service on Render: the landing page, profiles, authenticated football and OAT use the same HTTPS origin. `render.yaml` uses the existing Dockerfile, Singapore, one instance, `/readyz`, and an explicit free plan for initial testing. Automatic deployment is off until launch verification succeeds.
 
+## Live deployment
+
+- Campus: https://nitg-explored.onrender.com
+- Render service: `srv-db0tjepsrm7s7394b09g`, Singapore, free, one Docker instance.
+- Release branch: `deploy/firebase-community`. Render deployment history records the exact release commit.
+- Initial deploy `dep-db0tjfhsrm7s7394b380` is live. The Docker image built successfully on Render.
+- Real hosted Google sign-in completed and campus admission succeeded.
+- Firebase and moderation keys uploaded as private runtime files. Neither is in Git, browser code or the Docker image.
+- `/readyz` and the landing page return 200; anonymous admission/crowd requests are denied, and credential file URLs return 404.
+- Both GitHub verification jobs pass; 236 tests pass and the production dependency audit reports zero vulnerabilities.
+
 ## Provisioned Firebase project
 
 - Project: `nitg-explored-2026`, display name **NITG Explored**.
@@ -10,7 +21,7 @@ The app runs as one Node 24 service on Render: the landing page, profiles, authe
 - Firestore `(default)` created in Mumbai (`asia-south1`), free tier, deletion protection on.
 - `firestore.rules` deployed; all browser reads/writes denied. The Node Admin SDK handles database operations after authenticating the visitor.
 - `.env.local` has the public web configuration and project ID and is ignored by Git/Docker.
-- Localhost and `127.0.0.1` are authorized for local sign-in testing. Add the actual Render hostname before testing hosted sign-in.
+- Localhost, `127.0.0.1` and `nitg-explored.onrender.com` are authorized for Google sign-in.
 - Billing is not attached. No photo-storage bucket is provisioned. The gallery remains an explicit read-only illustration demo.
 
 ## Runtime permissions
@@ -26,7 +37,7 @@ For this app's runtime only, the approved project-level roles are:
 
 These roles give the runtime access to private campus data and are server privileges. They are not granted to visitors or stored in the browser. Store the dedicated service-account JSON key as Render's private runtime file `firebase-admin.json`, accessed through `GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/firebase-admin.json`, and keep any local copy in ignored `.secrets/` with owner-only permissions. Never commit it or put it under `VITE_*`. Rotate/revoke the key in IAM if compromised. Prefer workload identity over long-lived keys if the selected host later supports it.
 
-The checked-in deployment requires the runtime secret in Render before `/readyz` can pass. Local Google sign-in and campus admission have succeeded; hosted sign-in still requires the Render domain and deployment.
+The checked-in deployment requires the runtime secret in Render before `/readyz` can pass. Local Google sign-in and campus admission have succeeded. The hosted domain is authorized and live readiness confirms its runtime Firestore access.
 
 ## Render setup
 
@@ -38,6 +49,10 @@ The checked-in deployment requires the runtime secret in Render before `/readyz`
 6. Complete a real Google sign-in, create a profile, test public/private switching, then exercise live rooms with two independent Google accounts.
 
 Only one instance is supported in this release: game state, queues and uploaded concert audio are in memory. Profiles and moderation logs persist in Firestore. [Render WebSocket guidance](https://render.com/docs/websocket) applies to the live endpoints. A free Render service sleeps after inactivity and takes time to wake; it is suitable for validation, not uninterrupted scheduled concerts. Read [free-service limits](https://render.com/docs/free) before launch. No paid service or billing upgrade is authorized by this Blueprint.
+
+## Published map
+
+Production serves the verified 2026-10-01 OpenStreetMap campus snapshot from `public/map/` on the app origin. Its 22 building footprints, 11 courtyard holes and 20 roadways are covered by the geometry tests. This avoids a live Overpass request for every visitor and makes first visits independent of public map API availability. The campus footer shows the map date and OSM attribution. Local development still uses live Overpass. To refresh the published map, update both JSON responses together and rerun campus geometry/navigation tests before deployment.
 
 ## Local use and checks
 
@@ -57,7 +72,9 @@ The tests cover role spoofing, verified Google identity, first-visit private pro
 
 ## First moderator
 
-After your first real Google sign-in, your ordinary membership is created at `campusMembers/YOUR_FIREBASE_UID`. As project owner, set that record's `role` to `admin` through Firestore console (keep `status: active`). Use the Firebase UID from Authentication, and verify the intended account. No public profile or user-supplied claim can appoint a moderator.
+The selected project owner's verified Google account has already been assigned `admin` on its active campus membership through trusted server administration. The setup is recorded in `moderationLog`. Other visitors receive ordinary membership.
+
+For another explicitly selected administrator: after their first real Google sign-in, their ordinary membership is created at `campusMembers/YOUR_FIREBASE_UID`. As project owner, set that record's `role` to `admin` through Firestore console (keep `status: active`). Use the Firebase UID from Authentication, and verify the intended account. No public profile or user-supplied claim can appoint a moderator.
 
 Refresh the app, open Crowd desk, confirm the same Google account, then enroll an authenticator. TOTP setup requires a Google login from the last five minutes. Tickets last ten minutes; reused codes are rejected and five failed code attempts lock verification for fifteen minutes. Refresh/reverify when a ticket expires. To recover a lost authenticator, the project owner removes only that account's `moderatorFactors/UID` record through trusted administration, then has the moderator re-enroll after Google reauthentication.
 

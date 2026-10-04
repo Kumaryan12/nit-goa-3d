@@ -46,7 +46,7 @@ import { campusLocations } from './data/campus'
 import LoadingOverlay from './components/LoadingOverlay'
 import BuildingInfoPanel from './components/BuildingInfoPanel'
 import { sceneConfig } from './lib/sceneConfig'
-import { fetchCampusData, fetchCampusRoads } from './lib/osm'
+import { fetchCampusData, fetchCampusRoads, fetchPublishedCampusData, fetchPublishedCampusRoads, PUBLISHED_MAP_DATE } from './lib/osm'
 import { LAT0, LON0 } from './lib/geo'
 import type { CampusMapState, CampusRoadState } from './types/osm'
 import type { BuildingSelection } from './types/campus'
@@ -222,7 +222,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
 
   useEffect(() => {
     const controller = new AbortController()
-    loadMapWithCache('roads', () => fetchCampusRoads(controller.signal, true), browserStorage, controller.signal, !online)
+    loadMapWithCache('roads', () => import.meta.env.PROD ? fetchPublishedCampusRoads(controller.signal) : fetchCampusRoads(controller.signal, true), browserStorage, controller.signal, !online)
       .then(({ data, cache }) => {
         if (controller.signal.aborted) return
         if (import.meta.env.DEV) {
@@ -242,7 +242,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   useEffect(() => {
     const controller = new AbortController()
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Campus coordinate origin:', { lat: LAT0, lon: LON0, x: 0, z: 0 })
-    loadMapWithCache('buildings', () => fetchCampusData(controller.signal, true), browserStorage, controller.signal, !online)
+    loadMapWithCache('buildings', () => import.meta.env.PROD ? fetchPublishedCampusData(controller.signal) : fetchCampusData(controller.signal, true), browserStorage, controller.signal, !online)
       .then(({ data, cache }) => {
         if (controller.signal.aborted) return
         if (import.meta.env.DEV) {
@@ -374,6 +374,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           <p className="navigation-hint"><span className="control-icon">↻</span> Rotate <span className="control-detail">Drag</span><span className="control-icon">⊕</span> Zoom <span className="control-detail">Scroll / pinch</span><span className="control-icon">↖</span> Select Building <span className="control-detail">Click</span></p>
           <p className="map-attribution">
             © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>
+            {import.meta.env.PROD && <span> · Map updated {PUBLISHED_MAP_DATE}</span>}
             {mapState.status === 'ready' && mapState.data.source === 'nearby-fallback' && ' · Nearby buildings (900 m fallback)'}
           </p>
         </div>

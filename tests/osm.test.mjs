@@ -5,11 +5,41 @@ import { Box3, ExtrudeGeometry, ShapeUtils, Vector3 } from 'three'
 import { LAT0, LON0, gpsToLocal, groundSizeForCoordinates, sameCoordinate, validClosedRing } from '../src/lib/geo.ts'
 import { buildingHeight, extractBuildingFootprints, joinMemberRings, parseHeight } from '../src/lib/buildings.ts'
 import { buildingShape } from '../src/lib/buildingGeometry.ts'
-import { CAMPUS_QUERY, FALLBACK_QUERY, fetchCampusData, requestOverpass } from '../src/lib/osm.ts'
+import { CAMPUS_QUERY, FALLBACK_QUERY, fetchCampusData, requestOverpass, fetchPublishedCampusData, fetchPublishedCampusRoads } from '../src/lib/osm.ts'
 
 const fixture = JSON.parse(await readFile(new URL('./fixtures/nit-goa-campus.json', import.meta.url), 'utf8'))
 const realWay = fixture.elements.find((element) => element.type === 'way' && element.tags?.building)
 const realRelation = fixture.elements.find((element) => element.type === 'relation')
+
+test('published visitors load complete verified buildings and roads from the app origin', async (t) => {
+  const roads = JSON.parse(await readFile(new URL('../public/map/nit-goa-roads.json', import.meta.url), 'utf8'))
+  const campus = JSON.parse(await readFile(new URL('../public/map/nit-goa-campus.json', import.meta.url), 'utf8'))
+  assert.deepEqual(campus, fixture)
+  const calls = []
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    calls.push(url)
+    return Response.json(url.endsWith('roads.json') ? roads : campus)
+  })
+  const buildings = await fetchPublishedCampusData(), roadData = await fetchPublishedCampusRoads()
+  assert.deepEqual(calls, ['/map/nit-goa-campus.json', '/map/nit-goa-roads.json'])
+  assert.equal(buildings.buildings.length, 22)
+  assert.equal(buildings.buildings.reduce((n, b) => n + b.holes.length, 0), 11)
+  assert.equal(roadData.roads.length, 20)
+  assert.deepEqual(buildings.boundary, roadData.boundary)
+})
+
+test('published maps reject unavailable or incomplete geometry and respect cancellation', async (t) => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => new Response('', { status: 404 }))
+  await assert.rejects(fetchPublishedCampusData(), /unavailable/)
+  fetchMock.mock.mockImplementation(async () => Response.json({ elements: [] }))
+  await assert.rejects(fetchPublishedCampusData(), /Invalid published/)
+  await assert.rejects(fetchPublishedCampusRoads(), /Invalid published/)
+  const controller = new AbortController()
+  controller.abort()
+  const before = fetchMock.mock.callCount()
+  await assert.rejects(fetchPublishedCampusRoads(controller.signal), { name: 'AbortError' })
+  assert.equal(fetchMock.mock.callCount(), before)
+})
 
 test('GPS origin is zero; east and north retain meter scale and correct axes', () => {
   assert.deepEqual(gpsToLocal({ lat: LAT0, lon: LON0 }), { x: 0, z: -0 })
