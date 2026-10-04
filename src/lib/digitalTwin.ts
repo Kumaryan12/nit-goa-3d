@@ -1,4 +1,5 @@
 import { correctGyanCourtyards } from './gyanGeometry.ts'
+import { correctBoysHostelCourtyards } from './boysHostelGeometry.ts'
 import { applyLocationOverride } from './locationOverrides.ts'
 import type { CampusOverrides } from './locationOverrides.ts'
 import { campusLocations } from '../data/campus.ts'
@@ -23,7 +24,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const boundary = (map?.boundary ?? roads?.boundary ?? []).map(gpsToLocal)
   const metadata = campusLocations.map((location) => applyLocationOverride(location, overrides[location.id]))
   const selections = assignCampusLocations(map?.buildings ?? [], metadata).map((selection) => ({ ...selection, location: applyLocationOverride(selection.location, overrides[selection.location.id]) }))
-  const buildings = (map?.buildings ?? []).map((building, i) => ({ ...correctGyanCourtyards(building), height: buildingHeight(building.tags, selections[i].location.id) }))
+  const buildings = (map?.buildings ?? []).map((building, i) => ({ ...correctBoysHostelCourtyards(correctGyanCourtyards(building)), height: buildingHeight(building.tags, selections[i].location.id) }))
   const locations = metadata.map((location) => {
     const index = selections.findIndex((selection) => selection.location.id === location.id)
     return index < 0 ? { ...location } : { ...location, coordinates: buildingCenter(buildings[index]), height: buildings[index].height }

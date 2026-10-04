@@ -15,6 +15,7 @@ interface BuildingInfoPanelProps {
   onPlayFootball?: () => void
   onOpenConcert?: () => void
   onEnterHostel?: () => void
+  onViewCourtyards?: () => void
   walkMode?: boolean
   onEdit?: (id: string) => void
   onGallery: (id: string, photo?: string) => void
@@ -28,7 +29,7 @@ interface BuildingInfoPanelProps {
   onSelectLocation: (locationId: string) => void
 }
 
-function BuildingInfoPanel({ gyanPlan, onEnterGyan, hostelPlan, onPlayFootball, onOpenConcert, onEnterHostel, walkMode = false, onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
+function BuildingInfoPanel({ gyanPlan, onEnterGyan, hostelPlan, onPlayFootball, onOpenConcert, onEnterHostel, onViewCourtyards, walkMode = false, onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
   const nearby = useMemo(() => selection ? nearbyLocations(selection.location, locations) : [], [selection, locations])
@@ -60,6 +61,7 @@ function BuildingInfoPanel({ gyanPlan, onEnterGyan, hostelPlan, onPlayFootball, 
     {matchMethod === 'manual' && <p className="building-match-note">Building identity assigned manually in campus metadata.</p>}
     {matchMethod === 'proximity' && <p className="building-match-note">Approximate identification based on campus position.</p>}
     {!selection.buildingId && <p className="building-match-note">Approximate campus location anchor.</p>}
+    {location.id === 'boys-hostel' && onViewCourtyards && <button className="navigate-button" onClick={onViewCourtyards}>View courtyards & badminton court ↗</button>}
     {buildingDetails[location.id] && <BuildingFloorDirectory key={location.id} details={buildingDetails[location.id]} plan={location.id === 'boys-hostel' ? hostelPlan : null} onEnter={onEnterHostel} />}
     <section className="panel-section"><h3>Facilities</h3>
       {location.facilities.length ? <ul className="facilities-list">{location.facilities.map((facility) => <li key={facility}>{facility}</li>)}</ul>

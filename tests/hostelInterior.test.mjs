@@ -19,9 +19,9 @@ const building=twin.buildings[twin.selections.findIndex(item=>item.location.id==
 const plan=createHostelPlan(building,twin.roads,p=>isWalkable(p,world))
 const add=(p,v,d)=>({x:p.x+v.x*d,z:p.z+v.z*d})
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} ≈ ${b}`)
-test('approximate hostel plan preserves the real footprint and all three courtyards',()=> {
-  assert.ok(plan);assert.equal(plan.buildingId,'relation/19505808/0');assert.equal(plan.levels,5);assert.equal(plan.floorHeight,3.2);assert.equal(plan.holes.length,3)
-  assert.deepEqual(plan.building.outer,building.outer);assert.equal(buildingShape(plan.building).holes.length,3)
+test('approximate hostel plan preserves the real footprint and two open courtyards',()=> {
+  assert.ok(plan);assert.equal(plan.buildingId,'relation/19505808/0');assert.equal(plan.levels,5);assert.equal(plan.floorHeight,3.2);assert.equal(plan.holes.length,2)
+  assert.deepEqual(plan.building.outer,building.outer);assert.equal(buildingShape(plan.building).holes.length,2)
   for(const hole of plan.holes){const center=hole.reduce((p,q)=>({x:p.x+q.x/hole.length,z:p.z+q.z/hole.length}),{x:0,z:0});if(!insideHostelFootprint(center,plan.outer,plan.holes))assert.equal(isInteriorWalkable(center,plan),false)}
   const original=JSON.stringify(building);const second=createHostelPlan(building,twin.roads,p=>isWalkable(p,world));assert.deepEqual(second,plan);assert.equal(JSON.stringify(building),original)
 })

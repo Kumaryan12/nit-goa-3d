@@ -41,6 +41,7 @@ import RouteTraveler from './RouteTraveler'
 import type { Playback, RoutePresentation } from '../lib/traversal'
 import type { LocalCoordinate } from '../lib/geo'
 import CampusPeopleScene from './CampusPeopleScene'
+import HostelCourtyards from './HostelCourtyards'
 import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib/campusProtocol'
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number }
@@ -111,15 +112,15 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
     return plan && building ? campusFacadeCamera(plan, building.baseElevation ?? 0) : null
   }
   useEffect(() => {
-    const destination = request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId ? facadeDestination() ?? flyToLocation(request.locationId, twin?.locations,
-      twin?.locations.find((location) => location.id === request.locationId)?.height) : home
+    const destination = request.view ?? (request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId ? facadeDestination() ?? flyToLocation(request.locationId, twin?.locations,
+      twin?.locations.find((location) => location.id === request.locationId)?.height) : home)
     if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   }, [home])
   useEffect(() => {
     const building = twin?.selections.findIndex((selection) => selection.location.id === request.locationId) ?? -1
-    const destination = request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId
+    const destination = request.view ?? (request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId
       ? facadeDestination() ?? flyToLocation(request.locationId, twin ? [...twin.locations, ...twin.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location)] : undefined, twin?.buildings[building]?.height)
-      : home
+      : home)
     if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
     // Requests have a monotonic sequence so repeated clicks on the same place work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,6 +177,7 @@ function CampusScene({ campusPeople, campusSession, campusPose, campusMessages, 
       {twin.canal && <EntranceCanal canal={twin.canal} terrain={twin.terrain} night={night} />}
       <OSMBuildings administration={administration} facades={facades} night={night} interiorPlans={view==='walk'?[hostelPlan,gyanPlan].filter((p):p is HostelPlan=>!!p):[]} insideBuildingId={view==='walk' && hostelFloor!==null?interiorBuildingId:null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
       <BuildingWindows doorway={view === 'walk' ? hostelPlan : null} buildings={windowBuildings} night={night} />
+      {hostelPlan && <HostelCourtyards building={hostelPlan.building} />}
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
