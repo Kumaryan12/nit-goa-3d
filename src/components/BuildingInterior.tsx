@@ -24,7 +24,7 @@ function Floor({ plan:rootPlan,level }: {plan:HostelPlan;level:number}) {
   const y=plan.base+level*plan.floorHeight+.14
   const walls=useMemo(()=>[
     ...plan.walls.filter(w=>w.kind!=='rail').map(wall=> {const length=Math.hypot(wall.b.x-wall.a.x,wall.b.z-wall.a.z);return {x:(wall.a.x+wall.b.x)/2,z:(wall.a.z+wall.b.z)/2,y:y+1.35,width:length,height:2.7,depth:.18,angle:-Math.atan2(wall.b.z-wall.a.z,wall.b.x-wall.a.x)}}),
-    ...plan.rooms.map(room=>({x:room.door.x,z:room.door.z,y:y+2.4,width:1.44,height:.6,depth:.18,angle:-Math.atan2(room.along.z,room.along.x)})),
+    ...[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].map(room=>({x:room.door.x,z:room.door.z,y:y+2.4,width:1.44,height:.6,depth:.18,angle:-Math.atan2(room.along.z,room.along.x)})),
     {x:plan.entrance.point.x,z:plan.entrance.point.z,y:y+(level===0?2.4:1.35),width:2.2,height:level===0?.6:2.7,depth:.18,angle:-Math.atan2(plan.entrance.along.z,plan.entrance.along.x)},
   ],[plan,y,level])
   const rails=useMemo(()=>plan.walls.filter(w=>w.kind==='rail').map(wall=>({x:(wall.a.x+wall.b.x)/2,z:(wall.a.z+wall.b.z)/2,y:y+.55,width:Math.hypot(wall.b.x-wall.a.x,wall.b.z-wall.a.z),height:1.1,depth:.1,angle:-Math.atan2(wall.b.z-wall.a.z,wall.b.x-wall.a.x)})),[plan,y])
