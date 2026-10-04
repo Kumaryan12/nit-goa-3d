@@ -288,7 +288,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
 
   return (
     <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''}`} aria-label="NIT Goa 3D campus explorer">
-      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to jog, E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
+      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
           oatConcert={oat.snapshot}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}

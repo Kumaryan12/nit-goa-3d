@@ -9,6 +9,8 @@ import type { WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
 import { footballToLocal, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch } from '../lib/football'
 import StudentAvatar from './StudentAvatar'
+import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, stridePhase } from '../lib/avatarMotion'
+import type { AvatarMotion } from '../lib/avatarMotion'
 import { canUseStairs, demoRoomNumber, interiorCameraFraction, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
 
@@ -23,7 +25,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
 }) {
   const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
   const { gl, camera } = useThree(), avatar = useRef<Group>(null), yaw = useRef(0), pitch = useRef(0.28), cameraDistance = useRef(7)
-  const keys = useRef(new Set<string>()), motion = useRef({ phase: 0, moving: false }), elapsed = useRef(0), nearest = useRef<string | null>(null)
+  const keys = useRef(new Set<string>()), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false }), locomotion = useRef(freshLocomotion()), elapsed = useRef(0), nearest = useRef<string | null>(null)
   const world = useMemo(() => createWalkWorld(twin.buildings, twin.boundary, twin.terrain), [twin])
   const locations = useMemo(() => [...twin.locations, ...twin.selections.filter(item => item.matchMethod === 'unmatched').map(item => item.location)].map(location => ({ ...location, osmBuildingId: twin.selections.find(item => item.location.id === location.id)?.buildingId ?? location.osmBuildingId })), [twin])
   const target = useMemo(() => new Vector3(), []), desired = useMemo(() => new Vector3(), []), snapped = useRef(false), oriented = useRef(false)
@@ -53,7 +55,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
     } else if (pose && !validInside) interiorPose.current = null
     // Switching modes during a stair walk returns to a safe same-floor landing.
     if (validInside && position.current && hostelPlan && pointDistance(position.current, hostelPlan.stairs.start) + pointDistance(position.current, hostelPlan.stairs.end) < hostelPlan.stairs.length + .3) position.current = stairLanding(hostelPlan, pose!.floor < hostelPlan.levels - 1)
-    journey.current = null; processedSpawn.current = spawn.sequence
+    journey.current = null; locomotion.current = freshLocomotion(); motion.current = { phase: 0, moving: false, speed: 0, running: false }; processedSpawn.current = spawn.sequence
     if (avatar.current) avatar.current.visible = !!position.current
     nearest.current = null
     if (!position.current) onStatus({ position: anchor.coordinates, nearestId: null, distance: Infinity, moving: false, blocked: false, error: `No open ground near ${anchor.name}. Choose another starting place.` })
@@ -92,7 +94,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
       position.current = stairLanding(plan, up); yaw.current = Math.atan2(plan.stairs.along.x * (up ? -1 : 1), plan.stairs.along.z * (up ? -1 : 1))
     } else return
     if (avatar.current) avatar.current.rotation.y = yaw.current
-    keys.current.clear(); input.current = emptyWalkInput(); snapped.current = false; publish()
+    keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); snapped.current = false; publish()
   }, [hostelPlan, position, interiorPose, input, publish])
   useEffect(() => {
     const fov = camera instanceof Object && 'fov' in camera ? camera.fov : null, near = camera.near
@@ -100,7 +102,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
     return () => { camera.near = near; if ('fov' in camera && typeof fov === 'number') camera.fov = fov; camera.updateProjectionMatrix() }
   }, [camera])
   useEffect(() => {
-    const clear = () => { keys.current.clear(); input.current = emptyWalkInput() }
+    const clear = () => { keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion() }
     if (paused) clear()
     const down = (event: KeyboardEvent) => {
       if (paused || editingText() || event.metaKey || event.ctrlKey || event.altKey) return
@@ -138,6 +140,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
   }, [gl, paused])
   useFrame((_, delta) => {
     if (!avatar.current || !position.current) return
+    delta = motionDelta(delta)
     const allowed = !paused && !editingText() && !document.hidden, key = (code: string) => allowed && keys.current.has(code) ? 1 : 0
     const forward = allowed ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
     const side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
@@ -146,6 +149,8 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
     const direction = { x: -Math.sin(yaw.current) * forward + Math.cos(yaw.current) * side, z: -Math.cos(yaw.current) * forward - Math.sin(yaw.current) * side }
     if (input.current.action) { const action = input.current.action; delete input.current.action; if (allowed) act(action) }
     const before = position.current, pose = interiorPose.current
+    const running = !!(allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running))
+    const travel = advanceLocomotion(locomotion.current, direction, running ? pose ? 3.5 : 5.5 : 2.3, delta, allowed && !journey.current)
     let next = before, surfaceY = walkSurfaceHeightAt(twin.terrain, before.x, before.z)
     if (pose && hostelPlan) {
       surfaceY = hostelPlan.base + pose.floor * hostelPlan.floorHeight + .14
@@ -157,19 +162,32 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
           const look = landingLookDirection(hostelPlan, next); yaw.current = Math.atan2(-look.x,-look.z)
           avatar.current.rotation.y = yaw.current; snapped.current = false; publish()
         }
-      } else next = stepInterior(before, direction, allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running) ? 3.5 : 2.3, delta, hostelPlan)
+      } else next = stepInterior(before, travel.direction, travel.speed, travel.delta, hostelPlan)
     } else {
-      next = stepWalking(before, direction, allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running) ? 5.5 : 2.3, delta, world)
+      next = stepWalking(before, travel.direction, travel.speed, travel.delta, world)
       surfaceY = walkSurfaceHeightAt(twin.terrain, next.x, next.z)
     }
     if (footballPitch && !pose) { const local = footballToLocal(next, footballPitch); next = footballToWorld({ x:Math.max(-44,Math.min(44,local.x)), z:Math.max(-24,Math.min(24,local.z)) }, footballPitch); surfaceY = footballPitch.elevation + .11 }
+    reconcileLocomotion(locomotion.current, before, next, travel)
     const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = Math.hypot(direction.x, direction.z) > 0 && moved < .001 && !journey.current
-    footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running:!!(key('ShiftLeft') || key('ShiftRight') || input.current.running), active:allowed && footballLive && !pose } : null
-    position.current = next; motion.current.moving = moved > .001; motion.current.phase += moved * 7
+    footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running, active:allowed && footballLive && !pose } : null
+    position.current = next
+    motion.current.moving = moved > .001
+    motion.current.speed = delta > 0 ? Math.min(5.5, moved / delta) : 0
+    motion.current.running = running
+    motion.current.paused = !allowed
+    motion.current.phase = stridePhase(motion.current.phase, moved, running)
+    motion.current.turn = 0
     avatar.current.position.set(next.x, surfaceY, next.z)
     if (moved > .001) {
       const heading = Math.atan2(before.x - next.x, before.z - next.z), difference = Math.atan2(Math.sin(heading - avatar.current.rotation.y), Math.cos(heading - avatar.current.rotation.y))
-      avatar.current.rotation.y += difference * (1 - Math.exp(-delta * 14))
+      const rotation = difference * (1 - Math.exp(-delta * 12))
+      avatar.current.rotation.y += rotation
+      motion.current.turn = delta > 0 ? rotation / delta : 0
+    }
+    if (footballPitch && motion.current.kick !== footballControls.current.kick) {
+      if (motion.current.kick !== undefined) avatar.current.rotation.y = yaw.current
+      motion.current.kick = footballControls.current.kick
     }
     target.set(next.x, surfaceY + 1.35, next.z)
     const indoorFov = pose ? 75 : 60

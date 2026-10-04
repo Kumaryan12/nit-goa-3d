@@ -7,13 +7,17 @@ import { FOOTBALL_RADIUS, footballStatus, footballToWorld } from '../lib/footbal
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
 import StudentAvatar from './StudentAvatar'
+import { motionDelta, stridePhase } from '../lib/avatarMotion'
+import type { AvatarMotion } from '../lib/avatarMotion'
 const ignoreRaycast = () => undefined
 function RemotePlayer({ player, session, pitch }: { player: FootballPlayer; session: React.RefObject<FootballSession>; pitch: FootballPitch }) {
-  const group = useRef<Group>(null), motion = useRef({ phase: 0, moving: false })
+  const group = useRef<Group>(null), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false })
   const gl = useThree(state => state.gl), portal = useRef(gl.domElement.parentElement!)
   useFrame((_, delta) => {
     const current = session.current.snapshot?.players.find(item => item.id === player.id)
     if (!current || !group.current) return
+    delta = motionDelta(delta)
+    const beforeX = group.current.position.x, beforeZ = group.current.position.z
     const point = footballToWorld(current, pitch), blend = 1 - Math.exp(-delta * 15)
     group.current.position.x += (point.x - group.current.position.x) * blend
     group.current.position.z += (point.z - group.current.position.z) * blend
@@ -21,8 +25,11 @@ function RemotePlayer({ player, session, pitch }: { player: FootballPlayer; sess
     const direction = footballToWorld({ x:current.dx,z:current.dz }, { ...pitch, center:{x:0,z:0} })
     const yaw = Math.atan2(-direction.x, -direction.z)
     group.current.rotation.y += Math.atan2(Math.sin(yaw-group.current.rotation.y),Math.cos(yaw-group.current.rotation.y)) * blend
-    motion.current.moving = current.active && current.moving
-    if (motion.current.moving) motion.current.phase += delta * (current.running ? 30 : 16)
+    const distance = Math.hypot(group.current.position.x - beforeX, group.current.position.z - beforeZ)
+    motion.current.moving = current.active && distance > .001
+    motion.current.running = current.running
+    motion.current.speed = motion.current.moving && delta > 0 ? Math.min(5.5, distance / delta) : 0
+    if (motion.current.moving) motion.current.phase = stridePhase(motion.current.phase, distance, current.running)
   })
   const initial = footballToWorld(player, pitch)
   return <group ref={group} position={[initial.x,pitch.elevation+.11,initial.z]} name={`football-player-${player.number}`}>
