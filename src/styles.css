@@ -319,6 +319,57 @@ h1 span { font-weight: 400; }
 .walk-stick-knob { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 38px; height: 38px; border-radius: 50%; border: 2px solid #ffffff70; background: var(--accent); box-shadow: 0 3px 8px #193d2940; pointer-events: none; }
 .walk-stick-cross { position: absolute; inset: 0; display: grid; place-items: center; color: var(--accent); opacity: .3; font-size: 50px; pointer-events: none; }
 .walk-stick-label { position: absolute; bottom: 4px; width: 100%; text-align: center; font-size: 7px; letter-spacing: .18em; color: var(--muted); pointer-events: none; }
+.campus-connection-dot, .campus-social-status i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.campus-connection-dot.connected, .campus-social-status i.connected { background: #54a976; box-shadow: 0 0 0 3px #54a97618; }
+.campus-live-toggle { display: inline-flex; align-items: center; gap: 7px; }
+.campus-unread { background: var(--accent); color: var(--glass); padding: 2px 5px; border-radius: 10px; font-size: 9px; }
+.campus-social { position: absolute; z-index: 46; right: 24px; bottom: 24px; width: 340px; height: 540px; max-height: calc(100dvh - 210px); display: flex; flex-direction: column; padding: 20px; border: 1px solid var(--border); border-radius: 18px; background: var(--glass); backdrop-filter: blur(20px); color: var(--ink); box-shadow: 0 12px 40px #132b1920; }
+.campus-social-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0; }
+.campus-social-heading .eyebrow { font-size: 8px; letter-spacing: .13em; }
+.campus-social-heading h2 { font-size: 23px; margin: 7px 0 0; letter-spacing: -.04em; }
+.campus-social-status { display: flex; align-items: center; gap: 7px; font-size: 10px; margin: 12px 0 16px; color: var(--muted); flex-shrink: 0; }
+.campus-social-tabs { display: flex; gap: 4px; padding: 4px; background: var(--wash); border-radius: 9px; flex-shrink: 0; }
+.campus-social-tabs button { flex: 1; border: 0; padding: 8px; background: transparent; border-radius: 6px; color: var(--muted); font-size: 11px; }
+.campus-social-tabs button[aria-pressed="true"] { background: var(--accent); color: var(--glass); }
+.campus-chat-channel { display: flex; align-items: center; gap: 10px; margin: 14px 0 8px; font-size: 10px; flex-shrink: 0; }
+.campus-chat-channel label { color: var(--muted); }
+.campus-chat-channel select { flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 7px; background: var(--wash); color: var(--ink); padding: 8px; font-size: 11px; }
+.campus-chat-log, .campus-people-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.campus-chat-log { padding: 6px 2px; }
+.campus-social-empty { padding: 26px 8px; text-align: center; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.campus-social-empty > span { font-size: 28px; color: var(--accent); }
+.campus-social-empty h3 { font-size: 15px; font-weight: 550; color: var(--ink); margin: 12px 0 7px; letter-spacing: -.02em; }
+.campus-chat-message { padding: 10px 12px; background: var(--wash); border-radius: 10px 10px 10px 3px; margin: 5px 18px 8px 0; }
+.campus-chat-message.from-self { margin-left: 18px; margin-right: 0; border-radius: 10px 10px 3px 10px; background: #4a897b18; }
+.campus-chat-message > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 10px; }
+.campus-chat-message strong { overflow-wrap: anywhere; }
+.campus-chat-message time { font-size: 8px; color: var(--muted); white-space: nowrap; }
+.campus-chat-message p { font-size: 12px; line-height: 1.55; margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.campus-chat-composer { display: flex; gap: 7px; margin-top: 10px; flex-shrink: 0; }
+.campus-chat-composer input { min-width: 0; flex: 1; border: 1px solid var(--border); background: var(--wash); color: var(--ink); border-radius: 10px; padding: 11px; font-size: 12px; }
+.campus-chat-composer button { width: 40px; border: 0; border-radius: 10px; background: var(--accent); color: var(--glass); font-size: 21px; }
+.campus-social-note { font-size: 9px; line-height: 1.6; color: var(--muted); margin: 10px 0 0; flex-shrink: 0; }
+.campus-chat-error { display: flex; gap: 6px; justify-content: space-between; color: #a45b45; background: #b8715712; padding: 8px; font-size: 10px; line-height: 1.5; margin-bottom: 8px; border-radius: 6px; }
+.campus-chat-error button { border: 0; background: none; color: inherit; }
+.campus-person-row { display: flex; align-items: center; gap: 9px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.campus-person-initials { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 11px; color: #fffaf1; font-size: 10px; }
+.campus-person-info { min-width: 0; flex: 1; font-size: 12px; }
+.campus-person-info strong, .campus-person-info a { color: var(--ink); font-weight: 550; text-decoration: none; overflow-wrap: anywhere; }
+.campus-person-info a:hover { text-decoration: underline; }
+.campus-person-info small { display: block; margin-top: 5px; font-size: 9px; line-height: 1.4; color: var(--muted); }
+.campus-mute { padding: 5px; border: 1px solid var(--border); background: var(--wash); color: var(--muted); border-radius: 6px; font-size: 9px; }
+.campus-avatar-caption { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.campus-avatar-name { display: block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; padding: 4px 8px; background: #fafbf2ee; color: #293d36; border-radius: 6px; font-size: 11px; font-weight: 550; white-space: nowrap; text-decoration: none; box-shadow: 0 2px 8px #132b1920; }
+a.campus-avatar-name:hover { background: #e1f0e4; }
+.campus-speech { display: block; width: max-content; max-width: 200px; padding: 9px 11px; background: #fffdf3f5; color: #293d36; font-size: 11px; line-height: 1.5; border-radius: 10px 10px 10px 2px; overflow-wrap: anywhere; box-shadow: 0 4px 16px #132b1920; pointer-events: none; }
+.campus-speech[hidden] { display: none; }
+.social-open .campus-minimap, .social-open .oat-controls, .social-open .football-controls { visibility: hidden; }
+@media (max-width: 760px) {
+  .campus-social { left: 12px; right: 12px; bottom: 12px; width: auto; height: 510px; padding: 16px; max-height: calc(100dvh - 220px); }
+  .campus-social-heading h2 { font-size: 21px; }
+  .campus-chat-composer input { font-size: 16px; padding: 9px; }
+  .social-open .walk-controls, .social-open .building-info-panel, .social-open .campus-stats, .social-open .location-navigation { visibility: hidden; }
+}
 @media (pointer: coarse) {
   .walk-joystick { display: block; }
   .walk-pad { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }

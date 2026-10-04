@@ -3,6 +3,7 @@ import { createReadStream, statSync } from 'node:fs'
 import { resolve, extname, sep } from 'node:path'
 import { attachFootballServer } from './footballServer.ts'
 import { attachOatServer } from './oatServer.ts'
+import { attachCampusServer } from './campusServer.ts'
 import { createAccessVerifier } from './access.ts'
 import { firebaseProject, firebaseAdmin } from './firebaseAdmin.ts'
 import { createProfileAPI } from './profileApi.ts'
@@ -99,7 +100,7 @@ const server = createServer((request, response) => {
     response.end()
     return
   }
-  if (path === '/football' || path === '/oat') {
+  if (path === '/football' || path === '/oat' || path === '/presence') {
     response.writeHead(426)
     response.end('WebSocket required')
     return
@@ -152,11 +153,13 @@ oat = attachOatServer(
   origin ?? process.env.OAT_ORIGIN ?? process.env.FOOTBALL_ORIGIN,
   verify,
 )
+const campus = attachCampusServer(server, origin, verify)
 crowd = createCrowdAPI(football.access, oat.access, oat.endStage, verify, () =>
   profiles.changed(),
+  undefined, campus,
 )
 server.on('upgrade', (request, socket) => {
-  if (!['/football', '/oat'].includes(request.url?.split('?')[0] || ''))
+  if (!['/football', '/oat', '/presence'].includes(request.url?.split('?')[0] || ''))
     socket.destroy()
 })
 const port = Number(process.env.PORT ?? 4173),
@@ -168,6 +171,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.on(signal, () => {
     football.close()
     oat.close()
+    campus.close()
     server.close()
     server.closeAllConnections()
   })

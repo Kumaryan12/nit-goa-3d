@@ -1,6 +1,6 @@
 # NITG Explored deployment
 
-The app runs as one Node 24 service on Render: the landing page, profiles, authenticated football and OAT use the same HTTPS origin. `render.yaml` uses the existing Dockerfile, Singapore, one instance, `/readyz`, and an explicit free plan for initial testing. Automatic deployment is off until launch verification succeeds.
+The app runs as one Node 24 service on Render: the landing page, profiles, shared campus presence/chat, authenticated football and OAT use the same HTTPS origin. `render.yaml` uses the existing Dockerfile, Singapore, one instance, `/readyz`, and an explicit free plan for initial testing. Automatic deployment is off until launch verification succeeds.
 
 ## Live deployment
 
@@ -48,7 +48,7 @@ The checked-in deployment requires the runtime secret in Render before `/readyz`
 5. Build/deploy and check `/healthz` and `/readyz`. Readiness tests Firestore access and returns 503 while the database/credentials are unavailable. Never change the readiness check to bypass missing permissions.
 6. Complete a real Google sign-in, create a profile, test public/private switching, then exercise live rooms with two independent Google accounts.
 
-Only one instance is supported in this release: game state, queues and uploaded concert audio are in memory. Profiles and moderation logs persist in Firestore. [Render WebSocket guidance](https://render.com/docs/websocket) applies to the live endpoints. A free Render service sleeps after inactivity and takes time to wake; it is suitable for validation, not uninterrupted scheduled concerts. Read [free-service limits](https://render.com/docs/free) before launch. No paid service or billing upgrade is authorized by this Blueprint.
+Only one instance is supported in this release: campus presence/chat, game state, queues and uploaded concert audio are in memory. Profiles and moderation logs persist in Firestore. [Render WebSocket guidance](https://render.com/docs/websocket) applies to the live endpoints. A free Render service sleeps after inactivity and takes time to wake; it is suitable for validation, not uninterrupted scheduled concerts. Read [free-service limits](https://render.com/docs/free) before launch. No paid service or billing upgrade is authorized by this Blueprint.
 
 ## Published map
 
@@ -83,9 +83,11 @@ Open `/admin`, then Crowd desk, confirm the same Google account, and enroll an a
 - A signed-out or suspended account cannot fetch crowd identities or receive live state.
 - A normal member cannot invoke moderation or edit protected roles.
 - Two accounts can play with the same ball; a duplicate tab in the same room is rejected.
-- Room capacity is 24 with 100 waiting places; promotion follows arrival order.
+- Football/OAT each admit 24 visitors; shared campus admits 32. Each has 100 waiting places and promotes visitors in arrival order. `/presence`, `/football` and `/oat` WebSocket upgrades go to the same Node process. Verify nearby text delivery with walkers within 35 metres and rejection across hostel floors. Public profile links appear only for published profiles; profile metadata refreshes within 30 seconds.
 - Ban/kick removes live sockets; end-stage stops performer transmission. Wait/leave/sign-out stops local microphone and media resources.
 - Test public/private profiles and handle changes from a separate signed-out browser; public API caches expire in 30 seconds and are cleared on app edits/moderation. Previously shared copies cannot be recalled.
 - Test tracks, microphone permission, late join, restrictive networks and TURN relay. OAT uses performer-to-listener WebRTC: test within the cap before concerts. Larger audiences require an SFU and shared state; raising caps or adding instances alone is insufficient.
 - Audio uploads are temporary: 12 MB each, four retained files. Their random links can be shared while active. Restarts clear music, queues and game state.
 - Schedule Firestore backups, monitor provider quotas/errors, and review moderation logs. The repository does not claim a completed independent security audit or production load test.
+
+Shared-campus verification: `tests/campusPresence.test.mjs` exercises two independent socket clients, movement and text delivery, nearby isolation, verified profile metadata, duplicate-account denial, full-room queue promotion, and audited owner moderation. These test identities replace Google verification only inside the test harness; production still uses Firebase verification and the pinned owner policy. Rehearse with two independent Google accounts on the hosted service before a public event.

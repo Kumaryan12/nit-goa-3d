@@ -19,6 +19,7 @@ export function createCrowdAPI(
       moderate: createModerationStore(db),
     }
   },
+  campus?: { access: Access; removeMessages: (id: string) => void },
 ) {
   let busy = 0,
     services: ReturnType<typeof provider> | null = null
@@ -54,6 +55,7 @@ export function createCrowdAPI(
         sendJSON(res, 200, {
           football: football.snapshot(),
           oat: oat.snapshot(),
+          ...(campus ? { campus: campus.access.snapshot() } : {}),
         })
         return
       }
@@ -81,6 +83,8 @@ export function createCrowdAPI(
       if (body.action === 'kick' || body.action === 'ban') {
         football.kick(body.target)
         oat.kick(body.target)
+        campus?.access.kick(body.target)
+        campus?.removeMessages(body.target)
       }
       if (body.action === 'end-stage') endStage(body.target)
       changed()

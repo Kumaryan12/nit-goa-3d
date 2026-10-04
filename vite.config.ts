@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { attachFootballServer } from './server/footballServer.ts'
 import { attachOatServer } from './server/oatServer.ts'
+import { attachCampusServer } from './server/campusServer.ts'
 import { createAccessVerifier } from './server/access.ts'
 import { createAccessAPI } from './server/accessApi.ts'
 import { createCrowdAPI } from './server/crowdApi.ts'
@@ -19,12 +20,14 @@ export default defineConfig(({ mode }) => {
     if (!server.httpServer) return
     const football = attachFootballServer(server.httpServer, undefined, verify),
       oat = attachOatServer(server.httpServer, undefined, verify),
+      campus = attachCampusServer(server.httpServer, undefined, verify),
       crowd = createCrowdAPI(
         football.access,
         oat.access,
         oat.endStage,
         verify,
         () => profiles.changed(),
+        undefined, campus,
       )
     server.middlewares.use((req, res, next) => {
       if (

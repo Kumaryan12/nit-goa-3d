@@ -95,7 +95,7 @@ export default function CrowdDesk({ role }: { role: string }) {
       <div className="crowd-rooms">
         {Object.entries(rooms).map(([name, room]) => (
           <section key={name} className="crowd-room">
-            <h2>{name === 'oat' ? 'Open Air Theatre' : 'Football ground'}</h2>
+            <h2>{name === 'oat' ? 'Open Air Theatre' : name === 'campus' ? 'Shared campus' : 'Football ground'}</h2>
             <p>
               {room.occupancy} / {room.capacity} inside · {room.waiting} waiting
             </p>

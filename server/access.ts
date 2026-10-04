@@ -3,6 +3,8 @@ import { firebaseAdmin, firebaseProject } from './firebaseAdmin.ts'
 import type { Auth } from 'firebase-admin/auth'
 import type { Firestore } from 'firebase-admin/firestore'
 import { campusRole, ownerPolicyPath } from './authorization.ts'
+import { PROFILE_COLORS } from '../src/lib/profile.ts'
+import type { CampusProfile } from '../src/lib/profile.ts'
 class MembershipUnavailable extends Error {}
 export interface CampusIdentity {
   id: string
@@ -10,6 +12,8 @@ export interface CampusIdentity {
   role: 'member' | 'moderator' | 'admin'
   expiresAt: number
   authTime?: number
+  publicHandle?: string | null
+  avatarColor?: CampusProfile['avatar_color']
 }
 export type VerifyAccess = (token: string) => Promise<CampusIdentity>
 export interface AccessDependencies {
@@ -110,6 +114,8 @@ export function createAccessVerifier(deps?: AccessDependencies): VerifyAccess {
       role: access.member.role,
       expiresAt: decoded.exp * 1000,
       authTime: decoded.auth_time * 1000,
+      publicHandle: access.profile.is_public === true && typeof access.profile.handle === 'string' && /^[a-z][a-z0-9_]{2,23}$/.test(access.profile.handle) ? access.profile.handle : null,
+      avatarColor: PROFILE_COLORS.includes(access.profile.avatar_color) ? access.profile.avatar_color : 'forest',
     }
   }
 }

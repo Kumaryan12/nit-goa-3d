@@ -16,6 +16,11 @@ import { createFootballControls, footballPitch } from './lib/football'
 import type { FootballStatus } from './lib/football'
 import { useFootballSession } from './hooks/useFootballSession'
 import { useOatSession } from './hooks/useOatSession'
+import { useCampusSession } from './hooks/useCampusSession'
+import CampusSocial from './components/CampusSocial'
+import { firebasePublicConfig } from './lib/firebase'
+import { CAMPUS_COLORS } from './lib/campusProtocol'
+import type { CampusPose } from './lib/campusProtocol'
 import OatControls from './components/OatControls'
 import WalkControls from './components/WalkControls'
 import TerrainControls from './components/TerrainControls'
@@ -70,6 +75,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const closeSlopeEditor = useCallback(() => { setSlopeEditorOpen(false); setSlopePicking(null); setSlopePicked(null); setSlopePreview(null) }, [])
   const applyTerrainSettings = useCallback((value: TerrainSettings) => { const settings = validateTerrainSettings(value); setTerrainSettings(settings); saveTerrainSettings(browserStorage, settings) }, [])
   const walkInput = useRef(emptyWalkInput()), avatarPosition = useRef<LocalCoordinate | null>(null)
+  const campusPose = useRef<CampusPose | null>(null), [campusOpen, setCampusOpen] = useState(false), [chatReadAt, setChatReadAt] = useState(() => Date.now())
   const interiorPose = useRef<InteriorPose | null>(null)
   const footballInput = useRef(createFootballControls())
   const [footballJoined, setFootballJoined] = useState(false), [footballRetry, setFootballRetry] = useState(0)
@@ -141,6 +147,10 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const roadData = roadState.status === 'ready' ? roadState.data : null
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useDigitalTwin(mapData, roadData, requestsSettled, overrides, terrainSettings)
+  const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview')
+  const selfColor = campusLive.people.find(p => p.id === campusLive.session.current.id)?.color
+  const unreadChat = campusOpen ? 0 : campusLive.messages.filter(m => m.time > chatReadAt && m.sender !== campusLive.session.current.id).length
+  useEffect(() => { if (campusOpen) setChatReadAt(Date.now()) }, [campusOpen, campusLive.messages])
   const pitch = useMemo(() => { const sports = twin?.locations.find(location => location.id === 'sports-ground'); return sports ? footballPitch(sports) : null }, [twin])
   const football = useFootballSession(footballJoined, footballRetry, footballInput, avatarPosition, pitch)
   const hostelPlan = useMemo(() => {
@@ -287,10 +297,11 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   useEffect(() => { if (twin && !initialSelectionResolved.current && (initial.to ?? initial.location)) { initialSelectionResolved.current = true; const resolved = selectionForLocation(initial.to ?? initial.location!, catalog, twin.selections); if (resolved) setSelection(resolved) } }, [twin])
 
   return (
-    <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''}`} aria-label="NIT Goa 3D campus explorer">
+    <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
       <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
           oatConcert={oat.snapshot}
+          campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}
           showContours={terrainSettings.showContours} hostelPlan={hostelPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null}
           view={view} walkPaused={walkPaused} walkInput={walkInput} avatarPosition={avatarPosition} walkSpawn={walkSpawn} onWalkStatus={onWalkStatus} onWalkInspect={chooseLocation}
@@ -342,6 +353,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
         <div className="scene-toolbar">
           <button className="toolbar-button" disabled={!twin || twin.boundary.length < 3} onClick={joinFootball}>⚽ Play football</button>
           <button className="toolbar-button" disabled={!twin || twin.boundary.length < 3} onClick={openOat}>🎤 OAT concerts</button>
+          <button className="toolbar-button campus-live-toggle" aria-expanded={campusOpen} onClick={() => setCampusOpen(value => !value)}><span className={`campus-connection-dot ${campusLive.connection === 'live' ? 'connected' : ''}`} />{campusLive.connection === 'live' ? `${campusLive.people.length} on campus` : campusLive.connection === 'waiting' ? `Campus queue · ${campusLive.queue}` : 'People & chat'}{unreadChat > 0 && <span className="campus-unread" aria-label={`${unreadChat} unread chat messages`}>{Math.min(99, unreadChat)}</span>}</button>
           {canEdit && <button className="toolbar-button edit-campus-toggle" aria-pressed={editorOpen} onClick={() => editorOpen ? closeEditor() : editLocation('main-entrance')}>✎ Edit campus</button>}
           <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
@@ -368,6 +380,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       </Suspense></ErrorBoundary>
       {view === 'walk' && <WalkControls input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
       {footballJoined && <FootballControls input={footballInput} status={footballStatus} connection={football.connection} players={football.players} selfId={football.session.current.id} paused={walkPaused} onLeave={() => { setFootballJoined(false); footballInput.current.actor = null }} onRetry={() => setFootballRetry(value => value + 1)} />}
+      <CampusSocial live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
       <CampusStats stats={stats} metrics={metrics} />
       <footer className="scene-footer">
         <div>

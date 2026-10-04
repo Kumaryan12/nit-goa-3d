@@ -232,7 +232,10 @@ export function attachLiveAccess(
       admitted = callback
     },
     isAdmitted(ws: WebSocket) {
-      return [...entries.values()].some((e) => e.ws === ws && e.admitted)
+      return [...entries.values()].some((e) => e.ws === ws && e.admitted && e.identity.expiresAt > Date.now() && e.ws.readyState === WebSocket.OPEN)
+    },
+    identity(ws: WebSocket) {
+      return [...entries.values()].find(e => e.ws === ws && e.admitted && e.identity.expiresAt > Date.now() && e.ws.readyState === WebSocket.OPEN)?.identity ?? null
     },
     snapshot() {
       return {

@@ -11,12 +11,14 @@ import type { FootballControls, FootballPitch } from '../lib/football'
 import StudentAvatar from './StudentAvatar'
 import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, stridePhase } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
+import type { CampusPose } from '../lib/campusProtocol'
 import { canUseStairs, demoRoomNumber, interiorCameraFraction, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ footballPitch, footballControls, footballLive, footballJersey, hostelPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ campusPose, footballPitch, footballControls, footballLive, footballJersey, hostelPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+  campusPose: React.RefObject<CampusPose | null>
   footballPitch: FootballPitch | null; footballControls: React.RefObject<FootballControls>; footballLive: boolean; footballJersey?: string
   hostelPlan: HostelPlan | null; interiorPose: React.RefObject<InteriorPose | null>
   processedSpawn: React.RefObject<number>
@@ -24,6 +26,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
   onStatus: (status: WalkStatus) => void; onInspect: (id: string) => void
 }) {
   const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
+  const campusEpoch = useRef((campusPose.current?.epoch ?? 0) + 1)
   const { gl, camera } = useThree(), avatar = useRef<Group>(null), yaw = useRef(0), pitch = useRef(0.28), cameraDistance = useRef(7)
   const keys = useRef(new Set<string>()), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false }), locomotion = useRef(freshLocomotion()), elapsed = useRef(0), nearest = useRef<string | null>(null)
   const world = useMemo(() => createWalkWorld(twin.buildings, twin.boundary, twin.terrain), [twin])
@@ -55,7 +58,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
     } else if (pose && !validInside) interiorPose.current = null
     // Switching modes during a stair walk returns to a safe same-floor landing.
     if (validInside && position.current && hostelPlan && pointDistance(position.current, hostelPlan.stairs.start) + pointDistance(position.current, hostelPlan.stairs.end) < hostelPlan.stairs.length + .3) position.current = stairLanding(hostelPlan, pose!.floor < hostelPlan.levels - 1)
-    journey.current = null; locomotion.current = freshLocomotion(); motion.current = { phase: 0, moving: false, speed: 0, running: false }; processedSpawn.current = spawn.sequence
+    journey.current = null; campusEpoch.current++; locomotion.current = freshLocomotion(); motion.current = { phase: 0, moving: false, speed: 0, running: false }; processedSpawn.current = spawn.sequence
     if (avatar.current) avatar.current.visible = !!position.current
     nearest.current = null
     if (!position.current) onStatus({ position: anchor.coordinates, nearestId: null, distance: Infinity, moving: false, blocked: false, error: `No open ground near ${anchor.name}. Choose another starting place.` })
@@ -94,6 +97,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
       position.current = stairLanding(plan, up); yaw.current = Math.atan2(plan.stairs.along.x * (up ? -1 : 1), plan.stairs.along.z * (up ? -1 : 1))
     } else return
     if (avatar.current) avatar.current.rotation.y = yaw.current
+    campusEpoch.current++
     keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); snapped.current = false; publish()
   }, [hostelPlan, position, interiorPose, input, publish])
   useEffect(() => {
@@ -149,6 +153,8 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
     const direction = { x: -Math.sin(yaw.current) * forward + Math.cos(yaw.current) * side, z: -Math.cos(yaw.current) * forward - Math.sin(yaw.current) * side }
     if (input.current.action) { const action = input.current.action; delete input.current.action; if (allowed) act(action) }
     const before = position.current, pose = interiorPose.current
+    // Room admission can relocate a football player between render frames.
+    if (Math.hypot(before.x - avatar.current.position.x, before.z - avatar.current.position.z) > 2) campusEpoch.current++
     const running = !!(allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running))
     const travel = advanceLocomotion(locomotion.current, direction, running ? pose ? 3.5 : 5.5 : 2.3, delta, allowed && !journey.current)
     let next = before, surfaceY = walkSurfaceHeightAt(twin.terrain, before.x, before.z)
@@ -189,6 +195,7 @@ export default function AvatarExplorer({ footballPitch, footballControls, footba
       if (motion.current.kick !== undefined) avatar.current.rotation.y = yaw.current
       motion.current.kick = footballControls.current.kick
     }
+    campusPose.current = { x: next.x, y: surfaceY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running, active: allowed, visible: true, space: pose ? `hostel:${journey.current?.lowFloor ?? pose.floor}` : 'outdoors', epoch: campusEpoch.current }
     target.set(next.x, surfaceY + 1.35, next.z)
     const indoorFov = pose ? 75 : 60
     if ('fov' in camera && camera.fov !== indoorFov) { camera.fov = indoorFov; camera.updateProjectionMatrix() }
