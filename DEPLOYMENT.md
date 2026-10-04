@@ -11,7 +11,7 @@ The app runs as one Node 24 service on Render: the landing page, profiles, authe
 - Real hosted Google sign-in completed and campus admission succeeded. Authenticated football joined with one player; OAT admission showed 1 / 24 visitors. Independent-account play and voice transmission still require rehearsal.
 - Firebase and moderation keys uploaded as private runtime files. Neither is in Git, browser code or the Docker image.
 - `/readyz` and the landing page return 200; anonymous admission/crowd requests are denied, and credential file URLs return 404.
-- Both GitHub verification jobs pass; 236 tests pass and the production dependency audit reports zero vulnerabilities.
+- Both GitHub verification jobs pass; 239 tests pass and the production dependency audit reports zero vulnerabilities.
 
 ## Provisioned Firebase project
 
@@ -68,15 +68,15 @@ npm run dev
 
 Vite reads public configuration and server-only settings from `.env.local`. For `npm start`, the host supplies runtime variables; locally use `node --env-file=.env.local --experimental-strip-types server/index.ts` after adding the private credential file path. With no Firebase configuration, development offers a labelled campus preview. With real Firebase configured, sign-in works but campus admission needs server credentials.
 
-The tests cover role spoofing, verified Google identity, first-visit private profiles, unique handles, publish/unpublish, moderator hierarchy, atomic audit authorization, TOTP encryption/reuse/lockout, room admission, queuing and the existing campus geometry/game/concert behaviour. Unit database tests use a transaction-shaped test store; they do not prove deployed IAM or OAuth success. Deployed rules and actual browser sign-in must be checked separately. Docker image execution requires a running Docker engine.
+The tests cover owner UID/email pinning, forged and legacy roles, direct admin API denial, safe sign-in return paths, verified Google identity, first-visit private profiles, unique handles, publish/unpublish, atomic audit authorization, TOTP encryption/reuse/lockout, room admission, queuing and the existing campus geometry/game/concert behaviour. Unit database tests use a transaction-shaped test store; they do not prove deployed IAM or OAuth success. Deployed rules and actual browser sign-in must be checked separately. Docker image execution requires a running Docker engine.
 
-## First moderator
+## Student and owner access
 
-The selected project owner's verified Google account has already been assigned `admin` on its active campus membership through trusted server administration. The setup is recorded in `moderationLog`. Other visitors receive ordinary membership.
+`/student` is the Google sign-in entrance and dashboard for all visitors. It links to the shared campus, optional profile and community. `/admin` is the owner's separate entrance and dashboard; `/admin/campus` exposes campus editing tools and `/admin/crowd` exposes the crowd desk. The normal `/campus` experience does not expose editing tools. The owner can also use the student experience. The legacy `/manage` path follows the same owner restriction.
 
-For another explicitly selected administrator: after their first real Google sign-in, their ordinary membership is created at `campusMembers/YOUR_FIREBASE_UID`. As project owner, set that record's `role` to `admin` through Firestore console (keep `status: active`). Use the Firebase UID from Authentication, and verify the intended account. No public profile or user-supplied claim can appoint a moderator.
+The selected owner's verified Google UID and email are pinned in the private `campusSettings/access` document (`ownerUid`, `ownerEmail`). This policy was provisioned through trusted Firebase administration and recorded in `moderationLog`. Each admission verifies both against the Firebase account, requires an enabled account and Google-provider sign-in, checks revocation and membership status, then derives its role. Everyone else receives `member`, including accounts with old `admin`/`moderator` membership roles or custom token claims; active membership records are normalized on admission. Missing or invalid policy grants no administrator. Browser clients cannot read or change this configuration. Changing membership roles does not appoint another administrator. Owner replacement must be an explicit trusted administration operation that verifies the replacement Google account and updates both policy fields; never accept this through profile or public APIs.
 
-Refresh the app, open Crowd desk, confirm the same Google account, then enroll an authenticator. TOTP setup requires a Google login from the last five minutes. Tickets last ten minutes; reused codes are rejected and five failed code attempts lock verification for fifteen minutes. Refresh/reverify when a ticket expires. To recover a lost authenticator, the project owner removes only that account's `moderatorFactors/UID` record through trusted administration, then has the moderator re-enroll after Google reauthentication.
+Open `/admin`, then Crowd desk, confirm the same Google account, and enroll an authenticator. Admin actions recheck the pinned owner UID and active admin membership in their audit transaction before live state changes. TOTP setup requires a Google login from the last five minutes. Tickets last ten minutes; reused codes are rejected and five failed code attempts lock verification for fifteen minutes. Refresh/reverify when a ticket expires. To recover a lost authenticator, the project owner removes only their `moderatorFactors/UID` record through trusted administration, then re-enrolls after Google reauthentication.
 
 ## Launch verification and limits
 

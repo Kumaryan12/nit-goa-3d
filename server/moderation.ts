@@ -11,6 +11,7 @@ import QRCode from 'qrcode'
 import { readFileSync } from 'node:fs'
 import type { CampusIdentity } from './access.ts'
 import type { CampusProfile } from '../src/lib/profile.ts'
+import { ownerPolicy, ownerPolicyPath } from './authorization.ts'
 
 export function moderatorKey(env: NodeJS.ProcessEnv = process.env) {
   if (env.MODERATOR_SECRET_KEY) return env.MODERATOR_SECRET_KEY
@@ -60,7 +61,7 @@ export function createModeratorService(
     ]).toString()
   }
   const requireModerator = (identity: CampusIdentity) => {
-    if (identity.role === 'member')
+    if (identity.role !== 'admin')
       throw new Error('Moderator access required.')
   }
   const requireFresh = (identity: CampusIdentity) => {
@@ -224,21 +225,22 @@ export function createModerationStore(db: Firestore) {
       const actorRef = db.doc('campusMembers/' + actor.id),
         targetRef = db.doc('campusMembers/' + body.target),
         profileRef = db.doc('profiles/' + body.target)
-      const [actorRow, targetRow, profileRow] = await Promise.all([
+      const [actorRow, targetRow, profileRow, policyRow] = await Promise.all([
         tx.get(actorRef),
         tx.get(targetRef),
         tx.get(profileRef),
+        tx.get(db.doc(ownerPolicyPath)),
       ])
       const self = actorRow.data(),
         target = targetRow.data(),
         profile = profileRow.data() as CampusProfile | undefined
       if (
+        actor.role !== 'admin' ||
+        ownerPolicy(policyRow.data())?.ownerUid !== actor.id ||
         self?.status !== 'active' ||
-        !['moderator', 'admin'].includes(self.role) ||
+        self.role !== 'admin' ||
         !target ||
-        !['member', 'moderator', 'admin'].includes(target.role) ||
-        target.role === 'admin' ||
-        (self.role === 'moderator' && target.role !== 'member')
+        !['member', 'moderator', 'admin'].includes(target.role)
       )
         throw new Error('This action is outside your moderator permissions.')
       const now = new Date().toISOString()

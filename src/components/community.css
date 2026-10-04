@@ -1233,3 +1233,28 @@
   }
 }
 .google-signin{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:48px;padding:12px 20px;border:1px solid #747775;border-radius:8px;background:#fff;color:#1f1f1f;font-family:Arial,sans-serif;font-size:14px!important;font-weight:500!important;box-shadow:0 2px 5px #31412b08;}.google-signin img{width:20px;height:20px;flex-shrink:0;}.google-signin:hover:not(:disabled){background:#f7f9fc;border-color:#5f6368;}.google-signin:disabled{cursor:default;}
+.access-portal { padding-top: 70px; padding-bottom: 90px; }
+.access-portal-heading { max-width: 680px; }
+.access-portal-heading h1 { font-size: clamp(36px, 5vw, 64px); line-height: 1.08; letter-spacing: -2px; margin: 18px 0 22px; }
+.access-portal-heading > p { max-width: 580px; font-size: 16px; line-height: 1.8; color: #677264; }
+.access-signin { max-width: 370px; margin-top: 32px; }
+.access-switch { display: block; background: transparent; border: 0; color: #536a48; font-size: 12px; padding: 18px 0; text-align: left; cursor: pointer; }
+.access-switch:hover { text-decoration: underline; }
+.access-welcome { display: flex; align-items: center; gap: 14px; margin: 34px 0 24px; }
+.access-welcome > span { display: grid; place-items: center; width: 48px; height: 48px; background: #dce7cb; color: #36503b; border-radius: 50%; font-size: 15px; font-weight: 700; }
+.access-welcome p { margin: 0; font-size: 15px; }
+.access-welcome small { display: block; margin-top: 5px; color: #677264; font-size: 12px; }
+.access-track-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.access-track-card { padding: 32px; border: 1px solid #d4ddc8; border-radius: 22px; background: #edf1e3; display: flex; align-items: flex-start; flex-direction: column; }
+.access-track-card:nth-child(2) { background: #f6f2e8; }
+.access-card-number { color: #667854; font-size: 12px; letter-spacing: 2px; }
+.access-track-card h2 { font-size: 29px; line-height: 1.2; max-width: 380px; margin: 30px 0 14px; letter-spacing: -.7px; }
+.access-track-card p { color: #677264; line-height: 1.8; font-size: 14px; flex: 1; margin: 0 0 30px; max-width: 410px; }
+.access-portal-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+@media (max-width: 740px) {
+  .access-portal { padding-top: 40px; padding-bottom: 50px; }
+  .access-track-grid { grid-template-columns: 1fr; gap: 16px; }
+  .access-track-card { padding: 24px; }
+  .access-track-card h2 { margin-top: 24px; font-size: 26px; }
+  .community-header nav { gap: 16px; flex-wrap: wrap; }
+}

@@ -105,11 +105,12 @@ test('handles cannot be claimed by another account and banned accounts cannot ch
   data.set('campusMembers/studentUID', { role: 'member', status: 'banned' })
   await assert.rejects(() => store.save(identity, profile), /unavailable/)
 })
-test('moderation rechecks protected roles, preserves hierarchy and records bans atomically', async () => {
+test('moderation rechecks the exclusive owner policy and records bans atomically', async () => {
   const { db, data } = make(),
     moderate = createModerationStore(db),
     host = { ...identity, id: 'host', role: 'admin' }
   data.set('campusMembers/host', { role: 'admin', status: 'active' })
+  data.set('campusSettings/access', { ownerUid: 'host', ownerEmail: 'host@example.com' })
   data.set('profiles/studentUID', {
     ...profile,
     handle: 'student',
@@ -135,8 +136,11 @@ test('moderation rechecks protected roles, preserves hierarchy and records bans 
     () => moderate(host, { ...body, target: 'host' }),
     /own account/,
   )
-  data.set('campusMembers/studentUID', { role: 'admin', status: 'active' })
+  data.set('campusSettings/access', { ownerUid: 'anotherOwner', ownerEmail: 'other@example.com' })
   await assert.rejects(() => moderate(host, body), /permissions/)
+  data.set('campusSettings/access', { ownerUid: 'host', ownerEmail: 'host@example.com' })
+  data.set('campusMembers/otherAdmin', { role: 'admin', status: 'active' })
+  await assert.rejects(() => moderate({ ...host, id: 'otherAdmin' }, body), /permissions/)
   data.set('campusMembers/host', { role: 'member', status: 'active' })
   await assert.rejects(() => moderate(host, body), /permissions/)
   assert.equal(
@@ -158,6 +162,7 @@ test('moderator verification encrypts secrets, rejects code reuse and binds tick
       () => clock,
     )
   await assert.rejects(() => service.enroll(identity), /Moderator access/)
+  await assert.rejects(() => service.enroll({ ...host, role: 'moderator' }), /Moderator access/)
   await assert.rejects(
     () => service.enroll({ ...host, authTime: clock - 300001 }),
     /Confirm your Google/,

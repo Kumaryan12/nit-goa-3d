@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { firebasePublicConfig, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, navigate } from '../lib/community'
 import type { Auth } from 'firebase/auth'
-export default function SignInForm() {
+export default function SignInForm({ destination }: { destination?: '/student' | '/admin' } = {}) {
   const [auth, setAuth] = useState<Auth | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
@@ -30,12 +30,12 @@ export default function SignInForm() {
         provider = new sdk.GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
       if (redirect) {
-        sessionStorage.setItem('campus-return', campusDestination())
+        sessionStorage.setItem('campus-return', destination || campusDestination())
         await sdk.signInWithRedirect(auth, provider)
         return
       }
       await sdk.signInWithPopup(auth, provider)
-      navigate(campusDestination())
+      navigate(destination || campusDestination())
     } catch (error) {
       const code = (error as { code?: string }).code
       if (
@@ -74,7 +74,9 @@ export default function SignInForm() {
         </span>
       </button>
       <p className="join-note">
-        Your Google account gets you in. Your profile can wait.
+        {destination === '/admin'
+          ? 'Use the campus owner’s Google account to open the admin space.'
+          : 'Your Google account gets you in. Your profile can wait.'}
       </p>
       {!firebasePublicConfig && (
         <p className="community-notice">

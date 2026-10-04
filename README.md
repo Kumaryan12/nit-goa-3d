@@ -176,11 +176,13 @@ Google sign-in is available on the landing page. Firebase ID tokens are verified
 
 The browser cannot read or write Firestore directly: `firestore.rules` denies all direct client access. The authenticated `/api/me` API validates profile fields and unique handles in a transaction. `/api/people` exposes only published copies with cursor pagination. Protected memberships, authenticator secrets and moderation logs stay behind the server.
 
-Live football and OAT admission authenticates before sharing room state, caps each room at 24 participants, queues up to 100 visitors in arrival order and rejects duplicate accounts in the same room. Moderators can remove visitors, suspend campus access, restore access and end a stage turn. Actions recheck protected role hierarchy and write an audit record before changing live state. Suspensions also remove the public profile copy.
+The two entrances are `/student` and `/admin`. All verified visitors can use the student dashboard, shared campus and profiles. Admin access requires the exact Google UID and verified email pinned in the private server policy; other membership roles and token claims cannot grant it. The owner can open the editing studio at `/admin/campus` and crowd desk at `/admin/crowd`. Student campus views expose no editing tools.
+
+Live football and OAT admission authenticates before sharing room state, caps each room at 24 participants, queues up to 100 visitors in arrival order and rejects duplicate accounts in the same room. The owner can remove visitors, suspend campus access, restore access and end a stage turn. Actions recheck pinned ownership and active membership and write an audit record before changing live state. Suspensions also remove the public profile copy.
 
 Moderator actions require recent Google reauthentication and an app authenticator code. Secrets are encrypted with a runtime-only key; repeated failures lock verification, reused codes are rejected, and moderation tickets expire after ten minutes. This protects campus actions; it does not replace Google account security or Firebase's managed MFA.
 
-Use `.env.example` for public Firebase web settings and private server credentials. Follow [DEPLOYMENT.md](DEPLOYMENT.md) for Render setup, runtime permissions, moderator bootstrap and launch verification.
+Use `.env.example` for public Firebase web settings and private server credentials. Follow [DEPLOYMENT.md](DEPLOYMENT.md) for Render setup, runtime permissions, owner authorization and launch verification.
 
 ## Map cache, retries and offline behavior
 

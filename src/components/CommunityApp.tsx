@@ -7,6 +7,7 @@ import CampusIllustration from './CampusIllustration'
 import ProfilePage from './ProfilePage'
 import PeoplePage from './PeoplePage'
 import CrowdDesk from './CrowdDesk'
+import AccessPortal from './AccessPortal'
 import './community.css'
 const Campus = lazy(() => import('../App'))
 interface Access {
@@ -48,7 +49,8 @@ function Landing({
             </div>
           ) : (
             <div id="join">
-              <SignInForm />
+              <SignInForm destination={window.location.search ? undefined : '/student'} />
+              <button className="access-switch" onClick={() => navigate('/admin')}>Campus owner? Admin entrance ↗</button>
             </div>
           )}
         </div>
@@ -233,17 +235,19 @@ export default function CommunityApp() {
     return () => window.clearInterval(timer)
   }, [auth.user?.id])
   const signedIn = !!access && access.id === auth.user?.id && !accessLoading,
-    inCampus = path === '/campus' && (signedIn || preview),
-    memberPage = path === '/me' || path === '/manage',
+    isAdmin = signedIn && access?.role === 'admin',
+    adminPage = ['/admin', '/admin/campus', '/admin/crowd', '/manage'].includes(path),
+    inCampus = (path === '/campus' && (signedIn || preview)) || (path === '/admin/campus' && isAdmin),
+    memberPage = path === '/me',
     handle = path.startsWith('/people/') ? path.slice(8) : undefined
   const enter = () => {
     navigate(campusDestination())
     setPreview(false)
   }
-  const signOut = async () => {
+  const signOut = async (destination = '/') => {
     setAccess(null)
     setMenu(false)
-    navigate('/')
+    navigate(destination)
     try {
       const [auth, sdk] = await Promise.all([
         getFirebaseAuth(),
@@ -288,12 +292,13 @@ export default function CommunityApp() {
       </button>
       {menu && (
         <nav className="campus-account-menu" aria-label="Account">
+          <button onClick={() => navigate('/student')}>Student space ↗</button>
           <button onClick={() => navigate('/me')}>My profile ↗</button>
           <button onClick={() => navigate('/people')}>
             Meet the community
           </button>
-          {access?.role !== 'member' && access && (
-            <button onClick={() => navigate('/manage')}>Crowd desk</button>
+          {isAdmin && (
+            <button onClick={() => navigate('/admin')}>Admin space ↗</button>
           )}
           <button onClick={() => navigate('/')}>Back to welcome</button>
           {signedIn && <button onClick={() => void signOut()}>Sign out</button>}
@@ -314,7 +319,7 @@ export default function CommunityApp() {
         <Campus
           accountControl={accountControl}
           accountOpen={menu}
-          canEdit={import.meta.env.DEV || access?.role === 'admin'}
+          canEdit={(path === '/admin/campus' && isAdmin) || (preview && import.meta.env.DEV && !auth.configured)}
         />
       </Suspense>
     )
@@ -341,6 +346,7 @@ export default function CommunityApp() {
           </span>
         </a>
         <nav aria-label="Main navigation">
+          <a href="/student" onClick={(e) => { e.preventDefault(); navigate('/student') }}>Student space</a>
           <a
             href="/people"
             onClick={(e) => {
@@ -361,15 +367,15 @@ export default function CommunityApp() {
               My profile
             </a>
           )}
-          {access && access.role !== 'member' && (
+          {(!signedIn || isAdmin) && (
             <a
-              href="/manage"
+              href="/admin"
               onClick={(e) => {
                 e.preventDefault()
-                navigate('/manage')
+                navigate('/admin')
               }}
             >
-              Crowd desk
+              Admin space
             </a>
           )}
         </nav>
@@ -390,12 +396,7 @@ export default function CommunityApp() {
             <button
               className="community-secondary"
               onClick={() => {
-                if (path !== '/') navigate('/')
-                requestAnimationFrame(() =>
-                  document
-                    .getElementById('join')
-                    ?.scrollIntoView({ behavior: 'smooth' }),
-                )
+                navigate(adminPage ? '/admin' : '/student')
               }}
             >
               Come on in ↗
@@ -434,12 +435,14 @@ export default function CommunityApp() {
                 )}
               </div>
             )}
-            {path === '/me' && signedIn ? (
+            {(adminPage && (!isAdmin || path === '/admin')) || path === '/student' ? (
+              <AccessPortal admin={adminPage} signedIn={signedIn} isAdmin={isAdmin} name={access?.name || 'Campus member'} onSwitchAccount={() => void signOut('/admin')} />
+            ) : path === '/me' && signedIn ? (
               <ProfilePage
                 userId={access!.id}
                 onSaved={() => setRefresh((v) => v + 1)}
               />
-            ) : path === '/manage' && signedIn ? (
+            ) : (path === '/manage' || path === '/admin/crowd') && isAdmin ? (
               <CrowdDesk role={access!.role} />
             ) : path === '/people' || handle ? (
               <PeoplePage handle={handle} />
@@ -470,7 +473,7 @@ export default function CommunityApp() {
                 )}
               </div>
             ) : (
-              <Landing signedIn={signedIn} onEnter={enter} />
+              <Landing signedIn={signedIn} onEnter={() => navigate(window.location.search ? campusDestination() : '/student')} />
             )}
           </>
         )}

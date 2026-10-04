@@ -12,3 +12,9 @@ export function campusDestination(search = window.location.search) {
   params.delete('error_code')
   return '/campus' + (params.size ? `?${params}` : '')
 }
+// Google redirect return paths are local and explicitly allowed.
+export function safeAuthDestination(value: string | null) {
+  if (value === '/student' || value === '/admin') return value
+  if (value && /^\/campus(?:\?[^#\\\r\n]*)?$/.test(value)) return value
+  return null
+}

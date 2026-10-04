@@ -2,6 +2,8 @@ import type { IncomingMessage } from 'node:http'
 import { firebaseAdmin, firebaseProject } from './firebaseAdmin.ts'
 import type { Auth } from 'firebase-admin/auth'
 import type { Firestore } from 'firebase-admin/firestore'
+import { campusRole, ownerPolicyPath } from './authorization.ts'
+class MembershipUnavailable extends Error {}
 export interface CampusIdentity {
   id: string
   name: string
@@ -58,10 +60,14 @@ export function createAccessVerifier(deps?: AccessDependencies): VerifyAccess {
       memberRef = backend.db.doc('campusMembers/' + user.uid)
     const access = await backend.db
       .runTransaction(async (tx) => {
-        const [profile, member] = await Promise.all([
+        const [profile, member, policy] = await Promise.all([
           tx.get(profileRef),
           tx.get(memberRef),
+          tx.get(backend.db.doc(ownerPolicyPath)),
         ])
+        if (member.exists && member.data()?.status !== 'active')
+          throw new MembershipUnavailable()
+        const role = campusRole(policy.data(), user.uid, user.email!)
         const now = new Date().toISOString(),
           defaultProfile = {
             id: user.uid,
@@ -80,25 +86,22 @@ export function createAccessVerifier(deps?: AccessDependencies): VerifyAccess {
         if (!profile.exists) tx.create(profileRef, defaultProfile)
         if (!member.exists)
           tx.create(memberRef, {
-            role: 'member',
+            role,
             status: 'active',
             updated_at: now,
           })
+        else if (member.data()?.role !== role)
+          tx.update(memberRef, { role, updated_at: now })
         return {
           profile: profile.exists ? profile.data()! : defaultProfile,
-          member: member.exists
-            ? member.data()!
-            : { role: 'member', status: 'active' },
+          member: { role, status: 'active' },
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        if (error instanceof MembershipUnavailable)
+          throw new Error('Campus access is unavailable for this account.')
         throw new Error('Campus access is temporarily unavailable.')
       })
-    if (
-      access.member.status !== 'active' ||
-      !['member', 'moderator', 'admin'].includes(access.member.role)
-    )
-      throw new Error('Campus access is unavailable for this account.')
     return {
       id: user.uid,
       name: String(access.profile.display_name || 'Campus member')

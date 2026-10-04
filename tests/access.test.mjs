@@ -8,7 +8,7 @@ import { attachLiveAccess } from '../server/liveAccess.ts'
 import { attachFootballServer } from '../server/footballServer.ts'
 import { createCrowdAPI } from '../server/crowdApi.ts'
 import { fakeFirestore } from './firestoreFake.mjs'
-import { profileError, campusDestination } from '../src/lib/community.ts'
+import { profileError, campusDestination, safeAuthDestination } from '../src/lib/community.ts'
 const waitFor = async (fn) => {
   const end = Date.now() + 4000
   while (Date.now() < end) {
@@ -20,7 +20,7 @@ const waitFor = async (fn) => {
 }
 const token = (exp) =>
   `header.${Buffer.from(JSON.stringify({ exp })).toString('base64url')}.signature`
-test('Firebase verifies revocation and Google identity; database permissions grant roles', async () => {
+test('Firebase verifies revocation and Google identity; token role claims cannot grant admin access', async () => {
   const { db, data } = fakeFirestore({
     'profiles/student': { display_name: 'Admin' },
     'campusMembers/student': { role: 'member', status: 'active' },
@@ -72,6 +72,47 @@ test('Firebase verifies revocation and Google identity; database permissions gra
   exp = 1
   await assert.rejects(() => verify(token(exp)), /expired/)
   await assert.rejects(() => verify('token'), /Sign in/)
+})
+test('only the pinned verified Google UID and email receive admin access; membership roles cannot elevate anyone else', async () => {
+  const policy = { ownerUid: 'owner', ownerEmail: 'owner@example.com' }
+  const { db, data } = fakeFirestore({
+    'campusSettings/access': policy,
+    'campusMembers/owner': { role: 'member', status: 'active' },
+    'campusMembers/other': { role: 'admin', status: 'active' },
+  })
+  let user = { uid: 'owner', email: 'owner@example.com', emailVerified: true, disabled: false }
+  const verify = createAccessVerifier({ db, auth: {
+    verifyIdToken: async () => ({ uid: user.uid, exp: Math.floor(Date.now() / 1000) + 60, auth_time: 1, firebase: { sign_in_provider: 'google.com' }, role: 'admin' }),
+    getUser: async () => user,
+  } })
+  const read = () => verify('valid-google-token-for-testing')
+  assert.equal((await read()).role, 'admin')
+  assert.equal(data.get('campusMembers/owner').role, 'admin')
+  user = { ...user, uid: 'other', email: policy.ownerEmail }
+  assert.equal((await read()).role, 'member', 'matching email with a different UID is not the owner')
+  assert.equal(data.get('campusMembers/other').role, 'member')
+  data.set('campusMembers/other', { role: 'moderator', status: 'active' })
+  assert.equal((await read()).role, 'member', 'legacy moderator roles cannot grant admin access')
+  user = { ...user, uid: 'owner', email: 'changed@example.com' }
+  assert.equal((await read()).role, 'member', 'matching UID with a different email is not the owner')
+  user.email = policy.ownerEmail
+  user.emailVerified = false
+  await assert.rejects(read, /verified Google/)
+  user.emailVerified = true
+  data.delete('campusSettings/access')
+  assert.equal((await read()).role, 'member', 'missing policy fails closed for admin access')
+  data.set('campusSettings/access', { ownerUid: 'owner', ownerEmail: '' })
+  assert.equal((await read()).role, 'member', 'malformed policy fails closed')
+  data.set('campusSettings/access', policy)
+  data.set('campusMembers/owner', { role: 'admin', status: 'banned' })
+  await assert.rejects(read, /unavailable/)
+  assert.equal(data.get('campusMembers/owner').status, 'banned', 'owner access cannot bypass a suspension')
+})
+test('Google redirect returns only to the selected local entrance or campus invitation', () => {
+  for (const path of ['/student', '/admin', '/campus', '/campus?concert=1&location=open-air-theatre'])
+    assert.equal(safeAuthDestination(path), path)
+  for (const path of [null, '//evil.example', 'https://evil.example/admin', '/admin/crowd', '/campus/../admin', '/campus\\evil', '/campus\n', '/campus#outside'])
+    assert.equal(safeAuthDestination(path), null)
 })
 test('first Google visit creates a private profile and ordinary membership', async () => {
   const { db, data } = fakeFirestore(),
@@ -239,7 +280,43 @@ test('unauthenticated football sockets receive no game state; members cannot ins
   }
 })
 
-test('moderator HTTP actions require a ticket and authorize the audit before evicting anyone', async () => {
+test('student accounts and legacy moderators cannot read crowd identities, enroll factors or invoke admin actions', async () => {
+  const { db } = fakeFirestore({
+    'campusSettings/access': { ownerUid: 'owner', ownerEmail: 'owner@example.com' },
+    'campusMembers/student': { role: 'admin', status: 'active' },
+  })
+  const verifyStudent = createAccessVerifier({ db, auth: {
+    verifyIdToken: async () => ({ uid: 'student', role: 'admin', exp: Math.floor(Date.now() / 1000) + 60, auth_time: 1, firebase: { sign_in_provider: 'google.com' } }),
+    getUser: async () => ({ uid: 'student', email: 'student@example.com', emailVerified: true }),
+  } })
+  let legacyModerator = false, serviceCalls = 0
+  const room = { snapshot: () => { serviceCalls++; return {} }, kick: () => { serviceCalls++ } }
+  const api = createCrowdAPI(room, room, () => { serviceCalls++ }, async token => {
+    const identity = await verifyStudent(token)
+    return legacyModerator ? { ...identity, role: 'moderator' } : identity
+  }, () => {}, () => { serviceCalls++; throw new Error('Students must never reach admin services') })
+  const http = createServer((req, res) => { if (!api(req, res)) res.end() })
+  http.listen(0, '127.0.0.1')
+  await once(http, 'listening')
+  const origin = `http://127.0.0.1:${http.address().port}`
+  try {
+    for (const legacy of [false, true]) {
+      legacyModerator = legacy
+      for (const path of ['/api/crowd', '/api/moderator/verification']) {
+        for (const method of ['GET', 'POST']) {
+          const response = await fetch(origin + path, {
+            method, headers: { Authorization: 'Bearer valid-google-token-for-testing', 'Content-Type': 'application/json', 'X-Moderator-Token': 'forged-admin-ticket' },
+            ...(method === 'POST' ? { body: JSON.stringify({ role: 'admin', action: 'enroll', target: 'owner', reason: 'Forged role' }) } : {}),
+          })
+          assert.equal(response.status, 403, `${legacy ? 'moderator' : 'student'} ${method} ${path}`)
+        }
+      }
+    }
+    assert.equal(serviceCalls, 0)
+  } finally { await new Promise(resolve => http.close(resolve)) }
+})
+
+test('admin HTTP actions require a ticket and authorize the audit before evicting anyone', async () => {
   const calls = [],
     kicked = [],
     ended = [],

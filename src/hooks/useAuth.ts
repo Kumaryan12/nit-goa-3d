@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { firebasePublicConfig, getFirebaseAuth } from '../lib/firebase'
+import { safeAuthDestination } from '../lib/community'
 export interface CampusUser {
   id: string
   email: string | null
@@ -21,9 +22,9 @@ export function useAuth() {
           .getRedirectResult(auth)
           .then((result) => {
             if (!result || !active) return
-            const destination = sessionStorage.getItem('campus-return')
+            const destination = safeAuthDestination(sessionStorage.getItem('campus-return'))
             sessionStorage.removeItem('campus-return')
-            if (destination && /^\/campus(?:\?|$)/.test(destination)) {
+            if (destination) {
               history.replaceState({}, '', destination)
               window.dispatchEvent(new PopStateEvent('popstate'))
             }

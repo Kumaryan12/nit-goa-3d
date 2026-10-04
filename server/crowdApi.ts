@@ -45,8 +45,8 @@ export function createCrowdAPI(
         return
       }
       const identity = await verify(token)
-      if (identity.role === 'member') {
-        sendJSON(res, 403, { error: 'Moderator access required.' })
+      if (identity.role !== 'admin') {
+        sendJSON(res, 403, { error: 'Admin access required.' })
         req.resume()
         return
       }
@@ -89,7 +89,7 @@ export function createCrowdAPI(
       .catch((error) => {
         const message = error instanceof Error ? error.message : ''
         const allowed =
-          /^(Moderator access required|Confirm your Google|An authenticator|Too many attempts|Wait a minute|Start authenticator|Enter the six-digit|That code|Verify your authenticator|Your moderator verification|Choose a valid|You cannot moderate|This action is outside|Moderator verification is not configured)/.test(
+          /^(Admin access required|Moderator access required|Confirm your Google|An authenticator|Too many attempts|Wait a minute|Start authenticator|Enter the six-digit|That code|Verify your authenticator|Your moderator verification|Choose a valid|You cannot moderate|This action is outside|Moderator verification is not configured)/.test(
             message,
           )
         sendJSON(res, 403, {

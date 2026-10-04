@@ -32,7 +32,7 @@ export default function CrowdDesk({ role }: { role: string }) {
     })
   }
   useEffect(() => {
-    if (role === 'member' || !verified) return
+    if (role !== 'admin' || !verified) return
     let active = true
     const load = () => {
       void request()
@@ -53,10 +53,10 @@ export default function CrowdDesk({ role }: { role: string }) {
       clearInterval(timer)
     }
   }, [role, refresh, verified])
-  if (role === 'member')
+  if (role !== 'admin')
     return (
       <div className="community-empty">
-        The crowd desk is available to campus moderators.
+        The crowd desk is available only to the campus owner.
       </div>
     )
   if (!verified)
