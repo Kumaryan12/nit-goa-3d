@@ -11,6 +11,7 @@ import type { FootballControls, FootballPitch } from '../lib/football'
 import StudentAvatar from './StudentAvatar'
 import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, stridePhase } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
+import { cameraWheelStep, smoothLookAngle, walkSpeed, WALK_CONTROLS } from '../lib/walkControls'
 import type { CampusPose } from '../lib/campusProtocol'
 import { canUseStairs, interiorFloorPlan, interiorLocationId, interiorRoomLabel, interiorSpace, interiorCameraFraction, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
@@ -28,6 +29,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
   const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
   const campusEpoch = useRef((campusPose.current?.epoch ?? 0) + 1)
   const { gl, camera } = useThree(), avatar = useRef<Group>(null), yaw = useRef(0), pitch = useRef(0.28), cameraDistance = useRef(7)
+  const lookTarget = useRef({ yaw: 0, pitch: .28, distance: 7 })
   const keys = useRef(new Set<string>()), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false }), locomotion = useRef(freshLocomotion()), elapsed = useRef(0), nearest = useRef<string | null>(null)
   const world = useMemo(() => createWalkWorld(twin.buildings, twin.boundary, twin.terrain), [twin])
   const locations = useMemo(() => [...twin.locations, ...twin.selections.filter(item => item.matchMethod === 'unmatched').map(item => item.location)].map(location => ({ ...location, osmBuildingId: twin.selections.find(item => item.location.id === location.id)?.buildingId ?? location.osmBuildingId })), [twin])
@@ -82,6 +84,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
       publish()
     }
     if (spawn.football && relocating) { gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }) }
+    lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current }
     snapped.current = false; keys.current.clear(); input.current = emptyWalkInput()
   }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, gyanPlan, activePlan, onStatus, publish, footballPitch, gl])
   const act = useCallback((action: HostelAction) => {
@@ -104,6 +107,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
       position.current = stairLanding(plan, up); yaw.current = Math.atan2(plan.stairs.along.x * (up ? -1 : 1), plan.stairs.along.z * (up ? -1 : 1))
     } else return
     if (avatar.current) avatar.current.rotation.y = yaw.current
+    lookTarget.current.yaw = yaw.current
     campusEpoch.current++
     keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); snapped.current = false; publish()
   }, [hostelPlan, gyanPlan, activePlan, position, interiorPose, input, publish])
@@ -113,7 +117,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     return () => { camera.near = near; if ('fov' in camera && typeof fov === 'number') camera.fov = fov; camera.updateProjectionMatrix() }
   }, [camera])
   useEffect(() => {
-    const clear = () => { keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion() }
+    const clear = () => { keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current } }
     if (paused) clear()
     const down = (event: KeyboardEvent) => {
       if (paused || editingText() || event.metaKey || event.ctrlKey || event.altKey) return
@@ -142,11 +146,12 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     const start = (event: PointerEvent) => { if (!paused && event.button === 0 && event.isPrimary) { drag = { id: event.pointerId, x: event.clientX, y: event.clientY }; canvas.setPointerCapture(event.pointerId) } }
     const move = (event: PointerEvent) => {
       if (!drag || drag.id !== event.pointerId) return
-      yaw.current -= (event.clientX - drag.x) * 0.005; pitch.current = Math.max(0.08, Math.min(0.8, pitch.current + (event.clientY - drag.y) * 0.004))
+      lookTarget.current.yaw -= (event.clientX - drag.x) * WALK_CONTROLS.dragYaw
+      lookTarget.current.pitch = Math.max(.08, Math.min(.8, lookTarget.current.pitch + (event.clientY - drag.y) * WALK_CONTROLS.dragPitch))
       drag.x = event.clientX; drag.y = event.clientY
     }
     const end = () => { const pointer = drag; drag = null; if (pointer && canvas.hasPointerCapture(pointer.id)) canvas.releasePointerCapture(pointer.id) }
-    const wheel = (event: WheelEvent) => { if (!paused) { event.preventDefault(); cameraDistance.current = Math.max(3, Math.min(12, cameraDistance.current + event.deltaY * 0.008)) } }
+    const wheel = (event: WheelEvent) => { if (!paused) { event.preventDefault(); lookTarget.current.distance = Math.max(3, Math.min(12, lookTarget.current.distance + cameraWheelStep(event.deltaY, event.deltaMode))) } }
     canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end); canvas.addEventListener('lostpointercapture', end); canvas.addEventListener('wheel', wheel, { passive: false }); window.addEventListener('blur', end)
     return () => { end(); canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', end); canvas.removeEventListener('lostpointercapture', end); canvas.removeEventListener('wheel', wheel); window.removeEventListener('blur', end) }
   }, [gl, paused])
@@ -157,14 +162,21 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     const forward = allowed ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
     const side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
     const turn = allowed ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0
-    yaw.current += turn * Math.min(delta, 0.1) * 1.8
+    if (allowed) {
+      const rotation = Math.max(-1, Math.min(1, turn)) * delta * WALK_CONTROLS.turnSpeed
+      yaw.current += rotation; lookTarget.current.yaw += rotation
+      yaw.current = smoothLookAngle(yaw.current, lookTarget.current.yaw, delta)
+      const blend = 1 - Math.exp(-delta * 12)
+      pitch.current += (lookTarget.current.pitch - pitch.current) * blend
+      cameraDistance.current += (lookTarget.current.distance - cameraDistance.current) * blend
+    } else lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current }
     const direction = { x: -Math.sin(yaw.current) * forward + Math.cos(yaw.current) * side, z: -Math.cos(yaw.current) * forward - Math.sin(yaw.current) * side }
     if (input.current.action) { const action = input.current.action; delete input.current.action; if (allowed) act(action) }
     const before = position.current, pose = interiorPose.current, plan = activePlan()
     // Room admission can relocate a football player between render frames.
     if (Math.hypot(before.x - avatar.current.position.x, before.z - avatar.current.position.z) > 2) campusEpoch.current++
     const running = !!(allowed && (key('ShiftLeft') || key('ShiftRight') || input.current.running))
-    const travel = advanceLocomotion(locomotion.current, direction, running ? pose ? 3.5 : 5.5 : 2.3, delta, allowed && !journey.current)
+    const travel = advanceLocomotion(locomotion.current, direction, walkSpeed(running, !!pose), delta, allowed && !journey.current)
     let next = before, surfaceY = walkSurfaceHeightAt(twin.terrain, before.x, before.z)
     if (pose && plan) {
       surfaceY = plan.base + pose.floor * plan.floorHeight + .14
@@ -174,6 +186,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
         if (sample.complete) {
           pose.floor = sample.floor; journey.current = null; position.current = next
           const look = landingLookDirection(plan, next); yaw.current = Math.atan2(-look.x,-look.z)
+          lookTarget.current.yaw = yaw.current
           avatar.current.rotation.y = yaw.current; snapped.current = false; publish()
         }
       } else next = stepInterior(before, travel.direction, travel.speed, travel.delta, plan)
@@ -195,7 +208,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     avatar.current.position.set(next.x, surfaceY, next.z)
     if (moved > .001) {
       const heading = Math.atan2(before.x - next.x, before.z - next.z), difference = Math.atan2(Math.sin(heading - avatar.current.rotation.y), Math.cos(heading - avatar.current.rotation.y))
-      const rotation = difference * (1 - Math.exp(-delta * 12))
+      const rotation = difference * (1 - Math.exp(-delta * 9))
       avatar.current.rotation.y += rotation
       motion.current.turn = delta > 0 ? rotation / delta : 0
     }
@@ -211,7 +224,7 @@ export default function AvatarExplorer({ campusPose, footballPitch, footballCont
     desired.set(next.x + Math.sin(yaw.current) * boom * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * boom, next.z + Math.cos(yaw.current) * boom * Math.cos(pitch.current))
     const fraction = (end: Vector3) => pose && plan ? interiorCameraFraction(target, end, plan, pose.floor, journey.current?.lowFloor ?? null) : cameraBoomFraction(target, end, world)
     desired.lerpVectors(target, desired, fraction(desired))
-    if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * 12))
+    if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * WALK_CONTROLS.cameraFollowRate))
     camera.position.lerpVectors(target, camera.position, fraction(camera.position))
     camera.position.y = Math.max(camera.position.y, (pose ? surfaceY : walkSurfaceHeightAt(twin.terrain, camera.position.x, camera.position.z)) + .3)
     // Tight doorways sometimes shorten the boom into the avatar. Show the

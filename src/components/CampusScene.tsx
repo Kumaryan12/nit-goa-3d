@@ -125,7 +125,7 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
     // Requests have a monotonic sequence so repeated clicks on the same place work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request])
-  return <CameraControls ref={controls} makeDefault smoothTime={0.35} draggingSmoothTime={0.12} dollySpeed={0.7}
+  return <CameraControls ref={controls} makeDefault smoothTime={0.4} draggingSmoothTime={0.18} azimuthRotateSpeed={0.45} polarRotateSpeed={0.45} dollySpeed={0.28}
     minDistance={12} maxDistance={twin ? twin.size * 2 : 2000} maxPolarAngle={Math.PI / 2 - 0.035} />
 }
 

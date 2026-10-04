@@ -13,7 +13,7 @@ export function advanceLocomotion(state: Locomotion, direction: LocalCoordinate,
   if (!enabled || !valid) { state.velocity = { x: 0, z: 0 }; return { direction: { x: 0, z: 0 }, speed: 0, delta: dt } }
   const amount = Math.min(1, length), speed = Math.min(5.5, maxSpeed) * amount
   const target = length ? { x: direction.x / length * speed, z: direction.z / length * speed } : { x: 0, z: 0 }
-  const rate = length > 0 ? 10 : 18, decay = Math.exp(-rate * dt)
+  const rate = length > 0 ? 6 : 22, decay = Math.exp(-rate * dt)
   const previous = state.velocity, integral = dt > 0 ? (1 - decay) / (rate * dt) : 1
   const average = { x: target.x + (previous.x - target.x) * integral, z: target.z + (previous.z - target.z) * integral }
   state.velocity = { x: target.x + (previous.x - target.x) * decay, z: target.z + (previous.z - target.z) * decay }
