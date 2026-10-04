@@ -29,7 +29,7 @@ import type { TerrainSettings } from './data/topography'
 import { emptyWalkInput, explorerViewFromURL, withExplorerView } from './lib/walking'
 import type { ExplorerView, WalkStatus, WalkSpawnRequest } from './lib/walking'
 import { createWalkWorld, isWalkable } from './lib/walking'
-import { createHostelPlan } from './lib/hostelInterior'
+import { createHostelPlan, createGyanMandirPlan, GYAN_MANDIR_ID } from './lib/hostelInterior'
 import type { InteriorPose } from './lib/hostelInterior'
 import { savedCampusOverrides } from './data/campusOverrides'
 import { useDigitalTwin } from './hooks/useDigitalTwin'
@@ -160,6 +160,13 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
     const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain)
     return createHostelPlan(building, twin.roads, point => isWalkable(point, world))
   }, [twin])
+  const gyanPlan = useMemo(() => {
+    if(!twin)return null
+    const building=twin.buildings[twin.selections.findIndex(item=>item.location.id===GYAN_MANDIR_ID)]
+    if(!building)return null
+    const world=createWalkWorld(twin.buildings,twin.boundary,twin.terrain)
+    return createGyanMandirPlan(building,twin.roads,p=>isWalkable(p,world),twin.selections.find(s=>s.location.id==='way/1423803680')?.location.coordinates)
+  },[twin])
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
   const [navigationOpen, setNavigationOpen] = useState(initialView === 'overview' && !!initial.to)
   const [startId, setStartId] = useState(initial.from ?? '@current')
@@ -211,6 +218,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const enterHostel = useCallback(() => {
     changeView('walk'); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId: 'boys-hostel', enterHostel: true }))
   }, [changeView])
+  const enterGyan = useCallback(() => { changeView('walk'); setWalkSpawn(request => ({sequence:request.sequence+1,locationId:GYAN_MANDIR_ID,enterGyan:true})) },[changeView])
   const viewNescafeSlope = () => {
     if (!twin?.slope) return
     changeView('overview')
@@ -303,7 +311,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           oatConcert={oat.snapshot}
           campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}
-          showContours={terrainSettings.showContours} hostelPlan={hostelPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null}
+          showContours={terrainSettings.showContours} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null} interiorBuildingId={walkStatus?.interior ? interiorPose.current?.buildingId ?? null : null}
           view={view} walkPaused={walkPaused} walkInput={walkInput} avatarPosition={avatarPosition} walkSpawn={walkSpawn} onWalkStatus={onWalkStatus} onWalkInspect={chooseLocation}
           presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           slopePreview={slopeEditorOpen ? slopePreview : null} pickingPosition={!!slopePicking || picking?.mode === 'point'} pickedPosition={editorOpen ? picked?.coordinates ?? null : null} onPickPosition={onPickPosition}
@@ -325,7 +333,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       {!editorOpen && !slopeEditorOpen && !footballJoined && !oatOpen && (navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
-        : <BuildingInfoPanel onOpenConcert={openOat} onPlayFootball={joinFootball} hostelPlan={hostelPlan} onEnterHostel={enterHostel} walkMode={view === 'walk'} onEdit={canEdit ? editLocation : undefined} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
+        : <BuildingInfoPanel onOpenConcert={openOat} onPlayFootball={joinFootball} gyanPlan={gyanPlan} onEnterGyan={enterGyan} hostelPlan={hostelPlan} onEnterHostel={enterHostel} walkMode={view === 'walk'} onEdit={canEdit ? editLocation : undefined} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
       {oatOpen && <OatControls session={oat} joined={oatJoined} onJoin={name => { setOatName(name); setOatJoined(true) }} onRetry={() => setOatRetry(value => value + 1)} onClose={closeOat} />}
       {editorOpen && <Suspense fallback={<p className="scene-loading">Opening location editor…</p>}><CampusLocationEditor locations={catalog} locationId={editorLocationId}
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}

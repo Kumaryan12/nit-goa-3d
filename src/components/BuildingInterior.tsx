@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { CanvasTexture, InstancedMesh, Object3D, Path, ShapeUtils, Vector2 } from 'three'
 import { buildingShape } from '../lib/buildingGeometry'
-import { demoRoomNumber } from '../lib/hostelInterior'
+import { classroomFurniture, readingFurniture, interiorFloorPlan, interiorRoomLabel } from '../lib/hostelInterior'
 import type { HostelPlan } from '../lib/hostelInterior'
 import type { LocalCoordinate } from '../lib/geo'
 
@@ -18,7 +18,8 @@ function Plaque({ text,point,y,normal,width=1.5 }: {text:string;point:LocalCoord
   useEffect(()=>()=>texture.dispose(),[texture])
   return <mesh position={[point.x,y,point.z]} rotation={[0,Math.atan2(normal.x,normal.z),0]}><planeGeometry args={[width,width/4]} /><meshBasicMaterial map={texture} /></mesh>
 }
-function Floor({ plan,level }: {plan:HostelPlan;level:number}) {
+function Floor({ plan:rootPlan,level }: {plan:HostelPlan;level:number}) {
+  const plan=interiorFloorPlan(rootPlan,level)
   const shape=useMemo(()=> {const shape=buildingShape(plan.building);if(level>0){let points=plan.stairs.hole.map(p=>new Vector2(p.x,-p.z));if(ShapeUtils.isClockWise(points))points=points.reverse();shape.holes.push(new Path(points))}return shape},[plan,level])
   const y=plan.base+level*plan.floorHeight+.14
   const walls=useMemo(()=>[
@@ -29,7 +30,7 @@ function Floor({ plan,level }: {plan:HostelPlan;level:number}) {
   const rails=useMemo(()=>plan.walls.filter(w=>w.kind==='rail').map(wall=>({x:(wall.a.x+wall.b.x)/2,z:(wall.a.z+wall.b.z)/2,y:y+.55,width:Math.hypot(wall.b.x-wall.a.x,wall.b.z-wall.a.z),height:1.1,depth:.1,angle:-Math.atan2(wall.b.z-wall.a.z,wall.b.x-wall.a.x)})),[plan,y])
   const furnishings=useMemo(()=> {
     const frame:Box[]=[],mattress:Box[]=[],pillows:Box[]=[],desks:Box[]=[],wardrobes:Box[]=[],rugs:Box[]=[]
-    for(const room of plan.rooms){const angle=-Math.atan2(room.along.z,room.along.x)
+    for(const room of plan.kind==='classroom'?[]:plan.rooms){const angle=-Math.atan2(room.along.z,room.along.x)
       frame.push({x:room.bed.x,z:room.bed.z,y:y+.22,width:1,height:.44,depth:2,angle})
       mattress.push({x:room.bed.x,z:room.bed.z,y:y+.49,width:.98,height:.12,depth:1.98,angle})
       pillows.push({x:room.bed.x-room.inward.x*.7,z:room.bed.z-room.inward.z*.7,y:y+.59,width:.75,height:.12,depth:.4,angle})
@@ -42,8 +43,36 @@ function Floor({ plan,level }: {plan:HostelPlan;level:number}) {
     <mesh position={[0,y-.14,0]} rotation={[-Math.PI/2,0,0]} receiveShadow><extrudeGeometry args={[shape,{depth:.14,bevelEnabled:false}]} /><meshStandardMaterial color={level%2?'#cbd5cc':'#ddd5c4'} roughness={.9} /></mesh>
     <Boxes boxes={walls} color="#efe6d4" /><Boxes boxes={rails} color="#718a80" />
     <Boxes boxes={furnishings.rugs} color="#d6ded4" /><Boxes boxes={furnishings.frame} color="#ac855b" /><Boxes boxes={furnishings.mattress} color="#668f91" /><Boxes boxes={furnishings.pillows} color="#faf2df" /><Boxes boxes={furnishings.desks} color="#c69d6a" /><Boxes boxes={furnishings.wardrobes} color="#a08464" />
-    {plan.rooms.map(room=><Plaque key={room.id} text={demoRoomNumber(level,room.id)} point={{x:room.door.x+room.inward.x*.11,z:room.door.z+room.inward.z*.11}} normal={room.inward} y={y+2.35} />)}
-    <Plaque text={level===0?'TALPONA · EXIT':`FLOOR ${level} · DEMO`} point={{x:plan.entrance.point.x+plan.entrance.inward.x*.12,z:plan.entrance.point.z+plan.entrance.inward.z*.12}} normal={plan.entrance.inward} y={y+2.35} width={2.2} />
+    {plan.kind==='classroom'&&<ClassroomFitout plan={plan} y={y} />}
+    {[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].map(room=><Plaque key={room.id} text={interiorRoomLabel(plan,level,room.id)} point={{x:room.door.x+room.inward.x*.11,z:room.door.z+room.inward.z*.11}} normal={room.inward} y={y+2.35} />)}
+    <Plaque text={plan.kind==='classroom'?(level===0?'GYAN MANDIR · EXIT':`FLOOR ${level} · ${level===1?'16–45':'46–75'}`):level===0?'TALPONA · EXIT':`FLOOR ${level} · DEMO`} point={{x:plan.entrance.point.x+plan.entrance.inward.x*.12,z:plan.entrance.point.z+plan.entrance.inward.z*.12}} normal={plan.entrance.inward} y={y+2.35} width={2.2} />
+  </group>
+}
+function ClassroomFitout({plan,y}:{plan:HostelPlan;y:number}) {
+  const furniture=useMemo(()=> {
+    const wood:Box[]=[],metal:Box[]=[],seats:Box[]=[],shelves:Box[]=[],books:Box[]=[]
+    for(const room of [...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])]) {
+      const angle=-Math.atan2(room.along.z,room.along.x)
+      for(const item of room.id==='reading'?readingFurniture(room):classroomFurniture(room)) {
+        const box={x:item.point.x,z:item.point.z,angle,width:item.width,depth:item.depth}
+        if(item.kind==='chair') {
+          seats.push({...box,y:y+.44,height:.07},{...box,x:box.x+room.inward.x*.19,z:box.z+room.inward.z*.19,y:y+.7,height:.48,depth:.07})
+          metal.push({...box,y:y+.21,height:.42,width:.07,depth:.07})
+        } else if(item.kind==='shelf') {
+          shelves.push({...box,y:y+.9,height:1.8})
+          for(let i=0;i<12;i++)books.push({...box,x:box.x-room.along.x*.31,z:box.z+(i%6-2.5)*.7,y:y+.55+Math.floor(i/6)*.7,width:.13,height:.45,depth:.35})
+        } else {
+          wood.push({...box,y:y+.77,height:.08})
+          for(const side of [-1,1])metal.push({...box,x:box.x+room.along.x*side*(box.width/2-.12),z:box.z+room.along.z*side*(box.width/2-.12),y:y+.36,height:.72,width:.07,depth:Math.max(.1,box.depth-.16)})
+        }
+      }
+    }
+    return {wood,metal,seats,shelves,books}
+  },[plan,y])
+  return <group name="classrooms-and-reading-room">
+    <Boxes boxes={furniture.wood} color="#bc956c"/><Boxes boxes={furniture.metal} color="#5d6d68"/><Boxes boxes={furniture.seats} color="#3e7a75"/><Boxes boxes={furniture.shelves} color="#a87b53"/><Boxes boxes={furniture.books} color="#d4bd80"/>
+    {plan.rooms.map(room=><Plaque key={room.id} text={`NIT GOA · CLASS ${room.id}`} point={{x:room.center.x-room.inward.x*(room.depth/2-.15),z:room.center.z-room.inward.z*(room.depth/2-.15)}} normal={room.inward} y={y+1.65} width={3} />)}
+    {plan.readingRoom&&<Plaque text="READING ROOM · QUIET STUDY" point={{x:plan.readingRoom.center.x,z:plan.readingRoom.center.z-plan.readingRoom.depth/2+.15}} normal={plan.readingRoom.inward} y={y+1.8} width={5}/>}
   </group>
 }
 function StairFlight({plan,level}:{plan:HostelPlan;level:number}) {
@@ -52,13 +81,13 @@ function StairFlight({plan,level}:{plan:HostelPlan;level:number}) {
   const steps=useMemo(()=>Array.from({length:20},(_,i)=> {const t=(i+.5)/20,top=(i+1)/20*plan.floorHeight,height=plan.floorHeight/20;return {x:plan.stairs.start.x+plan.stairs.along.x*t*plan.stairs.length,z:plan.stairs.start.z+plan.stairs.along.z*t*plan.stairs.length,y:plan.base+level*plan.floorHeight+.14+top-height/2,width:plan.stairs.width,height,depth:plan.stairs.length/20,angle:Math.atan2(plan.stairs.along.x,plan.stairs.along.z)}}),[plan,level])
   return <Boxes boxes={steps} color="#a8b3a8" />
 }
-export default function BoysHostelInterior({plan,floor,stairLowFloor,onSelect}:{plan:HostelPlan;floor:number|null;stairLowFloor:number|null;onSelect:()=>void}) {
+export default function BuildingInterior({plan,floor,stairLowFloor,onSelect}:{plan:HostelPlan;floor:number|null;stairLowFloor:number|null;onSelect:()=>void}) {
   const levels=stairLowFloor===null?[floor??0]:[stairLowFloor,stairLowFloor+1]
   const flights=[...new Set(levels.flatMap(level=>[level-1,level]))].filter(level=>level>=0&&level<plan.levels-1)
-  return <group name="boys-hostel-approximate-interior" onClick={event=> {event.stopPropagation();if(event.delta<=2)onSelect()}}>
+  return <group name={plan.kind==='classroom'?'gyan-mandir-interior':'boys-hostel-approximate-interior'} onClick={event=> {event.stopPropagation();if(event.delta<=2)onSelect()}}>
     {levels.map(level=><Floor key={level} plan={plan} level={level} />)}
     {flights.map(level=><StairFlight key={level} plan={plan} level={level} />)}
     {floor!==null&&<ambientLight intensity={.28} color="#fff4db" />}
-    {floor===null&&<Plaque text="TALPONA · DEMO ENTRY" point={{x:plan.entrance.point.x-plan.entrance.inward.x*.13,z:plan.entrance.point.z-plan.entrance.inward.z*.13}} normal={{x:-plan.entrance.inward.x,z:-plan.entrance.inward.z}} y={plan.base+2.55} width={2.5} />}
+    {floor===null&&<Plaque text={plan.kind==='classroom'?'GYAN MANDIR · ENTER':'TALPONA · DEMO ENTRY'} point={{x:plan.entrance.point.x-plan.entrance.inward.x*.13,z:plan.entrance.point.z-plan.entrance.inward.z*.13}} normal={{x:-plan.entrance.inward.x,z:-plan.entrance.inward.z}} y={plan.base+2.55} width={2.5} />}
   </group>
 }

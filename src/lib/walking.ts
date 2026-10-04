@@ -11,8 +11,8 @@ import { theatreBlocksWalking, theatreSurfaceHeightAt } from './theatre.ts'
 
 export type ExplorerView = 'overview' | 'walk'
 export interface WalkInput { forward: number; side: number; turn: number; running: boolean; action?: HostelAction }
-export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string; canEnterHostel?: boolean; interior?: { floor: number; room: string | null; canGoUp: boolean; canGoDown: boolean; stairLowFloor: number | null } }
-export interface WalkSpawnRequest { sequence: number; locationId: string; enterHostel?: boolean; football?: boolean }
+export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string; canEnterHostel?: boolean; canEnterGyan?: boolean; interior?: { kind?: 'classroom'; name?: string; levels?: number; floor: number; room: string | null; canGoUp: boolean; canGoDown: boolean; stairLowFloor: number | null } }
+export interface WalkSpawnRequest { sequence: number; locationId: string; enterHostel?: boolean; enterGyan?: boolean; football?: boolean }
 interface Collider { id: string; outer: LocalCoordinate[]; holes: LocalCoordinate[][]; minX: number; maxX: number; minZ: number; maxZ: number; base: number; height: number }
 export interface WalkWorld { boundary: LocalCoordinate[]; buildings: Collider[]; terrain: TerrainModel }
 export const AVATAR_RADIUS = 0.42

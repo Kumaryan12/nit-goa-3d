@@ -21,7 +21,7 @@ const finite = (value: unknown, bound: number) => typeof value === 'number' && N
 export function parseCampusPose(value: unknown): CampusPose | null {
   if (!value || typeof value !== 'object') return null
   const p = value as CampusPose
-  if (![p.x, p.z].every(v => finite(v, 1200)) || !finite(p.y, 64) || !finite(p.yaw, Math.PI + .001) || ![p.moving, p.running, p.active, p.visible].every(v => typeof v === 'boolean') || !Number.isSafeInteger(p.epoch) || p.epoch < 0 || p.epoch > 1e9 || typeof p.space !== 'string' || !/^(outdoors|hostel:[0-4])$/.test(p.space)) return null
+  if (![p.x, p.z].every(v => finite(v, 1200)) || !finite(p.y, 64) || !finite(p.yaw, Math.PI + .001) || ![p.moving, p.running, p.active, p.visible].every(v => typeof v === 'boolean') || !Number.isSafeInteger(p.epoch) || p.epoch < 0 || p.epoch > 1e9 || typeof p.space !== 'string' || !/^(outdoors|hostel:[0-4]|gyan:[0-2])$/.test(p.space)) return null
   return { x: p.x, y: p.y, z: p.z, yaw: p.yaw, moving: p.moving, running: p.running, active: p.active, visible: p.visible, space: p.space, epoch: p.epoch }
 }
 export function parseCampusSnapshot(value: unknown): CampusSnapshot | null {

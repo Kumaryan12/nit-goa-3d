@@ -15,8 +15,8 @@ interface OSMBuildingsProps {
   facades?: Map<string, CampusFacadePlan>
   administration?: AdministrationFacadePlan | null
   night?: boolean
-  hostelPlan?: HostelPlan | null
-  insideHostel?: boolean
+  interiorPlans?: HostelPlan[]
+  insideBuildingId?: string | null
   buildings: BuildingFootprint[]
   assignments?: BuildingSelection[]
   onRenderedCount: (count: number) => void
@@ -71,7 +71,7 @@ function OSMBuilding({ building, selection, selected, onSelect, groundShellHeigh
   )
 }
 
-export default function OSMBuildings({ administration, facades, night = false, hostelPlan, insideHostel = false, buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
+export default function OSMBuildings({ administration, facades, night = false, interiorPlans = [], insideBuildingId = null, buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
   const selections = useMemo(() => assignments ?? assignCampusLocations(buildings), [buildings, assignments])
   useEffect(() => { onRenderedCount(buildings.length) }, [buildings, onRenderedCount])
 
@@ -82,8 +82,8 @@ export default function OSMBuildings({ administration, facades, night = false, h
           facade={facades?.get(building.id)}
           administration={administration?.buildingId === building.id ? administration : null}
           night={night}
-          groundShellHeight={hostelPlan?.buildingId === building.id ? hostelPlan.floorHeight : 0}
-          hidden={insideHostel && hostelPlan?.buildingId === building.id}
+          groundShellHeight={interiorPlans.find(plan=>plan.buildingId===building.id)?.floorHeight ?? 0}
+          hidden={insideBuildingId===building.id}
           key={building.id}
           building={building}
           selection={selections[index]}
