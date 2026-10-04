@@ -56,11 +56,11 @@ export default function ModeratorVerification({
   }
   return (
     <section className="moderator-verification">
-      <span className="community-kicker">PROTECT YOUR MODERATOR ACCOUNT</span>
+      <span className="community-kicker">PROTECT YOUR ADMIN ACCOUNT</span>
       <h2>One extra check.</h2>
       <p>
         Confirm your Google account, then verify an authenticator code to use
-        moderator actions.
+        admin actions.
       </p>
       <button
         className="community-secondary"

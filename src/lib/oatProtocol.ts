@@ -1,6 +1,18 @@
 export const OAT_CAPACITY = 24
 export const OAT_UPLOAD_LIMIT = 12 * 1024 * 1024
 export const OAT_BACKING_TRACK = '/audio/oat-backing.wav'
+export function oatInviteURL(pageURL: string) {
+  return new URL('/campus?location=open-air-theatre&concert=1', pageURL).href
+}
+export function oatPlaybackURL(url: string, pageURL: string, concertServerURL: string) {
+  if (url.startsWith('/oat/audio/')) {
+    const base = new URL(concertServerURL)
+    if (base.protocol === 'wss:') base.protocol = 'https:'
+    if (base.protocol === 'ws:') base.protocol = 'http:'
+    return new URL(url, base).href
+  }
+  return new URL(url, new URL(pageURL).origin).href
+}
 export interface OatParticipant { id: string; name: string }
 export interface OatMusic { url: string; title: string; position: number; playing: boolean; updatedAt: number; duration: number }
 export interface OatSnapshot {

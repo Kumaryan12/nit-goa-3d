@@ -8,7 +8,21 @@ import { WebSocket } from 'ws'
 import { createOatRoom } from '../server/oatRoom.ts'
 import { attachOatServer } from '../server/oatServer.ts'
 import { attachFootballServer } from '../server/footballServer.ts'
-import { OAT_BACKING_TRACK, OAT_CAPACITY, oatAudioURL, oatMusicPosition, parseOatSignal, parseOatSnapshot } from '../src/lib/oatProtocol.ts'
+import { OAT_BACKING_TRACK, OAT_CAPACITY, oatAudioURL, oatInviteURL, oatPlaybackURL, oatMusicPosition, parseOatSignal, parseOatSnapshot } from '../src/lib/oatProtocol.ts'
+
+test('concert invitations from the admin studio open the student-accessible campus without editor parameters', () => {
+  for (const page of ['https://campus.example/admin/campus?view=walk#place', 'https://campus.example/campus', 'https://campus.example/campus?mode=night'])
+    assert.equal(oatInviteURL(page), 'https://campus.example/campus?location=open-air-theatre&concert=1')
+})
+test('concert playback uses the app origin for backing music and the live server for uploaded audio from either campus track', () => {
+  const upload = '/oat/audio/12345678-1234-1234-1234-123456789abc'
+  for (const page of ['https://campus.example/admin/campus', 'https://campus.example/campus']) {
+    assert.equal(oatPlaybackURL(OAT_BACKING_TRACK, page, 'wss://live.example/oat'), 'https://campus.example/audio/oat-backing.wav')
+    assert.equal(oatPlaybackURL(upload, page, 'wss://live.example/oat'), 'https://live.example' + upload)
+    assert.equal(oatPlaybackURL('https://music.example/song.mp3', page, 'wss://live.example/oat'), 'https://music.example/song.mp3')
+  }
+  assert.equal(oatPlaybackURL(upload, 'http://localhost:5173/admin/campus', 'ws://localhost:4185/oat'), 'http://localhost:4185' + upload)
+})
 
 test('stage turns are exclusive, queue fairly, and stop microphone/music on departure', () => {
   const room = createOatRoom()

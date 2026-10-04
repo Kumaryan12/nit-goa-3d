@@ -1,6 +1,6 @@
 import { authenticateLiveSocket } from '../lib/liveAuth'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { oatAudioURL, oatMusicPosition, OAT_UPLOAD_LIMIT, parseOatSignal, parseOatSnapshot } from '../lib/oatProtocol'
+import { oatAudioURL, oatPlaybackURL, oatMusicPosition, OAT_UPLOAD_LIMIT, parseOatSignal, parseOatSnapshot } from '../lib/oatProtocol'
 import type { OatSignal, OatSnapshot } from '../lib/oatProtocol'
 
 interface VoicePeer { pc: RTCPeerConnection; candidates: RTCIceCandidateInit[]; chain: Promise<void> }
@@ -39,8 +39,7 @@ export function useOatSession(joined: boolean, name: string, retry: number) {
     setMic('off'); if (state.current?.performerId === id.current) send({ type: 'mic', enabled: false })
   }, [send, closePeer])
   const audioURL = useCallback((url: string) => {
-    if (url.startsWith('/oat/audio/')) { const base = serverURL(); base.protocol = base.protocol === 'wss:' ? 'https:' : 'http:'; return new URL(url, base).href }
-    return new URL(url.startsWith('/audio/') ? '.' + url : url, window.location.href).href
+    return oatPlaybackURL(url, window.location.href, serverURL().href)
   }, [])
   const syncMusic = useCallback(() => {
     const audio = musicAudio.current, room = state.current

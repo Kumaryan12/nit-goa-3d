@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { OatSession } from '../hooks/useOatSession'
-import { OAT_BACKING_TRACK, OAT_CAPACITY } from '../lib/oatProtocol'
+import { OAT_BACKING_TRACK, OAT_CAPACITY, oatInviteURL } from '../lib/oatProtocol'
 
 const timestamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 export default function OatControls({ session, joined, onJoin, onRetry, onClose }: {
@@ -10,7 +10,7 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
   const { snapshot: room, selfId, connection, mic, error } = session
   const live = connection === 'live', onStage = !!selfId && room?.performerId === selfId
   const performer = room?.participants.find(p => p.id === room.performerId), queueIndex = selfId ? room?.queue.indexOf(selfId) ?? -1 : -1
-  const invite = new URL(window.location.href); invite.search = '?location=open-air-theatre&concert=1'
+  const invite = oatInviteURL(window.location.href)
   return <aside className="oat-controls" aria-labelledby="oat-title">
     <div className="oat-heading"><span className="eyebrow">Open Air Theatre · Live</span><button className="panel-close" aria-label="Leave OAT concert" onClick={onClose}>×</button></div>
     <h2 id="oat-title">{room?.concertTitle ?? 'Concerts at the OAT'}</h2>
@@ -71,6 +71,6 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
       </section>
     </>}
     {error && <p className="oat-error" role="alert">{error}</p>}
-    <section className="oat-section"><h3>Invite your audience</h3><div className="oat-input-row"><input aria-label="Concert invitation link" readOnly value={invite.href} onFocus={event => event.target.select()} /><button className="fly-button" onClick={() => { void navigator.clipboard?.writeText(invite.href).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Copied' : 'Copy link'}</button></div></section>
+    <section className="oat-section"><h3>Invite your audience</h3><div className="oat-input-row"><input aria-label="Concert invitation link" readOnly value={invite} onFocus={event => event.target.select()} /><button className="fly-button" onClick={() => { void navigator.clipboard?.writeText(invite).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Copied' : 'Copy link'}</button></div></section>
   </aside>
 }
