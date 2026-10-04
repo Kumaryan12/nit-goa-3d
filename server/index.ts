@@ -21,6 +21,7 @@ if (site && (new URL(site).username || new URL(site).password))
 const ready = createReadiness()
 const origin = site ? new URL(site).origin : undefined,
   verify = createAccessVerifier()
+const liveOrigin = origin?.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:') || ''
 let oat: ReturnType<typeof attachOatServer>,
   crowd: ReturnType<typeof createCrowdAPI>
 const root = resolve('dist'),
@@ -52,7 +53,7 @@ const authDomain =
 if (!/^[a-z0-9.-]+$/.test(authDomain))
   throw new Error('Invalid Firebase auth domain.')
 if (production) firebaseAdmin()
-const csp = `default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://${authDomain} https://overpass-api.de https://overpass.kumi.systems ${customMapOrigin}; media-src 'self' blob: https:; frame-src https://${authDomain} https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
+const csp = `default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ${liveOrigin} https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://${authDomain} https://overpass-api.de https://overpass.kumi.systems ${customMapOrigin}; media-src 'self' blob: https:; frame-src https://${authDomain} https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
 const server = createServer((request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff')
   response.setHeader('Referrer-Policy', 'no-referrer')

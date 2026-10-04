@@ -7,8 +7,8 @@ The app runs as one Node 24 service on Render: the landing page, profiles, authe
 - Campus: https://nitg-explored.onrender.com
 - Render service: `srv-db0tjepsrm7s7394b09g`, Singapore, free, one Docker instance.
 - Release branch: `deploy/firebase-community`. Render deployment history records the exact release commit.
-- Initial deploy `dep-db0tjfhsrm7s7394b380` is live. The Docker image built successfully on Render.
-- Real hosted Google sign-in completed and campus admission succeeded.
+- Docker builds and live deployments succeeded on Render. Production map loading was verified in a fresh hosted browser session.
+- Real hosted Google sign-in completed and campus admission succeeded. Authenticated football joined with one player; OAT admission showed 1 / 24 visitors. Independent-account play and voice transmission still require rehearsal.
 - Firebase and moderation keys uploaded as private runtime files. Neither is in Git, browser code or the Docker image.
 - `/readyz` and the landing page return 200; anonymous admission/crowd requests are denied, and credential file URLs return 404.
 - Both GitHub verification jobs pass; 236 tests pass and the production dependency audit reports zero vulnerabilities.
