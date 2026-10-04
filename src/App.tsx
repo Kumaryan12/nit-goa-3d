@@ -157,14 +157,14 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
     if (!twin) return null
     const building = twin.buildings[twin.selections.findIndex(item => item.location.id === 'boys-hostel')]
     if (!building) return null
-    const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees)
+    const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
     return createHostelPlan(building, twin.roads, point => isWalkable(point, world))
   }, [twin])
   const gyanPlan = useMemo(() => {
     if(!twin)return null
     const building=twin.buildings[twin.selections.findIndex(item=>item.location.id===GYAN_MANDIR_ID)]
     if(!building)return null
-    const world=createWalkWorld(twin.buildings,twin.boundary,twin.terrain,twin.trees)
+    const world=createWalkWorld(twin.buildings,twin.boundary,twin.terrain,twin.trees,twin.lamps)
     return createGyanMandirPlan(building,twin.roads,p=>isWalkable(p,world),twin.selections.find(s=>s.location.id==='way/1423803680')?.location.coordinates)
   },[twin])
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))

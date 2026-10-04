@@ -13,6 +13,7 @@ import { generateTerrain } from '../lib/terrain'
 import type { DigitalTwin } from '../lib/digitalTwin'
 import type { BuildingSelection } from '../types/campus'
 import Lighting from './Lighting'
+import CampusStreetlights from './CampusStreetlights'
 import FootballScene from './FootballScene'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
@@ -143,7 +144,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
 
 function CampusScene({ campusPeople, campusSession, campusPose, campusMessages, avatarColor, oatConcert, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const size = twin?.size ?? 650
-  const background = night ? '#111c2d' : '#d9e7ec'
+  const background = night ? '#101b30' : '#d9e7ec'
   const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
   const heights = useMemo(() => Object.fromEntries(twin?.selections.map((selection, i) => [selection.location.id, twin.buildings[i].height]) ?? []), [twin])
   const administration = useMemo(() => {
@@ -165,7 +166,7 @@ function CampusScene({ campusPeople, campusSession, campusPose, campusMessages, 
     fallback={<p className="webgl-fallback">Your browser needs WebGL to display the campus scene.</p>}>
     <color attach="background" args={[background]} />
     <fog attach="fog" args={[background, size * 1.1, size * 3]} />
-    {night ? <Stars radius={3000} depth={150} count={800} factor={3} saturation={0} fade speed={0} />
+    {night ? <Stars radius={3000} depth={150} count={1100} factor={2.2} saturation={0} fade speed={0} />
       : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={3} rayleigh={0.7} mieCoefficient={0.005} mieDirectionalG={0.8} />}
     <Lighting groundSize={size} night={night} />
     <Terrain model={twin?.terrain ?? loadingTerrain} onReady={twin ? onTerrainReady : noop} />
@@ -173,18 +174,19 @@ function CampusScene({ campusPeople, campusSession, campusPose, campusMessages, 
     {showGrid && <gridHelper args={[size, Math.round(size / sceneConfig.gridSpacing), '#7d8970', '#9ba584']} position={[0, 0.025, 0]} />}
     {twin && <>
       <CampusBoundary terrain={twin.hasRelief ? twin.terrain : undefined} points={twin.boundary} entrance={twin.locations.find((location) => location.id === 'main-entrance')!.coordinates} />
-      <OSMRoads roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />
+      <OSMRoads night={night} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />
       {twin.canal && <EntranceCanal canal={twin.canal} terrain={twin.terrain} night={night} />}
       <OSMBuildings administration={administration} facades={facades} night={night} interiorPlans={view==='walk'?[hostelPlan,gyanPlan].filter((p):p is HostelPlan=>!!p):[]} insideBuildingId={view==='walk' && hostelFloor!==null?interiorBuildingId:null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
       <BuildingWindows doorway={view === 'walk' ? hostelPlan : null} buildings={windowBuildings} night={night} />
       {hostelPlan && <HostelCourtyards building={hostelPlan.building} />}
+      <CampusStreetlights lamps={twin.lamps} terrain={twin.terrain} night={night} indoors={view==='walk' && hostelFloor!==null} />
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
         selected={selectedLocationId === 'open-air-theatre'} onSelect={() => onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location: twin.locations.find(location => location.id === 'open-air-theatre')! })} />}
       {twin.boundary.length > 0 && <OatConcertScene theatre={twin.theatre} concert={oatConcert} />}
-      {view === 'walk' && hostelPlan && <BuildingInterior plan={hostelPlan} floor={interiorBuildingId===hostelPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===hostelPlan.buildingId?stairLowFloor:null} onSelect={() => { const selection = twin.selections.find(item => item.buildingId === hostelPlan.buildingId); if (selection) onSelectBuilding(selection) }} />}
-      {view==='walk' && gyanPlan && <BuildingInterior plan={gyanPlan} floor={interiorBuildingId===gyanPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===gyanPlan.buildingId?stairLowFloor:null} onSelect={()=>{const selection=twin.selections.find(item=>item.buildingId===gyanPlan.buildingId);if(selection)onSelectBuilding(selection)}} />}
+      {view === 'walk' && hostelPlan && <BuildingInterior night={night} plan={hostelPlan} floor={interiorBuildingId===hostelPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===hostelPlan.buildingId?stairLowFloor:null} onSelect={() => { const selection = twin.selections.find(item => item.buildingId === hostelPlan.buildingId); if (selection) onSelectBuilding(selection) }} />}
+      {view==='walk' && gyanPlan && <BuildingInterior night={night} plan={gyanPlan} floor={interiorBuildingId===gyanPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===gyanPlan.buildingId?stairLowFloor:null} onSelect={()=>{const selection=twin.selections.find(item=>item.buildingId===gyanPlan.buildingId);if(selection)onSelectBuilding(selection)}} />}
       {footballPitch && <FootballScene campusSession={campusSession} pitch={footballPitch} session={footballSession} players={footballPlayers} controls={footballInput} live={footballLive} onStatus={onFootballStatus} />}
       <CampusPeopleScene people={campusPeople} session={campusSession} messages={campusMessages} excludedIds={[...(footballLive ? footballPlayers.map(p => p.id) : []), ...(oatConcert?.participants.map(p => p.id) ?? [])]} space={hostelFloor !== null ? `${activeInterior?.kind==='classroom'?'gyan':'hostel'}:${stairLowFloor ?? hostelFloor}` : 'outdoors'} walking={view === 'walk'} />
       {!(view==='walk'&&hostelFloor!==null)&&<LocationLabels locations={labelLocations} heights={heights} />}

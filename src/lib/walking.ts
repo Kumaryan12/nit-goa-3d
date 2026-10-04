@@ -10,6 +10,8 @@ import { canalBlocksWalking } from './canal.ts'
 import { theatreBlocksWalking, theatreSurfaceHeightAt } from './theatre.ts'
 import { treeTrunkRadius } from './vegetation.ts'
 import type { TreeInstance } from './vegetation.ts'
+import { LAMP_POLE_RADIUS } from './nightLighting.ts'
+import type { CampusLamp } from './nightLighting.ts'
 import { AVATAR_HEIGHT } from './avatarJump.ts'
 
 export type ExplorerView = 'overview' | 'walk'
@@ -17,7 +19,7 @@ export interface WalkInput { forward: number; side: number; turn: number; runnin
 export interface WalkStatus { position: LocalCoordinate; nearestId: string | null; distance: number; moving: boolean; blocked: boolean; error?: string; canJump?: boolean; canEnterHostel?: boolean; canEnterGyan?: boolean; interior?: { kind?: 'classroom'; name?: string; levels?: number; floor: number; room: string | null; canGoUp: boolean; canGoDown: boolean; stairLowFloor: number | null } }
 export interface WalkSpawnRequest { sequence: number; locationId: string; enterHostel?: boolean; enterGyan?: boolean; football?: boolean }
 interface Collider { id: string; outer: LocalCoordinate[]; holes: LocalCoordinate[][]; minX: number; maxX: number; minZ: number; maxZ: number; base: number; height: number }
-export interface WalkWorld { boundary: LocalCoordinate[]; buildings: Collider[]; terrain: TerrainModel; trees: Map<string, TreeInstance[]> }
+export interface WalkWorld { boundary: LocalCoordinate[]; buildings: Collider[]; terrain: TerrainModel; trees: Map<string, TreeInstance[]>; lamps?: CampusLamp[] }
 export const AVATAR_RADIUS = 0.42
 export const emptyWalkInput = (): WalkInput => ({ forward: 0, side: 0, turn: 0, running: false })
 export function explorerViewFromURL(url: string): ExplorerView { return new URL(url, 'https://campus.example').searchParams.get('view') === 'walk' ? 'walk' : 'overview' }
@@ -26,14 +28,14 @@ export function withExplorerView(url: string, view: ExplorerView): string {
   if (view === 'walk') result.searchParams.set('view', 'walk'); else result.searchParams.delete('view')
   return `${result.pathname}${result.search}${result.hash}`
 }
-export function createWalkWorld(buildings: BuildingFootprint[], boundary: LocalCoordinate[], terrain: TerrainModel, vegetation: TreeInstance[] = []): WalkWorld {
+export function createWalkWorld(buildings: BuildingFootprint[], boundary: LocalCoordinate[], terrain: TerrainModel, vegetation: TreeInstance[] = [], lamps: CampusLamp[] = []): WalkWorld {
   const trees = new Map<string, TreeInstance[]>()
   for (const tree of vegetation) {
     const key = `${Math.floor(tree.x / 8)},${Math.floor(tree.z / 8)}`
     if (!trees.has(key)) trees.set(key, [])
     trees.get(key)!.push(tree)
   }
-  return { boundary, terrain, trees, buildings: buildings.map(building => {
+  return { boundary, terrain, trees, lamps, buildings: buildings.map(building => {
     const outer = building.outer.map(gpsToLocal), holes = building.holes.map(hole => hole.map(gpsToLocal))
     return { id: building.id, outer, holes, minX: Math.min(...outer.map(p => p.x)), maxX: Math.max(...outer.map(p => p.x)), minZ: Math.min(...outer.map(p => p.z)), maxZ: Math.max(...outer.map(p => p.z)), base: building.baseElevation ?? 0, height: building.height }
   }) }
@@ -65,6 +67,7 @@ export function isWalkable(point: LocalCoordinate, world: WalkWorld, radius = AV
   if (world.boundary.length >= 3 && (!pointInCampus(point, world.boundary) || ringDistance(point, world.boundary) < radius)) return false
   if (world.terrain.canal && canalBlocksWalking(point, world.terrain.canal, radius)) return false
   if (world.terrain.theatre && theatreBlocksWalking(point, world.terrain.theatre, radius)) return false
+  if (world.lamps?.some(lamp => Math.hypot(point.x-lamp.x,point.z-lamp.z)<LAMP_POLE_RADIUS+radius)) return false
   if (nearbyTrees(point, world).some(tree => Math.hypot(point.x - tree.x, point.z - tree.z) < treeTrunkRadius(tree) + radius)) return false
   if (feetY + AVATAR_HEIGHT > treeCeilingAt(point, world, radius)) return false
   return !world.buildings.some(building => hitsBuilding(point, building, radius))
@@ -133,7 +136,8 @@ export function cameraBoomFraction(origin: { x: number; y: number; z: number }, 
       const crown = !tree.palm && (distance / (2.7 * tree.scale)) ** 2 + ((point.y - tree.y - 6 * tree.scale) / (3.1 * tree.scale + .2)) ** 2 < 1
       return trunk || crown
     })
-    if (treeHit || point.y < walkSurfaceHeightAt(world.terrain, point.x, point.z) + 0.25 || world.buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
+    const poleHit = world.lamps?.some(lamp => point.y>=lamp.y && point.y<=lamp.y+lamp.height && Math.hypot(point.x-lamp.x,point.z-lamp.z)<LAMP_POLE_RADIUS+.2)
+    if (poleHit || treeHit || point.y < walkSurfaceHeightAt(world.terrain, point.x, point.z) + 0.25 || world.buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
   }
   return 1
 }

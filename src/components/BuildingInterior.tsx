@@ -1,17 +1,18 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import { CanvasTexture, InstancedMesh, Object3D, Path, ShapeUtils, Vector2 } from 'three'
+import { useFrame } from '@react-three/fiber'
+import { PointLight, CanvasTexture, InstancedMesh, Object3D, Path, ShapeUtils, Vector2 } from 'three'
 import { buildingShape } from '../lib/buildingGeometry'
 import { classroomFurniture, readingFurniture, interiorFloorPlan, interiorRoomLabel } from '../lib/hostelInterior'
 import type { HostelPlan } from '../lib/hostelInterior'
 import type { LocalCoordinate } from '../lib/geo'
 
 interface Box { x:number; y:number; z:number; width:number; height:number; depth:number; angle?:number }
-function Boxes({ boxes, color }: { boxes:Box[];color:string }) {
+function Boxes({ boxes, color, glow=false }: { boxes:Box[];color:string;glow?:boolean }) {
   const ref=useRef<InstancedMesh>(null)
   useLayoutEffect(()=> {const dummy=new Object3D();boxes.forEach((box,i)=> {
     dummy.position.set(box.x,box.y,box.z);dummy.rotation.set(0,box.angle??0,0);dummy.scale.set(box.width,box.height,box.depth);dummy.updateMatrix();ref.current?.setMatrixAt(i,dummy.matrix)
   });if(ref.current){ref.current.instanceMatrix.needsUpdate=true;ref.current.computeBoundingSphere()}},[boxes])
-  return <instancedMesh ref={ref} args={[undefined,undefined,boxes.length]} castShadow receiveShadow><boxGeometry /><meshStandardMaterial color={color} roughness={.9} /></instancedMesh>
+  return <instancedMesh ref={ref} args={[undefined,undefined,boxes.length]} castShadow={!glow} receiveShadow><boxGeometry /><meshStandardMaterial color={color} emissive={glow?'#ffe9bb':'#000000'} emissiveIntensity={glow?1.2:0} roughness={.9} /></instancedMesh>
 }
 function Plaque({ text,point,y,normal,width=1.5 }: {text:string;point:LocalCoordinate;y:number;normal:LocalCoordinate;width?:number}) {
   const texture=useMemo(()=> {const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;const context=canvas.getContext('2d')!;context.fillStyle='#235b55';context.fillRect(0,0,512,128);context.strokeStyle='#ddb46b';context.lineWidth=8;context.strokeRect(4,4,504,120);context.fillStyle='#fff4d4';context.font='bold 40px sans-serif';context.textAlign='center';context.textBaseline='middle';context.fillText(text,256,64,480);return new CanvasTexture(canvas)},[text])
@@ -81,13 +82,27 @@ function StairFlight({plan,level}:{plan:HostelPlan;level:number}) {
   const steps=useMemo(()=>Array.from({length:20},(_,i)=> {const t=(i+.5)/20,top=(i+1)/20*plan.floorHeight,height=plan.floorHeight/20;return {x:plan.stairs.start.x+plan.stairs.along.x*t*plan.stairs.length,z:plan.stairs.start.z+plan.stairs.along.z*t*plan.stairs.length,y:plan.base+level*plan.floorHeight+.14+top-height/2,width:plan.stairs.width,height,depth:plan.stairs.length/20,angle:Math.atan2(plan.stairs.along.x,plan.stairs.along.z)}}),[plan,level])
   return <Boxes boxes={steps} color="#a8b3a8" />
 }
-export default function BuildingInterior({plan,floor,stairLowFloor,onSelect}:{plan:HostelPlan;floor:number|null;stairLowFloor:number|null;onSelect:()=>void}) {
+function InteriorNightLights({root,floor}:{root:HostelPlan;floor:number}) {
+  const plan=interiorFloorPlan(root,floor), lights=useRef<(PointLight|null)[]>([]),elapsed=useRef(1)
+  const panels=useMemo(()=>[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].map(room=>({x:room.center.x,z:room.center.z,y:plan.base+(floor+1)*plan.floorHeight-.07,width:1.1,height:.035,depth:.35,angle:-Math.atan2(room.along.z,room.along.x)})),[plan,floor])
+  const sources=useMemo(()=>[...panels,{...plan.entrance.inside,y:plan.base+(floor+1)*plan.floorHeight-.07},{...plan.stairs.start,y:plan.base+(floor+1)*plan.floorHeight-.07}], [panels,plan,floor])
+  useFrame(({camera},delta)=>{elapsed.current+=delta;if(elapsed.current<.2)return;elapsed.current=0
+    const closest=[...sources].sort((a,b)=>Math.hypot(a.x-camera.position.x,a.z-camera.position.z)-Math.hypot(b.x-camera.position.x,b.z-camera.position.z)).slice(0,2)
+    closest.forEach((p,i)=>{const light=lights.current[i];if(light)light.position.set(p.x,p.y-.12,p.z)})
+  })
+  return <group name="interior-night-lights">
+    <Boxes boxes={panels} color="#fff3d0" glow/>
+    {[0,1].map(i=><pointLight key={i} ref={value=>{lights.current[i]=value}} intensity={35} color="#fff0cd" distance={12} decay={2} castShadow={false}/>)}
+  </group>
+}
+export default function BuildingInterior({plan,floor,stairLowFloor,onSelect,night=false}:{night?:boolean;plan:HostelPlan;floor:number|null;stairLowFloor:number|null;onSelect:()=>void}) {
   const levels=stairLowFloor===null?[floor??0]:[stairLowFloor,stairLowFloor+1]
   const flights=[...new Set(levels.flatMap(level=>[level-1,level]))].filter(level=>level>=0&&level<plan.levels-1)
   return <group name={plan.kind==='classroom'?'gyan-mandir-interior':'boys-hostel-approximate-interior'} onClick={event=> {event.stopPropagation();if(event.delta<=2)onSelect()}}>
     {levels.map(level=><Floor key={level} plan={plan} level={level} />)}
     {flights.map(level=><StairFlight key={level} plan={plan} level={level} />)}
-    {floor!==null&&<ambientLight intensity={.28} color="#fff4db" />}
+    {night&&floor!==null&&<InteriorNightLights root={plan} floor={floor}/>}
+    {floor!==null&&<ambientLight intensity={night?.45:.28} color="#fff4db" />}
     {floor===null&&<Plaque text={plan.kind==='classroom'?'GYAN MANDIR · ENTER':'TALPONA · DEMO ENTRY'} point={{x:plan.entrance.point.x-plan.entrance.inward.x*.13,z:plan.entrance.point.z-plan.entrance.inward.z*.13}} normal={{x:-plan.entrance.inward.x,z:-plan.entrance.inward.z}} y={plan.base+2.55} width={2.5} />}
   </group>
 }

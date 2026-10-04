@@ -49,7 +49,7 @@ export default function CampusBuildingFacade({ plan, night }: { plan: CampusFaca
   return <group name={`campus-facade-${appearance.style}`}>
     <Boxes boxes={plan.frames} color={white} />
     <Boxes boxes={plan.trim} color={white} />
-    <Boxes boxes={plan.panes} color={night ? '#b9b298' : '#637a79'} night={night} />
+    <Boxes boxes={plan.panes} color={'#637a79'} night={night} />
     <Roof vertices={plan.roof.vertices} indices={plan.roof.indices} />
     <group position={[front.center.x, 0, front.center.z]} rotation={[0, front.angle, 0]}>
       {department && [-1.15, 1.15].map(x => <ArchedGlass key={x} x={x} y={height * .66} width={2.1} height={height * .24} night={night} />)}

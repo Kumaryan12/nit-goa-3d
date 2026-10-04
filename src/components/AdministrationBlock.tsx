@@ -65,7 +65,7 @@ export default function AdministrationBlock({ plan, night }: { plan: Administrat
   return <group name="administration-facade">
     <Boxes boxes={windows.frames} color={white} />
     <Boxes boxes={windows.trim} color={white} />
-    <Boxes boxes={windows.panes} color={night ? '#b5a079' : '#526c77'} night={night} />
+    <Boxes boxes={windows.panes} color={'#526c77'} night={night} />
     <group position={[front.center.x, 0, front.center.z]} rotation={[0, front.angle, 0]}>
       {plan.pitchedRoof && <Roof vertices={roofs.main} indices={[0, 4, 5, 0, 5, 1, 1, 5, 2, 2, 5, 4, 2, 4, 3, 3, 4, 0]} />}
       <mesh position={[0, height + .05, .15]} castShadow><boxGeometry args={[width * .78, 1.25, .6]} /><meshStandardMaterial color={cream} roughness={.9} /></mesh>

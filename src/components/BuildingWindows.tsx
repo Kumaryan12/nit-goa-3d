@@ -1,3 +1,4 @@
+import { applyNightWindows } from '../lib/nightWindows'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { gpsToLocal } from '../lib/geo'
@@ -31,6 +32,6 @@ export default function BuildingWindows({ buildings, night, doorway }: { buildin
   }, [windows])
   return <instancedMesh ref={mesh} args={[undefined, undefined, windows.length]}>
     <boxGeometry args={[1.3, 1.4, 0.06]} />
-    <meshStandardMaterial color={night ? '#d8b875' : '#6d8586'} emissive="#ffc274" emissiveIntensity={night ? 1.7 : 0} roughness={0.45} />
+    <meshStandardMaterial onBeforeCompile={applyNightWindows} color={night ? '#64747d' : '#6d8586'} emissive="#ffc274" emissiveIntensity={night ? .95 : 0} roughness={0.45} />
   </instancedMesh>
 }

@@ -14,6 +14,7 @@ import { resolveSlopePatches } from './topography.ts'
 import { distanceToRect, footprintRect, terrainHeightAt } from './terrain.ts'
 import { generateTerrain } from './terrain.ts'
 import type { GroundRect } from './terrain.ts'
+import { generateCampusLamps } from './nightLighting.ts'
 import { generateTrees } from './vegetation.ts'
 import type { CampusMapData, CampusRoadData } from '../types/osm.ts'
 import { createEntranceCanal } from './canal.ts'
@@ -71,6 +72,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const access = theatre.access
   const vegetationClearings = access.length ? [...clearings, { x: (access[0].x + access[1].x) / 2, z: (access[0].z + access[1].z) / 2, halfX: Math.abs(access[1].x - access[0].x) / 2 + 1.2, halfZ: Math.abs(access[1].z - access[0].z) / 2 + 1.2 }] : clearings
   const trees = vegetationReady ? generateTrees(boundary, buildings, roads?.roads ?? [], vegetationClearings, terrain) : []
-  return { upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
+  const lamps = generateCampusLamps({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, locations })
+  return { lamps, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
 }
 export type DigitalTwin = ReturnType<typeof createDigitalTwin>
