@@ -1,0 +1,22 @@
+{
+  "nescafeRiseMeters": 8,
+  "gateRiseMeters": 6,
+  "girlsRoadRiseMeters": 4,
+  "showContours": false,
+  "customSlopes": [
+    {
+      "id": "1e3bfd45-1eff-4269-96d1-2702d6a7ed02",
+      "name": "admin to upwards",
+      "lower": {
+        "x": -383.23,
+        "z": -106.08
+      },
+      "upper": {
+        "x": -319.58,
+        "z": -106.24
+      },
+      "riseMeters": 4,
+      "widthMeters": 40
+    }
+  ]
+}

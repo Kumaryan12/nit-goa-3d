@@ -15,6 +15,6 @@ export const publicBackendConfig = validatePublicConfig(import.meta.env?.VITE_SU
 let client: Promise<SupabaseClient> | null = null
 export function getSupabase(): Promise<SupabaseClient> {
   if (!publicBackendConfig) return Promise.reject(new Error('Community persistence is unavailable in demo mode.'))
-  client ??= import('@supabase/supabase-js').then(({ createClient }) => createClient(publicBackendConfig.url, publicBackendConfig.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }))
+  client ??= import('@supabase/supabase-js').then(({ createClient }) => createClient(publicBackendConfig.url, publicBackendConfig.key, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }))
   return client
 }

@@ -15,6 +15,13 @@ export function flyToLocation(locationId: string, locations: CampusLocation[] = 
   if (!location) return null
   const { x, z } = location.coordinates
   const y = (location.elevation ?? 0) + (Number.isFinite(height) ? Math.max(0, height * 0.45) : 0)
+  if (locationId === 'administration-block') {
+    const entrance = lookupCameraLocation('main-entrance', locations)
+    if (entrance) {
+      const dx = entrance.coordinates.x - x, dz = entrance.coordinates.z - z, distance = Math.hypot(dx, dz)
+      if (distance > 1) return { position: [x + dx / distance * 62, y + 25, z + dz / distance * 62], target: [x, y, z] }
+    }
+  }
   const offset = location.category === 'sports' ? 110 : location.category === 'hostel' ? 100 : 72
   return { position: [x + offset, y + offset * 1.15, z + offset], target: [x, y, z] }
 }

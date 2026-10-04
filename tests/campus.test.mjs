@@ -9,11 +9,11 @@ const fixture = JSON.parse(await readFile(new URL('./fixtures/nit-goa-campus.jso
 const buildings = extractBuildingFootprints(fixture.elements)
 const realBuilding = buildings.find((building) => building.osmType === 'way')
 
-test('metadata defines all seven requested landmarks with unique stable IDs and finite meter coordinates', () => {
+test('metadata defines all requested landmarks with unique stable IDs and finite meter coordinates', () => {
   assert.deepEqual(campusLocations.map((location) => location.name), [
-    'Academic Block', 'Administration Block', 'Boys Hostel', 'Girls Hostel', 'Canteen', 'Sports Ground', 'Main Entrance',
+    'Academic Block', 'Administration Block', 'Boys Hostel', 'Girls Hostel', 'Canteen', 'Sports Ground', 'Open Air Theatre', 'Main Entrance',
   ])
-  assert.equal(new Set(campusLocations.map((location) => location.id)).size, 7)
+  assert.equal(new Set(campusLocations.map((location) => location.id)).size, 8)
   assert.ok(campusLocations.every((location) => location.description && location.keywords.length > 0
     && Number.isFinite(location.coordinates.x) && Number.isFinite(location.coordinates.z)))
 })

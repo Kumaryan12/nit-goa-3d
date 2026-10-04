@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CampusLocation } from '../types/campus'
 import type { CampusOverride, CampusOverrides } from '../lib/locationOverrides'
+import { isOpenPlace } from '../lib/locationOverrides'
 import type { LocalCoordinate } from '../lib/geo'
 import { localToGps } from '../lib/geo'
 
@@ -24,7 +25,7 @@ export default function CampusLocationEditor({ locations, locationId, assignedBu
   const [name, setName] = useState(''), [x, setX] = useState(''), [z, setZ] = useState(''), [rotation, setRotation] = useState('0')
   const [buildingId, setBuildingId] = useState<string | null>(null), [manualAssignment, setManualAssignment] = useState(false), [message, setMessage] = useState('')
   const panel = useRef<HTMLElement>(null)
-  const openPlace = ['sports-ground', 'main-entrance'].includes(locationId)
+  const openPlace = isOpenPlace(locationId)
   const landmark = !locationId.includes('/')
   useEffect(() => {
     if (!location) return
@@ -69,7 +70,7 @@ export default function CampusLocationEditor({ locations, locationId, assignedBu
         <div className="coordinate-inputs"><label>X · meters east<input name="location-x" type="number" step="0.01" required value={x} onChange={(event) => setX(event.target.value)} /></label><label>Z · meters south<input name="location-z" type="number" step="0.01" required value={z} onChange={(event) => setZ(event.target.value)} /></label></div>
         <label>Rotation · degrees<input name="location-rotation" type="number" min="-360" max="360" step="1" value={rotation} onChange={(event) => setRotation(event.target.value)} /></label>
         <button type="button" className="navigate-button" onClick={() => onPick({ locationId, mode: 'point' })}>Pick new position on map</button>
-        <p className="panel-muted">Drag to orbit and zoom for accuracy, then click the ground. The gold marker previews your pick; Save moves the gate or field.</p>
+        <p className="panel-muted">Drag to orbit and zoom for accuracy, then click the ground. The gold marker previews your pick; Save moves this place.</p>
         <output className="coordinate-readout">X {x}, Z {z} · {Number.isFinite(gps.lat) ? `${gps.lat.toFixed(6)}, ${gps.lon.toFixed(6)}` : 'Invalid coordinates'}</output>
       </> : <>
         <p className="panel-muted">OSM footprint: {buildingId ?? 'Not assigned'}. Real building geometry stays in place.</p>

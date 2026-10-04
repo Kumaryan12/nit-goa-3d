@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { ExtrudeGeometry, ShapeUtils } from 'three'
+import { defaultTerrainSettings } from '../src/data/topography.ts'
+import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
 import { buildingOverrides } from '../src/data/buildingOverrides.ts'
 import { buildingHeight, DEFAULT_BUILDING_HEIGHT, extractBuildingFootprints } from '../src/lib/buildings.ts'
 import { roofShape, buildingShape } from '../src/lib/buildingGeometry.ts'
@@ -18,7 +20,7 @@ const roadResponse = JSON.parse(await readFile(new URL('./fixtures/nit-goa-roads
 const boundary = roadResponse.elements.find((element) => element.id === 1259742369).geometry
 const map = { buildings: extractBuildingFootprints(campus.elements), boundary, source: 'campus-area', returnedBuildingCount: 22 }
 const roadData = { roads: extractCampusRoads(roadResponse.elements, boundary), boundary, source: 'campus-area', returnedRoadCount: 20 }
-const twin = createDigitalTwin(map, roadData)
+const twin = createDigitalTwin(map, roadData, true, {}, { ...defaultTerrainSettings, customSlopes: [] })
 
 const close = (actual, expected, epsilon = 1e-6) => assert.ok(Math.abs(actual - expected) <= epsilon, `${actual} ≈ ${expected}`)
 
@@ -31,12 +33,13 @@ test('height priority honors OSM height, OSM levels, manual override, then defau
   assert.equal(buildingHeight({}, 'boys-hostel', [{ id: 'boys-hostel', height: -1, floors: 5 }]), DEFAULT_BUILDING_HEIGHT)
 })
 
-test('all five overrides are finite estimates applied after stable campus matching', () => {
-  assert.deepEqual(new Set(buildingOverrides.map((item) => item.id)), new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen']))
+test('visual height overrides are finite estimates applied after corrected campus matching', () => {
+  const corrected = createDigitalTwin(map, roadData, false, savedCampusOverrides, { ...defaultTerrainSettings, customSlopes: [] })
+  assert.deepEqual(new Set(buildingOverrides.map((item) => item.id)), new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen', 'way/1423803660', 'way/1423803662', 'way/1423803680']))
   for (const override of buildingOverrides) {
-    const index = twin.selections.findIndex((selection) => selection.location.id === override.id)
+    const index = corrected.selections.findIndex((selection) => selection.location.id === override.id)
     assert.ok(index >= 0)
-    assert.equal(twin.buildings[index].height, override.height)
+    assert.equal(corrected.buildings[index].height, override.height)
     assert.ok(override.floors > 0)
   }
   assert.equal(map.buildings.find((building) => building.tags.name === 'Talpona').height, 10, 'original OSM extraction is not mutated')
@@ -89,20 +92,20 @@ test('all real road widths, building footprints, POI clearings and perimeter sta
 
 test('640 reproducible trees stay inside campus, clear buildings/roads/POIs, and sample terrain elevation', () => {
   assert.equal(twin.trees.length, 640)
-  assert.deepEqual(generateTrees(twin.boundary, twin.buildings, twin.roads, twin.clearings, twin.terrain), twin.trees)
+  assert.deepEqual(generateTrees(twin.boundary, twin.buildings, twin.roads, twin.vegetationClearings, twin.terrain), twin.trees)
   assert.ok(twin.trees.some((tree) => tree.palm) && twin.trees.some((tree) => !tree.palm))
   for (const tree of twin.trees) {
     assert.ok(pointInCampus(tree, twin.boundary))
     close(tree.y, terrainHeightAt(twin.terrain, tree.x, tree.z))
     for (const building of twin.buildings) assert.ok(distanceToRect(tree, footprintRect(building)) >= 5)
-    for (const rect of twin.clearings) assert.ok(distanceToRect(tree, rect) >= 6)
+    for (const rect of twin.vegetationClearings) assert.ok(distanceToRect(tree, rect) >= 6)
     for (const road of twin.roads) for (const path of road.paths) for (let i = 1; i < path.length; i++) assert.ok(distanceToSegment(tree, path[i - 1], path[i]) >= road.width / 2 + 4)
   }
   assert.deepEqual(generateTrees([], [], [], [], twin.terrain), [])
 })
 
 test('late road loading preserves building identity and height, and postpones trees until roads settle', () => {
-  const partial = createDigitalTwin(map, null, false)
+  const partial = createDigitalTwin(map, null, false, {}, { ...defaultTerrainSettings, customSlopes: [] })
   assert.equal(partial.trees.length, 0)
   assert.deepEqual(partial.buildings.map((b) => [b.id, b.height]), twin.buildings.map((b) => [b.id, b.height]))
   assert.deepEqual(partial.selections, twin.selections)

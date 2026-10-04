@@ -1,8 +1,9 @@
 import type { LocalCoordinate } from './geo.ts'
 import { pointInCampus } from './roads.ts'
-import { distanceToRect, distanceToSegment, footprintRect, terrainHeightAt } from './terrain.ts'
+import { distanceToRect, distanceToSegment, footprintRect, terrainHeightAt, terrainGradeAt } from './terrain.ts'
 import type { GroundRect, TerrainModel } from './terrain.ts'
 import type { BuildingFootprint, RoadFootprint } from '../types/osm.ts'
+import { inCanalOpening } from './canal.ts'
 
 export interface TreeInstance { x: number; y: number; z: number; scale: number; rotation: number; palm: boolean; shade: number }
 export const TREE_TARGET = 640
@@ -45,7 +46,9 @@ export function generateTrees(boundary: LocalCoordinate[], buildings: BuildingFo
     if (!pointInCampus(p, boundary) || rectangles.some((rect) => distanceToRect(p, rect) < 5)
       || clearings.some((rect) => distanceToRect(p, rect) < 6)
       || lines.some((line) => distanceToSegment(p, line.a, line.b) < line.width / 2 + 4)
-      || edges.some((edge) => distanceToSegment(p, edge.a, edge.b) < 3)) continue
+      || edges.some((edge) => distanceToSegment(p, edge.a, edge.b) < 3)
+      || (terrain.canal && inCanalOpening(p, terrain.canal, 3))
+      || terrainGradeAt(terrain, p.x, p.z) > .48) continue
     const bx = Math.floor(p.x / 7), bz = Math.floor(p.z / 7)
     let occupied = false
     for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {

@@ -6,7 +6,7 @@ import { fadeLabel, labelOpacity } from '../lib/labels'
 import { campusTopography } from '../data/topography'
 import type { CampusLocation } from '../types/campus'
 
-const labeled = new Set(['academic-block', 'boys-hostel', 'girls-hostel', 'canteen', 'sports-ground', 'main-entrance'])
+const labeled = new Set(['academic-block', 'boys-hostel', 'girls-hostel', 'canteen', 'sports-ground', 'main-entrance', 'open-air-theatre'])
 
 function LocationLabel({ location, height }: { location: CampusLocation; height: number }) {
   const gl = useThree((state) => state.gl)
