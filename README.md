@@ -87,6 +87,8 @@ Terrain is deterministic procedural elevation, approximately 0–2.1 m in open a
 
 Two satellite/aerial-informed lawns flank the Seminar Complex to the north and south. Their GPS polygons paint green turf onto the existing terrain, retain road/building/plaza and utility-pad clearance, and exclude generated large trees so the lawns remain open for exploring and riding. Heights and slopes remain unchanged. References, approximate outlines and validation are recorded in [seminar-lawns.md](docs/seminar-lawns.md).
 
+The lawn facing Administration Block has the owner-confirmed Indian national flag, with a tall mast, slope-grounded stone pedestal, gently waving 3:2 tricolour and 24-spoke Ashoka Chakra. The map marks its position. Walking/vehicle and camera collisions protect the base and mast; animation respects reduced-motion preferences. Exact placement and dimensions are visual estimates documented with the lawn references.
+
 The seven main locations are Academic Block, Administration Block, Boys Hostel, Girls Hostel, Canteen, Sports Ground and Main Entrance. Named OSM buildings take precedence over proximity matches within 40 m, with one-to-one deterministic assignment. Talpona/Terekhol hostel identities have OSM name support. Academic, administration and canteen proximity assignments are provisional. Sports-field/entrance anchors and door connections are approximate. Unmatched buildings retain their OSM IDs, names and click behavior. These distinctions remain visible in the UI.
 
 ## Search, navigation and URLs

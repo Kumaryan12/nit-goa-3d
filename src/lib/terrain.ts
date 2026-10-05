@@ -10,6 +10,7 @@ import type { CanalLayout, TerrainCutVertex } from './canal.ts'
 import type { TheatreLayout } from './theatre.ts'
 import { lawnWeightAt } from './landscaping.ts'
 import type { LawnPatch } from './landscaping.ts'
+import type { CampusFlagLayout } from './campusFlag.ts'
 
 export interface GroundRect { x: number; z: number; halfX: number; halfZ: number; benchBuildingId?: string }
 export interface TerrainModel {
@@ -20,6 +21,7 @@ export interface TerrainModel {
   canal?: CanalLayout
   theatre?: TheatreLayout
   lawns?: LawnPatch[]
+  flag?: CampusFlagLayout
 }
 export interface TerrainFeatures {
   boundary: LocalCoordinate[]

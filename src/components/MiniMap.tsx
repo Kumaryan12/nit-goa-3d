@@ -29,6 +29,13 @@ function MiniMap({ twin, selection, onSelect, presentation, travelerPosition, av
       {twin?.canal && <polyline points={[-1, 1].map(side => canalPoint(twin.canal!, side * twin.canal!.length / 2)).map(p => `${p.x},${p.z}`).join(' ')}
         fill="none" stroke="#4f969c" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none" aria-label="Entrance canal" />}
       {map.roads.flatMap((road) => road.paths.map((points, i) => <polyline key={`${road.id}/${i}`} points={points} className="minimap-road" vectorEffect="non-scaling-stroke" />))}
+      {twin?.flag && <g transform={`translate(${twin.flag.x} ${twin.flag.z})`} pointerEvents="none" role="img" aria-label="Indian national flag opposite Administration Block">
+        <circle r="5" fill="#fff" stroke="#000080" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <path d="M0 4 V-13 L13 -13 L13 -5 L0 -5" fill="#fff" stroke="#34465a" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        <path d="M1 -12.5 H12.5 V-10 H1 Z" fill="#ff9933" />
+        <path d="M1 -8 H12.5 V-5.5 H1 Z" fill="#138808" />
+        <circle cx="6.5" cy="-9" r="1" fill="#000080" />
+      </g>}
       {map.buildings.map((building) => <path key={building.id} d={building.path} fillRule="evenodd" vectorEffect="non-scaling-stroke"
         className={`minimap-building ${selection?.buildingId === building.id ? 'minimap-selected' : ''}`} tabIndex={0} role="button" aria-label={`Select ${building.name}`}
         onClick={() => onSelect(building.locationId)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(building.locationId) } }} />)}
