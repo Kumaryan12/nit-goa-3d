@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CAMPUS_CAPACITY, CAMPUS_COLORS, canHearNearby, chatText } from '../lib/campusProtocol'
 import type { CampusLiveSession } from '../hooks/useCampusSession'
 import type { CampusPose } from '../lib/campusProtocol'
-import { initials } from '../lib/profile'
+import { initials, avatarTextColor } from '../lib/profile'
 const activities = { walk: 'Walking around', overview: 'Exploring the map', football: 'Playing football', concert: 'At the OAT' }
 export default function CampusSocial({ live, open, onClose, pose, walking }: { live: CampusLiveSession; open: boolean; onClose: () => void; pose: React.RefObject<CampusPose | null>; walking: boolean }) {
   const [tab, setTab] = useState<'chat' | 'people'>('chat'), [scope, setScope] = useState<'campus' | 'nearby'>('campus'), [text, setText] = useState('')
@@ -27,7 +27,7 @@ export default function CampusSocial({ live, open, onClose, pose, walking }: { l
     {(live.error || deliveryError) && <div className="campus-chat-error" role="alert">{live.error || deliveryError}<button aria-label="Dismiss chat notice" onClick={() => { live.clearError(); setDeliveryError('') }}>×</button></div>}
     <div className="campus-social-tabs" role="group" aria-label="Campus social panel"><button aria-pressed={tab === 'chat'} onClick={() => setTab('chat')}>Conversation</button><button aria-pressed={tab === 'people'} onClick={() => setTab('people')}>People · {live.people.length}</button></div>
     {tab === 'people' ? <div className="campus-people-list"><p className="campus-social-note">Public profiles open in a new tab. Hide someone’s messages for this visit with Mute.</p>{live.people.map(person => <div key={person.id} className="campus-person-row">
-      <span className="campus-person-initials" style={{ background: CAMPUS_COLORS[person.color] }}>{initials(person.name)}</span>
+      <span className="campus-person-initials" style={{ background: CAMPUS_COLORS[person.color], color: avatarTextColor(person.color) }}>{initials(person.name)}</span>
       <div className="campus-person-info">{person.handle ? <a href={`/people/${person.handle}`} target="_blank" rel="noopener noreferrer">{person.name} ↗</a> : <strong>{person.name}</strong>}<small>{person.id === self ? 'You · ' : ''}{activities[person.activity]}{walking && canHearNearby(pose.current, person.pose) && person.id !== self ? ' · Nearby' : ''}</small></div>
       {person.id !== self && <button className="campus-mute" aria-pressed={muted.has(person.id)} aria-label={`${muted.has(person.id) ? 'Unmute' : 'Mute'} ${person.name}`} onClick={() => toggleMute(person.id)}>{muted.has(person.id) ? 'Unmute' : 'Mute'}</button>}
     </div>)}{!live.people.length && <div className="campus-social-empty">People will appear here when the live connection is ready.</div>}</div> : <>

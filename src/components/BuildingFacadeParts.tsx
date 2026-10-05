@@ -1,3 +1,4 @@
+import { applyNightWindows } from '../lib/nightWindows'
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { BufferGeometry, CanvasTexture, DoubleSide, Float32BufferAttribute, InstancedMesh, Object3D, SRGBColorSpace } from 'three'
 import { applyPitchedRoofTiles } from '../lib/roofMaterial'
@@ -16,7 +17,7 @@ export function Boxes({ boxes, color, night = false }: { boxes: Box[]; color: st
   }, [boxes])
   return <instancedMesh ref={mesh} args={[undefined, undefined, boxes.length]} castShadow receiveShadow>
     <boxGeometry args={[1, 1, 1]} />
-    <meshStandardMaterial color={color} roughness={night ? .45 : .8} emissive={night ? '#ffc274' : '#000000'} emissiveIntensity={night ? .7 : 0} />
+    <meshStandardMaterial onBeforeCompile={applyNightWindows} color={color} roughness={night ? .45 : .8} emissive={night ? '#ffc274' : '#000000'} emissiveIntensity={night ? .7 : 0} />
   </instancedMesh>
 }
 

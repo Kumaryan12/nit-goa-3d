@@ -45,20 +45,23 @@ export default function OpenAirTheatre({ theatre, terrain, selected, night, onSe
       {Array.from({ length: THEATRE_ROWS * 2 }, (_, step) => {
         const height = (step + 1) * THEATRE_RISE / 2
         return <mesh key={step} position={[0, .08 + height / 2, THEATRE_INNER_RADIUS + (step + .5) * THEATRE_TREAD / 2]} receiveShadow castShadow>
-          <boxGeometry args={[THEATRE_AISLE_HALF_WIDTH * 2, height, THEATRE_TREAD / 2]} /><meshStandardMaterial color="#e0d7c3" roughness={1} />
+          <boxGeometry args={[THEATRE_AISLE_HALF_WIDTH * 2, height, THEATRE_TREAD / 2]} /><meshStandardMaterial color="#e0d7c3" roughness={1} emissive="#cba46b" emissiveIntensity={night?.06:0} />
         </mesh>
       })}
       {/* The reverse flight joins the raised last row to the roadside entrance. */}
       {Array.from({ length: THEATRE_ROWS * 2 }, (_, step) => {
         const height = (THEATRE_ROWS * 2 - step) * THEATRE_RISE / 2
         return <mesh key={`rear-${step}`} position={[0, .08 + height / 2, THEATRE_OUTER_RADIUS + (step + .5) * .3]} receiveShadow>
-          <boxGeometry args={[2.4, height, .3]} /><meshStandardMaterial color="#e0d7c3" roughness={1} />
+          <boxGeometry args={[2.4, height, .3]} /><meshStandardMaterial color="#e0d7c3" roughness={1} emissive="#cba46b" emissiveIntensity={night?.06:0} />
         </mesh>
       })}
+      {night && Array.from({length:THEATRE_ROWS},(_,row)=><group key={`aisle-light-${row}`} position={[0,.10+(row+1)*THEATRE_RISE,THEATRE_INNER_RADIUS+(row+.8)*THEATRE_TREAD]}>
+        {[-1.05,1.05].map(x=><mesh key={x} position={[x,.01,0]} raycast={()=>null}><boxGeometry args={[.10,.018,.24]}/><meshBasicMaterial color="#ffc985" toneMapped={false}/></mesh>)}
+      </group>)}
       {[-7, 7].map(x => <group key={x} position={[x, 0, -3]}>
         <mesh position={[0, 2.15, 0]} castShadow><cylinderGeometry args={[.075, .1, 4.3, 8]} /><meshStandardMaterial color="#445a50" roughness={.75} /></mesh>
         <mesh position={[0, 4.35, 0]}><boxGeometry args={[.65, .12, .4]} /><meshStandardMaterial color="#f2e7cb" emissive="#ffe2a3" emissiveIntensity={night ? 2 : 0} /></mesh>
-        {night && <pointLight position={[0, 4, 0]} color="#ffe3ad" intensity={12} distance={20} decay={2} />}
+        {night && <pointLight position={[0, 4, 0]} color="#ffe3ad" intensity={150} distance={48} decay={2} />}
       </group>)}
     </group>
   </group>

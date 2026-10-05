@@ -1,10 +1,11 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { applyNightWindows } from '../lib/nightWindows'
+import { memo, useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { gpsToLocal } from '../lib/geo'
 import type { BuildingFootprint } from '../types/osm'
 import type { HostelPlan } from '../lib/hostelInterior'
 
-export default function BuildingWindows({ buildings, night, doorway }: { buildings: BuildingFootprint[]; night: boolean; doorway?: HostelPlan | null }) {
+function BuildingWindows({ buildings, night, doorway }: { buildings: BuildingFootprint[]; night: boolean; doorway?: HostelPlan | null }) {
   const mesh = useRef<InstancedMesh>(null)
   const windows = useMemo(() => buildings.flatMap((building) => {
     const points = building.outer.map(gpsToLocal)
@@ -31,6 +32,8 @@ export default function BuildingWindows({ buildings, night, doorway }: { buildin
   }, [windows])
   return <instancedMesh ref={mesh} args={[undefined, undefined, windows.length]}>
     <boxGeometry args={[1.3, 1.4, 0.06]} />
-    <meshStandardMaterial color={night ? '#d8b875' : '#6d8586'} emissive="#ffc274" emissiveIntensity={night ? 1.7 : 0} roughness={0.45} />
+    <meshStandardMaterial onBeforeCompile={applyNightWindows} color={night ? '#64747d' : '#6d8586'} emissive="#ffc274" emissiveIntensity={night ? .95 : 0} roughness={0.45} />
   </instancedMesh>
 }
+
+export default memo(BuildingWindows)

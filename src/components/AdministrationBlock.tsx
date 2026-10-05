@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { DistantDetail } from './ScenePerformance'
+import { memo, useMemo } from 'react'
 import { Shape } from 'three'
 import { facadePoint, instituteHindiSign, instituteSign } from '../lib/administrationFacade'
 import type { AdministrationFacadePlan } from '../lib/administrationFacade'
@@ -7,7 +8,7 @@ import type { Box } from './BuildingFacadeParts'
 
 const cream = '#f0deaf', white = '#f5f0df'
 
-export default function AdministrationBlock({ plan, night }: { plan: AdministrationFacadePlan; night: boolean }) {
+function AdministrationBlock({ plan, night, selected=false }: { plan: AdministrationFacadePlan; night: boolean; selected?: boolean }) {
   const { front, width, height, depth, porticoWidth: porch, porticoDepth: out } = plan
   const windows = useMemo(() => {
     const frames: Box[] = [], panes: Box[] = [], trim: Box[] = []
@@ -63,11 +64,14 @@ export default function AdministrationBlock({ plan, night }: { plan: Administrat
     const shape = new Shape(); shape.moveTo(-3.45, 0); shape.lineTo(3.45, 0); shape.lineTo(0, .88); shape.closePath(); return shape
   }, [])
   return <group name="administration-facade">
+    <DistantDetail center={[front.center.x,height/2,front.center.z]} radius={width/2} selected={selected}>
     <Boxes boxes={windows.frames} color={white} />
     <Boxes boxes={windows.trim} color={white} />
-    <Boxes boxes={windows.panes} color={night ? '#b5a079' : '#526c77'} night={night} />
+    </DistantDetail>
+    <Boxes boxes={windows.panes} color={'#526c77'} night={night} />
+    {plan.pitchedRoof && <group position={[front.center.x,0,front.center.z]} rotation={[0,front.angle,0]}><Roof vertices={roofs.main} indices={[0,4,5,0,5,1,1,5,2,2,5,4,2,4,3,3,4,0]} /></group>}
+    <DistantDetail center={[front.center.x,height/2,front.center.z]} radius={width/2} selected={selected}>
     <group position={[front.center.x, 0, front.center.z]} rotation={[0, front.angle, 0]}>
-      {plan.pitchedRoof && <Roof vertices={roofs.main} indices={[0, 4, 5, 0, 5, 1, 1, 5, 2, 2, 5, 4, 2, 4, 3, 3, 4, 0]} />}
       <mesh position={[0, height + .05, .15]} castShadow><boxGeometry args={[width * .78, 1.25, .6]} /><meshStandardMaterial color={cream} roughness={.9} /></mesh>
       <Sign text={instituteSign} width={width * .74} height={.86} position={[0, height + .06, .47]} />
       <mesh position={[0, height + 1.04, .02]} castShadow><boxGeometry args={[width * .58, .9, .6]} /><meshStandardMaterial color={cream} roughness={.9} /></mesh>
@@ -98,5 +102,8 @@ export default function AdministrationBlock({ plan, night }: { plan: Administrat
       {[0, 1, 2].map(i => <mesh key={i} position={[0, .06 + i * .09, 4.1 - i * .3]} receiveShadow><boxGeometry args={[7.3, .12 + i * .18, 4.7 - i * .6]} /><meshStandardMaterial color="#c5b99f" roughness={.95} /></mesh>)}
       </group>}
     </group>
+    </DistantDetail>
   </group>
 }
+
+export default memo(AdministrationBlock)

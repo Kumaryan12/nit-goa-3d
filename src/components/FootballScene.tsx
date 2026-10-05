@@ -5,12 +5,15 @@ import { Quaternion, Vector3 } from 'three'
 import type { Group } from 'three'
 import { FOOTBALL_RADIUS, footballStatus, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
+import type { CampusSession } from '../lib/campusProtocol'
+import { CAMPUS_COLORS } from '../lib/campusProtocol'
+import { defaultAvatarColor } from '../lib/profile'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
 import StudentAvatar from './StudentAvatar'
 import { motionDelta, stridePhase } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
 const ignoreRaycast = () => undefined
-function RemotePlayer({ player, session, pitch }: { player: FootballPlayer; session: React.RefObject<FootballSession>; pitch: FootballPitch }) {
+function RemotePlayer({ player, session, campusSession, pitch }: { player: FootballPlayer; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; pitch: FootballPitch }) {
   const group = useRef<Group>(null), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false })
   const gl = useThree(state => state.gl), portal = useRef(gl.domElement.parentElement!)
   useFrame((_, delta) => {
@@ -21,7 +24,13 @@ function RemotePlayer({ player, session, pitch }: { player: FootballPlayer; sess
     const point = footballToWorld(current, pitch), blend = 1 - Math.exp(-delta * 15)
     group.current.position.x += (point.x - group.current.position.x) * blend
     group.current.position.z += (point.z - group.current.position.z) * blend
-    group.current.position.y = pitch.elevation + .11
+    // Shared campus presence carries verified world-space jump height. Keep
+    // football's authoritative X/Z and ignore unrelated indoor/teleport poses.
+    const pose = campusSession.current.snapshot?.people.find(person => person.id === player.id)?.pose
+    const ground = pitch.elevation + .11
+    const y = pose?.space === 'outdoors' && Math.hypot(pose.x - point.x, pose.z - point.z) < 3 ? Math.max(ground, Math.min(ground + .8, pose.y)) : ground
+    group.current.position.y += (y - group.current.position.y) * blend
+    motion.current.airborne = group.current.position.y > ground + .08
     const direction = footballToWorld({ x:current.dx,z:current.dz }, { ...pitch, center:{x:0,z:0} })
     const yaw = Math.atan2(-direction.x, -direction.z)
     group.current.rotation.y += Math.atan2(Math.sin(yaw-group.current.rotation.y),Math.cos(yaw-group.current.rotation.y)) * blend
@@ -32,13 +41,14 @@ function RemotePlayer({ player, session, pitch }: { player: FootballPlayer; sess
     if (motion.current.moving) motion.current.phase = stridePhase(motion.current.phase, distance, current.running)
   })
   const initial = footballToWorld(player, pitch)
+  const color = campusSession.current.snapshot?.people.find(person => person.id === player.id)?.color ?? defaultAvatarColor(player.id)
   return <group ref={group} position={[initial.x,pitch.elevation+.11,initial.z]} name={`football-player-${player.number}`}>
-    <StudentAvatar motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} />
+    <StudentAvatar motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={CAMPUS_COLORS[color]} />
     <Html portal={portal} position={[0,2.2,0]} center pointerEvents="none" zIndexRange={[15,0]}><span className={`football-player-label ${player.team}`}>Player {player.number}</span></Html>
   </group>
 }
-export default function FootballScene({ pitch, session, players, controls, live, onStatus }: {
-  pitch: FootballPitch; session: React.RefObject<FootballSession>; players: FootballPlayer[]; controls: React.RefObject<FootballControls>; live: boolean; onStatus: (status: FootballStatus) => void
+export default function FootballScene({ pitch, session, campusSession, players, controls, live, onStatus }: {
+  pitch: FootballPitch; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; players: FootballPlayer[]; controls: React.RefObject<FootballControls>; live: boolean; onStatus: (status: FootballStatus) => void
 }) {
   const ball = useRef<Group>(null), elapsed = useRef(0), last = useRef({ x:0,z:0,sequence:-1,age:0 })
   const panels = useMemo(() => {
@@ -68,6 +78,6 @@ export default function FootballScene({ pitch, session, players, controls, live,
       </group>
       <mesh rotation={[-Math.PI/2,0,0]} position={[0,.145,0]} raycast={ignoreRaycast}><ringGeometry args={[1.1,1.18,32]} /><meshBasicMaterial color="#f3d777" transparent opacity={.5} /></mesh>
     </group>
-    {live && players.filter(player=>player.id!==session.current.id).map(player=><RemotePlayer key={player.id} player={player} session={session} pitch={pitch} />)}
+    {live && players.filter(player=>player.id!==session.current.id).map(player=><RemotePlayer key={player.id} player={player} session={session} campusSession={campusSession} pitch={pitch} />)}
   </>
 }

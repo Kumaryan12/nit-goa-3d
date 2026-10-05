@@ -52,7 +52,7 @@ Only one instance is supported in this release: campus presence/chat, game state
 
 ## Published map
 
-Production serves the verified 2026-10-01 OpenStreetMap campus snapshot from `public/map/` on the app origin. Its 22 building footprints, 11 courtyard holes and 20 roadways are covered by the geometry tests. This avoids a live Overpass request for every visitor and makes first visits independent of public map API availability. The campus footer shows the map date and OSM attribution. Local development still uses live Overpass. To refresh the published map, update both JSON responses together and rerun campus geometry/navigation tests before deployment.
+Production serves the verified 2026-10-01 OpenStreetMap campus snapshot from `public/map/` on the app origin. Its 22 source building footprints, 11 source courtyard holes and 20 roadways are covered by the geometry tests. The displayed twin applies the owner-confirmed Gyan Mandir correction to show two courts where OSM records one continuous opening; Boys Hostel displays two open courts, closing a roofed area that OSM records as a third hole; its southeast courtyard includes the owner-confirmed badminton court. The original map snapshot stays unchanged. This avoids a live Overpass request for every visitor and makes first visits independent of public map API availability. The campus footer shows the map date and OSM attribution. Local development still uses live Overpass. To refresh the published map, update both JSON responses together and rerun campus geometry/navigation tests before deployment.
 
 ## Local use and checks
 
@@ -83,7 +83,7 @@ Open `/admin`, then Crowd desk, confirm the same Google account, and enroll an a
 - A signed-out or suspended account cannot fetch crowd identities or receive live state.
 - A normal member cannot invoke moderation or edit protected roles.
 - Two accounts can play with the same ball; a duplicate tab in the same room is rejected.
-- Football/OAT each admit 24 visitors; shared campus admits 32. Each has 100 waiting places and promotes visitors in arrival order. `/presence`, `/football` and `/oat` WebSocket upgrades go to the same Node process. Verify nearby text delivery with walkers within 35 metres and rejection across hostel floors. Public profile links appear only for published profiles; profile metadata refreshes within 30 seconds.
+- Football/OAT each admit 24 visitors; shared campus admits 32. Each has 100 waiting places and promotes visitors in arrival order. `/presence`, `/football` and `/oat` WebSocket upgrades go to the same Node process. Verify nearby text delivery with walkers within 35 metres and rejection across hostel and Gyan Mandir floors. Public profile links appear only for published profiles; profile metadata refreshes within 30 seconds.
 - Ban/kick removes live sockets; end-stage stops performer transmission. Wait/leave/sign-out stops local microphone and media resources.
 - Test public/private profiles and handle changes from a separate signed-out browser; public API caches expire in 30 seconds and are cleared on app edits/moderation. Previously shared copies cannot be recalled.
 - Test tracks, microphone permission, late join, restrictive networks and TURN relay. OAT uses performer-to-listener WebRTC: test within the cap before concerts. Larger audiences require an SFU and shared state; raising caps or adding instances alone is insufficient.

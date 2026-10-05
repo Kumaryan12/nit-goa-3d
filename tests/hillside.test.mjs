@@ -1,3 +1,5 @@
+import { correctGyanCourtyards } from '../src/lib/gyanGeometry.ts'
+import { correctBoysHostelCourtyards } from '../src/lib/boysHostelGeometry.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
@@ -45,7 +47,7 @@ test('slope settings keep full building foundations and sports/entrance terraces
     for (const building of model.buildings) {
       const original = map.buildings.find(source => source.id === building.id)
       assert.deepEqual(building.outer, original.outer)
-      assert.deepEqual(building.holes, original.holes)
+      assert.deepEqual(building.holes, correctBoysHostelCourtyards(correctGyanCourtyards(original)).holes)
       assert.ok(Number.isFinite(building.baseElevation))
       for (const ring of [building.outer, ...building.holes]) {
         const points = ring.map(gpsToLocal)

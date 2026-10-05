@@ -4,8 +4,11 @@ import { distanceToRect, distanceToSegment, footprintRect, terrainHeightAt, terr
 import type { GroundRect, TerrainModel } from './terrain.ts'
 import type { BuildingFootprint, RoadFootprint } from '../types/osm.ts'
 import { inCanalOpening } from './canal.ts'
+import { inLawnBoundary } from './landscaping.ts'
 
 export interface TreeInstance { x: number; y: number; z: number; scale: number; rotation: number; palm: boolean; shade: number }
+// Match Vegetation's base cylinder radius and palm lean about its midpoint.
+export const treeTrunkRadius = (tree: TreeInstance) => (tree.palm ? .3 + 4 * Math.sin(.045) : .45) * tree.scale
 export const TREE_TARGET = 640
 
 export function seededRandom(seed: number): () => number {
@@ -48,6 +51,7 @@ export function generateTrees(boundary: LocalCoordinate[], buildings: BuildingFo
       || lines.some((line) => distanceToSegment(p, line.a, line.b) < line.width / 2 + 4)
       || edges.some((edge) => distanceToSegment(p, edge.a, edge.b) < 3)
       || (terrain.canal && inCanalOpening(p, terrain.canal, 3))
+      || terrain.lawns?.some(lawn => inLawnBoundary(p, lawn))
       || terrainGradeAt(terrain, p.x, p.z) > .48) continue
     const bx = Math.floor(p.x / 7), bz = Math.floor(p.z / 7)
     let occupied = false

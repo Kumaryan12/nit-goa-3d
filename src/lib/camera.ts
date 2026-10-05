@@ -3,7 +3,7 @@ import type { CampusLocation } from '../types/campus.ts'
 import type { LocalCoordinate } from './geo.ts'
 
 export interface CameraView { position: [number, number, number]; target: [number, number, number] }
-export interface CameraRequest { sequence: number; locationId: string | null; routePoints?: LocalCoordinate[] }
+export interface CameraRequest { sequence: number; locationId: string | null; routePoints?: LocalCoordinate[]; view?: CameraView }
 
 export function lookupCameraLocation(locationId: string, locations: CampusLocation[] = campusLocations): CampusLocation | null {
   const location = locations.find((item) => item.id === locationId)

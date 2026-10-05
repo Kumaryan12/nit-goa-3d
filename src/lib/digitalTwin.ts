@@ -1,3 +1,5 @@
+import { correctGyanCourtyards } from './gyanGeometry.ts'
+import { correctBoysHostelCourtyards } from './boysHostelGeometry.ts'
 import { applyLocationOverride } from './locationOverrides.ts'
 import type { CampusOverrides } from './locationOverrides.ts'
 import { campusLocations } from '../data/campus.ts'
@@ -12,17 +14,23 @@ import { resolveSlopePatches } from './topography.ts'
 import { distanceToRect, footprintRect, terrainHeightAt } from './terrain.ts'
 import { generateTerrain } from './terrain.ts'
 import type { GroundRect } from './terrain.ts'
+import { generateCampusLamps } from './nightLighting.ts'
 import { generateTrees } from './vegetation.ts'
 import type { CampusMapData, CampusRoadData } from '../types/osm.ts'
 import { createEntranceCanal } from './canal.ts'
 import { createTheatreLayout } from './theatre.ts'
+import { createCampusLawns } from './landscaping.ts'
+import { createCampusFlag } from './campusFlag.ts'
+import { generateCampusGardens } from './campusGardens.ts'
+import type { TerrainPatchData } from './terrainPatches.ts'
+import type { HostelPlan } from './hostelInterior.ts'
 
 export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadData | null, vegetationReady = true, overrides: CampusOverrides = {}, terrainSettings: TerrainSettings = defaultTerrainSettings) {
   const relief = validateTerrainSettings(terrainSettings)
   const boundary = (map?.boundary ?? roads?.boundary ?? []).map(gpsToLocal)
   const metadata = campusLocations.map((location) => applyLocationOverride(location, overrides[location.id]))
   const selections = assignCampusLocations(map?.buildings ?? [], metadata).map((selection) => ({ ...selection, location: applyLocationOverride(selection.location, overrides[selection.location.id]) }))
-  const buildings = (map?.buildings ?? []).map((building, i) => ({ ...building, height: buildingHeight(building.tags, selections[i].location.id) }))
+  const buildings = (map?.buildings ?? []).map((building, i) => ({ ...correctBoysHostelCourtyards(correctGyanCourtyards(building)), height: buildingHeight(building.tags, selections[i].location.id) }))
   const locations = metadata.map((location) => {
     const index = selections.findIndex((selection) => selection.location.id === location.id)
     return index < 0 ? { ...location } : { ...location, coordinates: buildingCenter(buildings[index]), height: buildings[index].height }
@@ -56,7 +64,8 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const canal = boundary.length ? createEntranceCanal(roads?.roads ?? [], entrance.coordinates) : undefined
   const slopePatches = resolveSlopePatches(relief.customSlopes, slope)
   const hasRelief = !!slope || slopePatches.length > 0
-  const terrain = generateTerrain(size, { boundary, buildings, roads: roads?.roads ?? [], clearings, slope, slopePatches, canal })
+  const lawns = createCampusLawns(buildings)
+  const terrain = generateTerrain(size, { boundary, buildings, roads: roads?.roads ?? [], clearings, slope, slopePatches, canal, lawns })
   if (hasRelief) {
     buildings.forEach((building) => { const point = buildingCenter(building); building.baseElevation = terrainHeightAt(terrain, point.x, point.z) })
     for (const location of [...locations, ...selections.map((selection) => selection.location)]) location.elevation = terrainHeightAt(terrain, location.coordinates.x, location.coordinates.z)
@@ -64,11 +73,18 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   theatre.elevation = terrainHeightAt(terrain, theatre.center.x, theatre.center.z)
   theatreLocation.elevation = theatre.elevation
   terrain.theatre = theatre
+  const flag = createCampusFlag(buildings, lawns, boundary, roads?.roads ?? [], terrain)
+  if (flag) terrain.flag = flag
   // Wait for both independent requests to settle before populating this model
   // in the scene, so late roads never run through previously generated trees.
   const access = theatre.access
   const vegetationClearings = access.length ? [...clearings, { x: (access[0].x + access[1].x) / 2, z: (access[0].z + access[1].z) / 2, halfX: Math.abs(access[1].x - access[0].x) / 2 + 1.2, halfZ: Math.abs(access[1].z - access[0].z) / 2 + 1.2 }] : clearings
   const trees = vegetationReady ? generateTrees(boundary, buildings, roads?.roads ?? [], vegetationClearings, terrain) : []
-  return { upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
+  const lamps = generateCampusLamps({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, locations })
+  const gardens = vegetationReady ? generateCampusGardens({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, lamps, clearings: vegetationClearings, locations: [...locations, ...selections.map(s => s.location)] }) : { beds: [], flowers: [], shrubs: [] }
+  return { lamps, lawns, flag, gardens, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
 }
-export type DigitalTwin = ReturnType<typeof createDigitalTwin>
+export type DigitalTwin = ReturnType<typeof createDigitalTwin> & {
+  terrainPatches?: TerrainPatchData[]
+  interiors?: { hostel: HostelPlan | null; gyan: HostelPlan | null }
+}

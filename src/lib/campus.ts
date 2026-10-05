@@ -22,18 +22,19 @@ export function buildingCenter(building: BuildingFootprint): CampusLocation['coo
 
 function unnamedBuilding(building: BuildingFootprint, coordinates: CampusLocation['coordinates']): CampusLocation {
   const isHostel = building.tags.building === 'dormitory'
-  const isAcademic = ['university', 'school', 'college'].includes(building.tags.building)
+  const gyan = building.id === 'relation/19505813/0'
+  const isAcademic = gyan || ['university', 'school', 'college'].includes(building.tags.building)
   return {
     id: building.id,
-    name: building.tags.name || 'Unnamed campus building',
+    name: building.tags.name || (gyan ? 'Gyan Mandir' : 'Unnamed campus building'),
     category: isHostel ? 'hostel' : isAcademic ? 'academic' : 'other',
-    description: 'A real OpenStreetMap building footprint. Campus details have not yet been assigned to this building.',
-    keywords: building.tags.name ? [building.tags.name] : [],
+    description: gyan ? 'Gyan Mandir is the campus classroom building, with ground plus two upper floors, two open courtyards and a large reading room at the north end of the first floor.' : 'A real OpenStreetMap building footprint. Campus details have not yet been assigned to this building.',
+    keywords: gyan ? ['Gyan Mandir', 'classrooms', 'reading room', 'tutorial complex', 'study'] : building.tags.name ? [building.tags.name] : [],
     coordinates,
     height: building.height,
     icon: isHostel ? '🏠' : isAcademic ? '🏢' : '🏛',
     images: [],
-    facilities: [],
+    facilities: gyan ? ['Classrooms on three floors', 'Two open courtyards', 'First-floor reading room', 'Explorable interior'] : [],
   }
 }
 

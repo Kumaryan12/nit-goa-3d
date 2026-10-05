@@ -543,6 +543,9 @@
   border: 0;
   padding: 0;
   margin: 0 0 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .profile-colors legend {
   font-size: 12px;
@@ -553,7 +556,7 @@
   height: 28px;
   border-radius: 50%;
   border: 3px solid #f7f5ed;
-  margin-right: 12px;
+  margin: 0;
   background: var(--profile-color);
 }
 .swatch[aria-pressed='true'] {
@@ -625,7 +628,7 @@
 .profile-cover {
   height: 118px;
   background: var(--profile-color);
-  color: var(--profile-pale);
+  color: var(--profile-ink, var(--profile-pale));
   position: relative;
   overflow: hidden;
   padding: 24px;
@@ -652,7 +655,7 @@
   margin: -34px 0 0 26px;
   border: 5px solid #fffdf6;
   background: var(--profile-pale);
-  color: var(--profile-color);
+  color: #344b40;
   font-size: 25px;
   font-family: Georgia, serif;
   border-radius: 24px;
@@ -673,7 +676,7 @@
 }
 .profile-course {
   font-size: 12px;
-  color: var(--profile-color);
+  color: #52634f;
 }
 .profile-bio {
   font-size: 13px;

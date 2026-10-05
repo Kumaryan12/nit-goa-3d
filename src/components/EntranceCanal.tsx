@@ -55,6 +55,9 @@ export default function EntranceCanal({ canal, terrain, night }: { canal: CanalL
       {[-1, 1].map(side => {
         const z = side * (halfWidth - 0.14), rise = height(span / 2, z) - height(-span / 2, z)
         return <group key={side} name={`bridge-railing-${side}`}>
+          {night&&<mesh name="bridge-guide-light" position={[0,height(0,z)+1.38,z]} rotation={[0,0,Math.atan2(rise,span)]} raycast={ignoreRaycast}>
+            <boxGeometry args={[Math.hypot(span,rise),.022,.025]}/><meshBasicMaterial color="#e6c896" toneMapped={false}/>
+          </mesh>}
           <mesh position={[0, height(0, z) + 0.13, z]} rotation={[0, 0, Math.atan2(rise, span)]} castShadow receiveShadow>
             <boxGeometry args={[Math.hypot(span, rise), 0.24, 0.28]} /><meshStandardMaterial color="#d4d3c4" roughness={0.9} />
           </mesh>

@@ -12,6 +12,7 @@ import { createCampusRoom, publishedCampusBoundary } from '../server/campusRoom.
 import { attachCampusServer } from '../server/campusServer.ts'
 import { createCrowdAPI } from '../server/crowdApi.ts'
 import { createAccessVerifier } from '../server/access.ts'
+import { advanceJump, freshJump } from '../src/lib/avatarJump.ts'
 import { fakeFirestore } from './firestoreFake.mjs'
 
 const boundary = [{ x: -200, z: -200 }, { x: 200, z: -200 }, { x: 200, z: 200 }, { x: -200, z: 200 }, { x: -200, z: -200 }]
@@ -157,6 +158,7 @@ test('two signed-in visitors receive walking positions, chat, public profiles an
   const shared = await waitFor(() => b.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'alice' && p.pose?.visible)))
   assert.equal(shared.people.find(p => p.id === 'alice').handle, 'alice')
   assert.equal(shared.people.find(p => p.id === 'bob').handle, null)
+  assert.notEqual(shared.people.find(p => p.id === 'alice').color, shared.people.find(p => p.id === 'bob').color)
   assert.equal(JSON.stringify(shared).includes('expiresAt'), false)
   await new Promise(resolve => setTimeout(resolve, 120))
   a.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: .8 }) }))
@@ -166,10 +168,64 @@ test('two signed-in visitors receive walking positions, chat, public profiles an
   const received = await waitFor(() => b.messages.find(m => m.type === 'chat'))
   assert.equal(received.sender, 'alice'); assert.equal(received.name, 'Alice')
   const c = peer('carol'); await waitFor(() => c.messages.some(m => m.type === 'campus-welcome'))
+  const colours = await waitFor(() => c.messages.find(m => m.type === 'campus-state' && m.people.length === 3))
+  assert.equal(new Set(colours.people.map(p => p.color)).size, 3)
   assert.equal(c.messages.find(m => m.type === 'campus-welcome').history[0].text, 'Meet me at the OAT')
   b.ws.close(); await waitFor(() => a.messages.some(m => m.type === 'campus-state' && m.people.length === 2 && !m.people.some(p => p.id === 'bob')))
   campus.removeMessages('alice'); await waitFor(() => a.messages.some(m => m.type === 'chat-remove'))
   assert.equal(campus.room.history().length, 0)
+})
+
+test('authenticated peers see bicycle, buggy and dismount updates over the live connection', async t => {
+  const { peer } = await campusFixture(t), a = peer('alice'), b = peer('bob')
+  await waitFor(() => a.messages.some(m => m.type === 'campus-welcome') && b.messages.some(m => m.type === 'campus-welcome'))
+  for (const vehicle of ['bicycle', 'buggy', 'walk']) {
+    b.messages.length = 0
+    a.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle }) }))
+    const shared = await waitFor(() => b.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'alice' && p.pose?.vehicle === vehicle)))
+    assert.equal(parseCampusSnapshot(shared).people.find(p => p.id === 'alice').pose.vehicle, vehicle)
+    await new Promise(resolve => setTimeout(resolve, 90))
+  }
+})
+
+test('live buggy boarding follows a driver, rejects position spoofing, and frees seats on departure', async t => {
+  const { peer } = await campusFixture(t), driver = peer('alice'), rider = peer('bob')
+  await waitFor(() => driver.messages.some(m => m.type === 'campus-welcome') && rider.messages.some(m => m.type === 'campus-welcome'))
+  driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy' }) }))
+  rider.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: 1, vehicle: 'walk' }) }))
+  await waitFor(() => rider.messages.some(m => m.type === 'campus-state' && m.people.every(p => p.pose)))
+  rider.ws.send(JSON.stringify({ type: 'buggy-ride', driverId: 'alice', seat: 0, sender: 'alice' }))
+  const boarded = await waitFor(() => driver.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'bob' && p.ride)))
+  const seated = boarded.people.find(p => p.id === 'bob'); assert.equal(seated.ride.driverId, 'alice'); assert.equal(seated.ride.seat, 1)
+  await new Promise(resolve => setTimeout(resolve, 120))
+  driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', z: -.5 }) }))
+  const moved = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'bob' && p.pose?.z < -.8)))
+  assert.ok(parseCampusSnapshot(moved))
+  rider.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'walk', epoch: seated.pose.epoch, x: 100 }) }))
+  await new Promise(resolve => setTimeout(resolve, 150))
+  assert.ok(rider.messages.filter(m => m.type === 'campus-state').at(-1).people.find(p => p.id === 'bob').pose.x < 2)
+  driver.ws.close()
+  const released = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.length === 1 && !m.people[0].ride))
+  assert.equal(released.people[0].pose.vehicle, 'walk'); assert.equal(released.people[0].pose.y, 0)
+})
+
+test('full-speed buggy movement and grounded slope pitch reach the driver and passenger live', async t => {
+  const { peer } = await campusFixture(t), driver = peer('alice'), rider = peer('bob')
+  await waitFor(() => driver.messages.some(m => m.type === 'campus-welcome') && rider.messages.some(m => m.type === 'campus-welcome'))
+  driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', y: .07 }) }))
+  rider.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: 1 }) }))
+  await waitFor(() => rider.messages.some(m => m.type === 'campus-state' && m.people.every(p => p.pose)))
+  rider.ws.send(JSON.stringify({ type: 'buggy-ride', driverId: 'alice' }))
+  await waitFor(() => rider.messages.some(m => m.type === 'campus-state' && m.people.find(p => p.id === 'bob')?.ride))
+  for (let i = 1; i <= 2; i++) {
+    await new Promise(resolve => setTimeout(resolve, 510))
+    driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', x: i * 4.5, y: .07 + i * .2, pitch: .3 }) }))
+    const shared = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.find(p => p.id === 'alice')?.pose?.x === i * 4.5))
+    const seat = shared.people.find(p => p.id === 'bob'), accepted = shared.people.find(p => p.id === 'alice')
+    assert.equal(seat.ride.driverId, 'alice'); assert.equal(seat.pose.pitch, .3)
+    assert.ok(Math.abs(seat.pose.x - accepted.pose.x) < 1)
+    assert.ok(seat.pose.y > accepted.pose.y)
+  }
 })
 
 test('anonymous, wrong-origin, invalid-account and duplicate-account campus joins cannot receive shared state', async t => {
@@ -224,4 +280,17 @@ test('owner moderation includes campus occupancy and evicts/removes chat only af
   assert.equal((await fetch(origin + '/api/crowd', options)).status, 403); assert.equal(kicked.length, 0)
   assert.equal((await fetch(origin + '/api/crowd', { ...options, headers: { ...headers, 'X-Moderator-Token': 'verified' } })).status, 200)
   assert.deepEqual(calls, ['audit:alice', 'remove:alice']); assert.deepEqual(kicked, ['alice', 'alice', 'alice'])
+})
+
+test('jump height is accepted and shared by presence without relaxing movement limits',()=> {
+  const room=createCampusRoom(boundary);room.add(identity('alice'));room.add(identity('bob'))
+  assert.equal(room.pose('alice',pose(),'walk',1000),true)
+  const jump=freshJump();let apex=0
+  for(let i=0;i<10;i++) {
+    advanceJump(jump,0,.1,i===0);apex=Math.max(apex,jump.y)
+    assert.equal(room.pose('alice',pose({y:jump.y}),'walk',1100+i*100),true)
+    assert.equal(room.snapshot(1100+i*100).people.find(p=>p.id==='alice').pose.y,jump.y)
+  }
+  assert.ok(apex>.68);assert.equal(jump.y,0)
+  assert.equal(room.pose('alice',pose({y:10}),'walk',2100),false)
 })

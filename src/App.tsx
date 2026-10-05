@@ -28,8 +28,7 @@ import { readTerrainSettings, saveTerrainSettings, validateTerrainSettings } fro
 import type { TerrainSettings } from './data/topography'
 import { emptyWalkInput, explorerViewFromURL, withExplorerView } from './lib/walking'
 import type { ExplorerView, WalkStatus, WalkSpawnRequest } from './lib/walking'
-import { createWalkWorld, isWalkable } from './lib/walking'
-import { createHostelPlan } from './lib/hostelInterior'
+import { GYAN_MANDIR_ID } from './lib/hostelInterior'
 import type { InteriorPose } from './lib/hostelInterior'
 import { savedCampusOverrides } from './data/campusOverrides'
 import { useDigitalTwin } from './hooks/useDigitalTwin'
@@ -55,6 +54,11 @@ import { fetchCampusData, fetchCampusRoads, fetchPublishedCampusData, fetchPubli
 import { LAT0, LON0 } from './lib/geo'
 import type { CampusMapState, CampusRoadState } from './types/osm'
 import type { BuildingSelection } from './types/campus'
+import GraphicsControl from './components/GraphicsControl'
+import { validGraphicsMode } from './lib/graphics'
+import AtmosphereControls from './components/AtmosphereControls'
+import SocialActions from './components/SocialActions'
+import { theatreSeats } from './lib/social'
 
 const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
 const readState = () => {
@@ -66,6 +70,8 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const initial = useRef(readState()).current
   const initialView = useRef(explorerViewFromURL(window.location.href)).current
   const [view, setView] = useState<ExplorerView>(initialView)
+  const [graphicsMode, setGraphicsMode] = useState(() => { try { return validGraphicsMode(localStorage.getItem('nit-goa:graphics')) } catch { return validGraphicsMode(null) } })
+  const changeGraphics = (mode: typeof graphicsMode) => { setGraphicsMode(mode); try { localStorage.setItem('nit-goa:graphics', mode) } catch { /* Rendering still works without storage. */ } }
   const [terrainSettings, setTerrainSettings] = useState(() => readTerrainSettings(browserStorage))
   const [terrainControlsOpen, setTerrainControlsOpen] = useState(false)
   const [slopeEditorOpen, setSlopeEditorOpen] = useState(false)
@@ -147,20 +153,28 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const roadData = roadState.status === 'ready' ? roadState.data : null
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useDigitalTwin(mapData, roadData, requestsSettled, overrides, terrainSettings)
-  const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview')
+  const socialSeats = useMemo(() => twin ? theatreSeats(twin.theatre).filter(seat => seat.row >= 3) : [], [twin])
+  const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview', import.meta.env.DEV && !firebasePublicConfig, socialSeats)
+  const stopSocial = useCallback(() => { campusLive.socialAction('stop') }, [campusLive.socialAction])
+  useEffect(() => {
+    if (!oatJoined || !twin || view === 'walk') return
+    // Concert visitors have a live presence even before their first walk.
+    campusPose.current = { x: twin.theatre.center.x, y: twin.theatre.elevation + .53, z: twin.theatre.center.z, yaw: twin.theatre.rotation, vehicle: 'walk', moving: false, running: false, airborne: false, active: true, visible: false, space: 'outdoors', epoch: (campusPose.current?.epoch ?? 0) + 1 }
+  }, [oatJoined, twin, view])
   const selfColor = campusLive.people.find(p => p.id === campusLive.session.current.id)?.color
   const unreadChat = campusOpen ? 0 : campusLive.messages.filter(m => m.time > chatReadAt && m.sender !== campusLive.session.current.id).length
   useEffect(() => { if (campusOpen) setChatReadAt(Date.now()) }, [campusOpen, campusLive.messages])
   const pitch = useMemo(() => { const sports = twin?.locations.find(location => location.id === 'sports-ground'); return sports ? footballPitch(sports) : null }, [twin])
   const football = useFootballSession(footballJoined, footballRetry, footballInput, avatarPosition, pitch)
-  const hostelPlan = useMemo(() => {
-    if (!twin) return null
-    const building = twin.buildings[twin.selections.findIndex(item => item.location.id === 'boys-hostel')]
-    if (!building) return null
-    const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain)
-    return createHostelPlan(building, twin.roads, point => isWalkable(point, world))
-  }, [twin])
+  const hostelPlan = twin?.interiors?.hostel ?? null
+  const gyanPlan = twin?.interiors?.gyan ?? null
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
+  const viewHostelCourtyards = () => {
+    if (!hostelPlan) return
+    const points = hostelPlan.holes.flat(), x = (Math.min(...points.map(p => p.x)) + Math.max(...points.map(p => p.x))) / 2, z = (Math.min(...points.map(p => p.z)) + Math.max(...points.map(p => p.z))) / 2
+    setView('overview')
+    setCameraRequest(request => ({ sequence: request.sequence + 1, locationId: 'boys-hostel', view: { position: [x, hostelPlan.base + 150, z + 8], target: [x, hostelPlan.base, z] } }))
+  }
   const [navigationOpen, setNavigationOpen] = useState(initialView === 'overview' && !!initial.to)
   const [startId, setStartId] = useState(initial.from ?? '@current')
   const locations = twin?.locations ?? editableMetadata
@@ -211,6 +225,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const enterHostel = useCallback(() => {
     changeView('walk'); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId: 'boys-hostel', enterHostel: true }))
   }, [changeView])
+  const enterGyan = useCallback(() => { changeView('walk'); setWalkSpawn(request => ({sequence:request.sequence+1,locationId:GYAN_MANDIR_ID,enterGyan:true})) },[changeView])
   const viewNescafeSlope = () => {
     if (!twin?.slope) return
     changeView('overview')
@@ -298,17 +313,17 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
 
   return (
     <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
-      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
+      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
           oatConcert={oat.snapshot}
-          campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
+          onSocialStop={stopSocial} onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}
-          showContours={terrainSettings.showContours} hostelPlan={hostelPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null}
+          showContours={terrainSettings.showContours} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null} interiorBuildingId={walkStatus?.interior ? interiorPose.current?.buildingId ?? null : null}
           view={view} walkPaused={walkPaused} walkInput={walkInput} avatarPosition={avatarPosition} walkSpawn={walkSpawn} onWalkStatus={onWalkStatus} onWalkInspect={chooseLocation}
           presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           slopePreview={slopeEditorOpen ? slopePreview : null} pickingPosition={!!slopePicking || picking?.mode === 'point'} pickedPosition={editorOpen ? picked?.coordinates ?? null : null} onPickPosition={onPickPosition}
           showGrid={showGrid}
-          twin={twin}
+          twin={twin} graphicsMode={graphicsMode}
           night={night}
           cameraRequest={cameraRequest}
           onTerrainReady={onTerrainReady}
@@ -325,7 +340,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       {!editorOpen && !slopeEditorOpen && !footballJoined && !oatOpen && (navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
-        : <BuildingInfoPanel onOpenConcert={openOat} onPlayFootball={joinFootball} hostelPlan={hostelPlan} onEnterHostel={enterHostel} walkMode={view === 'walk'} onEdit={canEdit ? editLocation : undefined} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
+        : <BuildingInfoPanel onOpenConcert={openOat} onPlayFootball={joinFootball} gyanPlan={gyanPlan} onEnterGyan={enterGyan} hostelPlan={hostelPlan} onEnterHostel={enterHostel} onViewCourtyards={hostelPlan ? viewHostelCourtyards : undefined} walkMode={view === 'walk'} onEdit={canEdit ? editLocation : undefined} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
       {oatOpen && <OatControls session={oat} joined={oatJoined} onJoin={name => { setOatName(name); setOatJoined(true) }} onRetry={() => setOatRetry(value => value + 1)} onClose={closeOat} />}
       {editorOpen && <Suspense fallback={<p className="scene-loading">Opening location editor…</p>}><CampusLocationEditor locations={catalog} locationId={editorLocationId}
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}
@@ -357,6 +372,9 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           {canEdit && <button className="toolbar-button edit-campus-toggle" aria-pressed={editorOpen} onClick={() => editorOpen ? closeEditor() : editLocation('main-entrance')}>✎ Edit campus</button>}
           <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
+          <GraphicsControl mode={graphicsMode} onChange={changeGraphics} />
+          <SocialActions live={campusLive} pose={campusPose} seats={socialSeats} walking={view === 'walk'} concert={oatJoined} disabled={footballJoined || view === 'walk' && walkPaused} />
+          <AtmosphereControls pose={campusPose} night={night} walking={view === 'walk'} concert={oatJoined} />
           {view === 'overview' && <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>}
           {canEdit && <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>}
           {canEdit && <TerrainControls settings={terrainSettings} onChange={applyTerrainSettings} onOpenChange={setTerrainControlsOpen} onViewCampusSlope={twin?.slope ? viewCampusSlope : undefined} onEditSlopes={twin ? openSlopeEditor : undefined} onViewSlope={twin?.slope ? viewNescafeSlope : undefined} />}
@@ -378,7 +396,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       {uploadOpen && <PhotoUploadDialog locations={locations} locationId={uploadLocation} onClose={() => setUploadOpen(false)} onAuth={() => setAuthOpen(true)} />}
       {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
       </Suspense></ErrorBoundary>
-      {view === 'walk' && <WalkControls input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
+      {view === 'walk' && <WalkControls campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
       {footballJoined && <FootballControls input={footballInput} status={footballStatus} connection={football.connection} players={football.players} selfId={football.session.current.id} paused={walkPaused} onLeave={() => { setFootballJoined(false); footballInput.current.actor = null }} onRetry={() => setFootballRetry(value => value + 1)} />}
       <CampusSocial live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
       <CampusStats stats={stats} metrics={metrics} />

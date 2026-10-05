@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { campusAPI } from '../lib/firebase'
 import { PROFILE_COLORS, profileError } from '../lib/community'
+import { profileColorStyle } from '../lib/profile'
 import type { CampusProfile } from '../lib/community'
 import ProfileCard from './ProfileCard'
 export default function ProfilePage({
@@ -195,6 +196,8 @@ export default function ProfilePage({
                 aria-label={`${color} profile colour`}
                 aria-pressed={profile.avatar_color === color}
                 className={`swatch color-${color}`}
+                style={profileColorStyle(color) as React.CSSProperties}
+                title={color.charAt(0).toUpperCase() + color.slice(1)}
                 onClick={() => change({ avatar_color: color })}
               />
             ))}

@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { BoxGeometry, CapsuleGeometry, Euler, Matrix4, Quaternion, SphereGeometry, Vector3 } from 'three'
 import type { Group } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { avatarPose, motionDelta } from '../lib/avatarMotion'
+import { avatarPose, motionDelta, ridingPose, socialPoseForMotion } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
 
 type Triple = [number, number, number]
@@ -43,11 +43,18 @@ const soles = [box([.18, .042, .29], [0, -.108, -.07]), box([.12, .018, .045], [
 const sleeve = [capsule(.083, .12, [0, -.11, 0])]
 const forearm = [capsule(.06, .16, [0, -.105, 0]), sphere(.067, [0, -.24, -.007], [.85, 1.1, .85])]
 
-export default function StudentAvatar({ motion, jersey = '#277c77' }: { motion: React.RefObject<AvatarMotion>; jersey?: string }) {
+export default function StudentAvatar({ motion, jersey = '#277c77', accent = '#cf9254' }: { motion: React.RefObject<AvatarMotion>; jersey?: string; accent?: string }) {
   const root = useRef<Group>(null), torso = useRef<Group>(null)
   const leftHip = useRef<Group>(null), rightHip = useRef<Group>(null), leftKnee = useRef<Group>(null), rightKnee = useRef<Group>(null), leftFoot = useRef<Group>(null), rightFoot = useRef<Group>(null)
   const leftArm = useRef<Group>(null), rightArm = useRef<Group>(null), leftElbow = useRef<Group>(null), rightElbow = useRef<Group>(null)
   const speed = useRef(0), clock = useRef(0), kickTime = useRef(0), lastKick = useRef(motion.current.kick ?? 0)
+  const reducedMotion = useRef(false), socialExit = useRef(0)
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => { reducedMotion.current = preference.matches }
+    update(); preference.addEventListener('change', update)
+    return () => preference.removeEventListener('change', update)
+  }, [])
   useFrame((_, delta) => {
     const dt = motionDelta(delta), state = motion.current
     if (state.paused) return
@@ -56,14 +63,36 @@ export default function StudentAvatar({ motion, jersey = '#277c77' }: { motion: 
     speed.current += (actualSpeed - speed.current) * (1 - Math.exp(-dt * 14))
     if ((state.kick ?? 0) !== lastKick.current) { lastKick.current = state.kick ?? 0; kickTime.current = .45 }
     kickTime.current = Math.max(0, kickTime.current - dt)
-    const pose = avatarPose(state.phase, speed.current, !!state.running, clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0)
-    ;[leftHip, rightHip].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.hips[i] })
-    ;[leftKnee, rightKnee].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.knees[i] })
-    ;[leftFoot, rightFoot].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.ankles[i] })
-    ;[leftArm, rightArm].forEach((ref, i) => { if (ref.current) { ref.current.rotation.x = pose.arms[i]; ref.current.rotation.z = i ? -.07 : .07 } })
-    ;[leftElbow, rightElbow].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = pose.elbows[i] })
-    if (root.current) root.current.position.y = pose.rootY
-    if (torso.current) { torso.current.rotation.x = pose.lean; torso.current.rotation.z = pose.sway + pose.bank }
+    const pose = state.vehicle && state.vehicle !== 'walk' ? ridingPose(state.vehicle, state.phase, speed.current) : avatarPose(state.phase, speed.current, !!state.running, clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0, !!state.airborne)
+    const social = kickTime.current ? null : socialPoseForMotion(state, Date.now(), reducedMotion.current)
+    socialExit.current = social ? .3 : Math.max(0, socialExit.current - dt)
+    const easing = socialExit.current ? 1 - Math.exp(-dt * 18) : 1
+    const mix = (normal: number, gesture: number | undefined) => normal + ((gesture ?? normal) - normal) * (social?.weight ?? 0)
+    const approach = (current: number, target: number) => current + (target - current) * easing
+    ;[leftHip, rightHip].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = approach(ref.current.rotation.x, mix(pose.hips[i], social?.hips[i])) })
+    ;[leftKnee, rightKnee].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = approach(ref.current.rotation.x, mix(pose.knees[i], social?.knees[i])) })
+    ;[leftFoot, rightFoot].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = approach(ref.current.rotation.x, mix(pose.ankles[i], social?.ankles[i])) })
+    ;[leftArm, rightArm].forEach((ref, i) => {
+      if (ref.current) {
+        ref.current.rotation.order = 'YXZ'
+        ref.current.rotation.x = approach(ref.current.rotation.x, mix(pose.arms[i], social?.arms[i]))
+        ref.current.rotation.y = approach(ref.current.rotation.y, mix(0, social?.armY[i]))
+        ref.current.rotation.z = approach(ref.current.rotation.z, mix(i ? -.07 : .07, social?.armZ[i]))
+      }
+    })
+    ;[leftElbow, rightElbow].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = approach(ref.current.rotation.x, mix(pose.elbows[i], social?.elbows[i])) })
+    if (root.current) {
+      // During sitting/standing transitions, use the actual smoothed leg angles
+      // to keep sneakers above the row floor instead of lerping through it.
+      if (socialExit.current && !state.airborne && (!state.vehicle || state.vehicle === 'walk')) {
+        const soles = [[leftHip, leftKnee], [rightHip, rightKnee]].map(([hip, knee]) => .88 - .37 * Math.cos(hip.current?.rotation.x ?? 0) - .37 * Math.cos((hip.current?.rotation.x ?? 0) + (knee.current?.rotation.x ?? 0)) - .129)
+        root.current.position.y = .011 - Math.min(...soles)
+      } else root.current.position.y = approach(root.current.position.y, pose.rootY)
+    }
+    if (torso.current) {
+      torso.current.rotation.x = approach(torso.current.rotation.x, mix(pose.lean, social?.lean))
+      torso.current.rotation.z = approach(torso.current.rotation.z, mix(pose.sway + pose.bank, social ? social.sway + social.bank : undefined))
+    }
   })
   return <group ref={root} name="campus-student-avatar">
     <group ref={torso} position={[0, .88, 0]}>
@@ -72,7 +101,7 @@ export default function StudentAvatar({ motion, jersey = '#277c77' }: { motion: 
       <Parts parts={hairParts} color="#302a28" />
       <Parts parts={faceParts} color="#302a28" />
       <Parts parts={shirtDetail} color="#e9e9ce" />
-      <Parts parts={bagParts} color="#cf9254" />
+      <Parts parts={bagParts} color={accent} />
       <Parts parts={straps} color="#333b3b" />
     </group>
     {[[leftHip, leftKnee, leftFoot], [rightHip, rightKnee, rightFoot]].map(([hip, knee, foot], i) => <group key={`leg-${i}`} ref={hip} position={[i ? .115 : -.115, .88, 0]}>

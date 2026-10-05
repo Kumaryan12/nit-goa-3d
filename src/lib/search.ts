@@ -14,7 +14,7 @@ export function searchCampus(query: string, locations: CampusLocation[] = campus
     const category = normalizeSearch(location.category)
     const facilities = location.facilities.map(normalizeSearch)
     const fields = [name, ...keywords, category, ...facilities]
-    if (!tokens.every((token) => fields.some((field) => field.includes(token)))) return []
+    if (!tokens.every((token) => fields.some((field) => field.split(' ').some(word => word.startsWith(token))))) return []
     const score = name === normalized ? 1000 : name.startsWith(normalized) ? 850 : name.includes(normalized) ? 750
       : keywords.includes(normalized) ? 650 : keywords.some((keyword) => keyword.startsWith(normalized)) ? 550
       : category === normalized ? 500 : 300

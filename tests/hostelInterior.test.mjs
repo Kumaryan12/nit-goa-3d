@@ -6,7 +6,7 @@ import { extractBuildingFootprints } from '../src/lib/buildings.ts'
 import { extractCampusRoads } from '../src/lib/roads.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
 import { createWalkWorld, isWalkable } from '../src/lib/walking.ts'
-import { createHostelPlan, insideHostelFootprint, isInteriorWalkable, stepInterior, stairLanding, canUseStairs, stairSample, demoRoomNumber, roomAtPoint, interiorCameraFraction, pointDistance } from '../src/lib/hostelInterior.ts'
+import { createHostelPlan, insideHostelFootprint, isInteriorWalkable, stepInterior, stairLanding, canUseStairs, stairSample, demoRoomNumber, roomAtPoint, interiorCameraFraction, interiorJumpCeiling, pointDistance } from '../src/lib/hostelInterior.ts'
 import { buildingShape } from '../src/lib/buildingGeometry.ts'
 const campus=JSON.parse(readFileSync(new URL('./fixtures/nit-goa-campus.json',import.meta.url))).elements
 const roads=JSON.parse(readFileSync(new URL('./fixtures/nit-goa-roads.json',import.meta.url))).elements
@@ -19,9 +19,9 @@ const building=twin.buildings[twin.selections.findIndex(item=>item.location.id==
 const plan=createHostelPlan(building,twin.roads,p=>isWalkable(p,world))
 const add=(p,v,d)=>({x:p.x+v.x*d,z:p.z+v.z*d})
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-6,`${a} ≈ ${b}`)
-test('approximate hostel plan preserves the real footprint and all three courtyards',()=> {
-  assert.ok(plan);assert.equal(plan.buildingId,'relation/19505808/0');assert.equal(plan.levels,5);assert.equal(plan.floorHeight,3.2);assert.equal(plan.holes.length,3)
-  assert.deepEqual(plan.building.outer,building.outer);assert.equal(buildingShape(plan.building).holes.length,3)
+test('approximate hostel plan preserves the real footprint and two open courtyards',()=> {
+  assert.ok(plan);assert.equal(plan.buildingId,'relation/19505808/0');assert.equal(plan.levels,5);assert.equal(plan.floorHeight,3.2);assert.equal(plan.holes.length,2)
+  assert.deepEqual(plan.building.outer,building.outer);assert.equal(buildingShape(plan.building).holes.length,2)
   for(const hole of plan.holes){const center=hole.reduce((p,q)=>({x:p.x+q.x/hole.length,z:p.z+q.z/hole.length}),{x:0,z:0});if(!insideHostelFootprint(center,plan.outer,plan.holes))assert.equal(isInteriorWalkable(center,plan),false)}
   const original=JSON.stringify(building);const second=createHostelPlan(building,twin.roads,p=>isWalkable(p,world));assert.deepEqual(second,plan);assert.equal(JSON.stringify(building),original)
 })
@@ -105,4 +105,19 @@ test('indoor follow camera stops at walls and courtyard edges',()=> {
   const room=plan.rooms[0], headerStart={...add(room.door,room.inward,.8),y:plan.base+.14+2.35},headerEnd={...add(room.door,room.inward,-.8),y:headerStart.y}
   assert.ok(interiorCameraFraction(headerStart,headerEnd,plan)<.6,'door lintels block a high camera')
   assert.equal(interiorCameraFraction({...headerStart,y:plan.base+1.4},{...headerEnd,y:plan.base+1.4},plan),1,'camera can see through the doorway below its lintel')
+})
+
+test('jump headroom follows floor ceilings and blocks passing through low door headers',()=> {
+  for(let floor=0;floor<plan.levels;floor++) {
+    const surface=plan.base+floor*plan.floorHeight+.14
+    const room=plan.rooms[0], before=add(room.door,room.inward,.8)
+    close(interiorJumpCeiling(plan,room.door,floor),surface+2.1)
+    let p=before
+    for(let i=0;i<8;i++)p=stepInterior(p,{x:-room.inward.x,z:-room.inward.z},2,.1,plan,surface+.6,floor)
+    assert.ok(pointDistance(p,room.door)>.51,'airborne body stops before the header')
+    assert.ok(interiorJumpCeiling(plan,stairLanding(plan,true),floor)<=plan.base+(floor+1)*plan.floorHeight)
+    p=before
+    for(let i=0;i<8;i++)p=stepInterior(p,{x:-room.inward.x,z:-room.inward.z},2,.1,plan,surface,floor)
+    assert.ok(pointDistance(p,add(room.door,room.inward,-.8))<1e-6,'grounded avatar passes through')
+  }
 })

@@ -1,10 +1,26 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three'
-import { canalPoint } from './canal.ts'
+import { canalCoordinates, canalPoint } from './canal.ts'
 import type { CanalLayout } from './canal.ts'
 import { terrainHeightAt } from './terrain.ts'
 import type { TerrainModel } from './terrain.ts'
+import type { LocalCoordinate } from './geo.ts'
 
 export const CANAL_WATER_DROP = 0.85
+
+// Sample the deck's own triangles: its metre grid can span a terrain crest.
+export function bridgeSurfaceHeightAt(point: LocalCoordinate, canal: CanalLayout, terrain: TerrainModel): number | undefined {
+  const local = canalCoordinates(point, canal)
+  if (Math.abs(local.along) > canal.bridge.width / 2 || Math.abs(local.across) > canal.bridge.length / 2) return undefined
+  const columns = Math.ceil(canal.bridge.width), rows = Math.ceil(canal.bridge.length)
+  const gx = (local.along / canal.bridge.width + .5) * columns, gz = (local.across / canal.bridge.length + .5) * rows
+  const col = Math.min(columns - 1, Math.floor(gx)), row = Math.min(rows - 1, Math.floor(gz)), tx = gx - col, tz = gz - row
+  const at = (x: number, z: number) => {
+    const p = canalPoint(canal, -canal.bridge.width / 2 + x * canal.bridge.width / columns, -canal.bridge.length / 2 + z * canal.bridge.length / rows)
+    return terrainHeightAt(terrain, p.x, p.z) + .018
+  }
+  const a = at(col, row), b = at(col + 1, row), c = at(col, row + 1), d = at(col + 1, row + 1)
+  return tx + tz <= 1 ? a + (b - a) * tx + (c - a) * tz : d + (c - d) * (1 - tx) + (b - d) * (1 - tz)
+}
 
 export function canalWaterHeight(canal: CanalLayout, terrain: TerrainModel, along: number): number {
   const point = canalPoint(canal, along)

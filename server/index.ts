@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { createReadStream, statSync } from 'node:fs'
+import { serveStaticAsset } from './staticAssets.ts'
 import { resolve, extname, sep } from 'node:path'
 import { attachFootballServer } from './footballServer.ts'
 import { attachOatServer } from './oatServer.ts'
@@ -54,7 +54,7 @@ const authDomain =
 if (!/^[a-z0-9.-]+$/.test(authDomain))
   throw new Error('Invalid Firebase auth domain.')
 if (production) firebaseAdmin()
-const csp = `default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ${liveOrigin} https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://${authDomain} https://overpass-api.de https://overpass.kumi.systems ${customMapOrigin}; media-src 'self' blob: https:; frame-src https://${authDomain} https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
+const csp = `default-src 'self'; script-src 'self' https://apis.google.com; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ${liveOrigin} https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://${authDomain} https://overpass-api.de https://overpass.kumi.systems ${customMapOrigin}; media-src 'self' blob: https:; frame-src https://${authDomain} https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
 const server = createServer((request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff')
   response.setHeader('Referrer-Policy', 'no-referrer')
@@ -122,23 +122,7 @@ const server = createServer((request, response) => {
     response.end()
     return
   }
-  try {
-    if (!statSync(file).isFile()) throw new Error('not a file')
-    response.writeHead(200, {
-      'Content-Type': types[extname(file)] ?? 'application/octet-stream',
-      'Cache-Control': path.startsWith('/assets/')
-        ? 'public, max-age=31536000, immutable'
-        : 'no-cache',
-    })
-    if (request.method === 'HEAD') response.end()
-    else
-      createReadStream(file)
-        .on('error', () => response.destroy())
-        .pipe(response)
-  } catch {
-    response.writeHead(404)
-    response.end('Not found')
-  }
+  serveStaticAsset(request, response, file, types[extname(file)] ?? 'application/octet-stream', path.startsWith('/assets/'))
 })
 server.requestTimeout = 15000
 server.headersTimeout = 10000

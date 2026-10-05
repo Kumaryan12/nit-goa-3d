@@ -9,6 +9,8 @@ test('campus search matches names, keywords and facilities across all seven land
   assert.deepEqual(ids('MESS'), ['boys-hostel', 'girls-hostel'])
   assert.deepEqual(ids('academic'), ['academic-block'])
   assert.deepEqual(ids('admin'), ['administration-block'])
+  assert.deepEqual(ids('badminton'), ['boys-hostel'], 'badminton does not falsely match admin within the word')
+  assert.deepEqual(ids('badm'), ['boys-hostel'], 'word prefixes still match while typing')
   assert.deepEqual(ids('canteen'), ['canteen'])
   assert.deepEqual(ids('sports'), ['sports-ground'])
   assert.deepEqual(ids('main entrance'), ['main-entrance'])

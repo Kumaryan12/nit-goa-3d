@@ -13,7 +13,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   --ink: #293d36; --muted: #64776c; --glass: #fafbf2ed; --border: #60785c2b; --accent: #2e6653; --wash: #78958118;
   position: relative; width: 100%; height: 100vh; height: 100dvh; color: var(--ink);
 }
-.explorer.night-mode { --ink: #e4ede9; --muted: #a0b6b2; --glass: #142632ed; --border: #adc6cb25; --accent: #a0d6ba; --wash: #adc6cb12; color-scheme: dark; }
+.explorer.night-mode { --ink: #e4ede9; --muted: #a0b6b2; --glass: #101e30ed; --border: #b9cae030; --accent: #a0d6ba; --wash: #b9cae014; color-scheme: dark; }
 .scene-viewport { position: absolute; inset: 0; }
 .scene-viewport canvas { display: block; touch-action: none; }
 .scene-header, .location-navigation, .map-status, .building-info-panel, .campus-stats, .campus-minimap, .scene-footer > div {
@@ -224,7 +224,7 @@ h1 span { font-weight: 400; }
 .resilience-notice { position: absolute; z-index: 36; left: 290px; top: 132px; max-width: calc(100% - 660px); padding: 9px 12px; border-radius: 8px; color: var(--ink); background: var(--glass); font-size: 10px; border: 1px solid var(--border); }
 .resilience-notice button { margin-left: 10px; }
 .app-dialog { --ink: #293d36; --muted: #64776c; --glass: #fafbf2; --accent: #2e6653; --border: #60785c36; --wash: #78958118; color: var(--ink); background: var(--glass); border: 1px solid var(--border); border-radius: 18px; width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); padding: 24px; box-shadow: 0 20px 100px #08180b55; overscroll-behavior: contain; }
-.night-mode .app-dialog { --ink: #e4ede9; --muted: #a0b6b2; --glass: #142632; --accent: #a0d6ba; --border: #adc6cb35; --wash: #adc6cb12; color-scheme: dark; }
+.night-mode .app-dialog { --ink: #e4ede9; --muted: #a0b6b2; --glass: #142632; --accent: #a0d6ba; --border: #adc6cb35; --wash: #b9cae014; color-scheme: dark; }
 .app-dialog::backdrop { background: #07141cad; backdrop-filter: blur(3px); }
 .dialog-heading { display: flex; gap: 16px; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .dialog-heading h2 { font-size: 21px; margin: 0; letter-spacing: -.035em; }
@@ -379,6 +379,7 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .walk-direction:active { background: var(--accent); color: var(--glass); }
 .walk-forward { grid-area: 1 / 2; }.walk-left { grid-area: 2 / 1; }.walk-back { grid-area: 2 / 2; }.walk-right { grid-area: 2 / 3; }
 .walk-look { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; flex: 1; }
+.walk-jump { grid-column: 1 / -1; gap: 6px; }.walk-jump small { opacity: .6; }
 .walk-look .walk-direction { height: 42px; }.walk-look .fly-button { justify-content: center; padding: 8px; }
 .walk-note { margin-bottom: 0; font-size: 9px; }
 .walk-mode .location-navigation, .walk-mode .campus-stats, .walk-mode .scene-footer, .walk-mode .map-status-complete { display: none; }
@@ -496,3 +497,32 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 @media (max-width: 1100px) { .oat-controls { top: 166px; } }
 @media (max-width: 760px) { .oat-controls { top: 197px; bottom: 12px; right: 12px; width: min(340px, calc(100% - 24px)); padding: 16px; }.oat-mode .location-navigation { display: none; } }
 @media (max-width: 760px) { .football-controls { right: 12px; top: 190px; width: 170px; padding: 12px; }.football-score { margin: 10px 0; font-size: 11px; gap: 8px; }.football-score b { font-size: 25px; }.football-score span { gap: 6px; }.football-help { display: none; }.football-mode .walk-help, .football-mode .walk-start, .football-mode .walk-note, .football-mode .walk-inspect { display: none; }.football-mode .walk-controls { width: calc(100% - 24px); max-height: 230px; }.football-heading .eyebrow { font-size: 7px; } }
+
+/* Keep controls, chat and event labels readable in the campus night palette. */
+.night-mode .scene-header, .night-mode .walk-controls, .night-mode .campus-minimap,
+.night-mode .building-info-panel, .night-mode .campus-social-panel,
+.night-mode .oat-controls, .night-mode .football-controls { box-shadow: 0 12px 40px #03091555; }
+.night-mode .live-dot { background: #a8dbcb; box-shadow: 0 0 10px #a8dbcb45; }
+.night-mode .location-label { color: #e4eafa; background: #111f32e8; border-color: #bacbe02e; box-shadow: 0 3px 16px #03091535; }
+.night-mode .campus-avatar-name, .night-mode .campus-speech, .night-mode .oat-performer-label,
+.night-mode .route-marker-label { color: #ecf0e7; background: #16263dec; border: 1px solid #adc6cb30; }
+.night-mode a.campus-avatar-name:hover { background: #24443e; }
+.night-mode .oat-controls input:not([type=file]):not([type=range]) { background: var(--wash); }
+.night-mode .oat-mic-live p, .night-mode .oat-error, .night-mode .campus-chat-error,
+.night-mode .map-status-error { color: #ffc6b2 !important; }
+.night-mode .football-score .blue { color: #84caff; }.night-mode .football-score .gold { color: #f3d28b; }
+.night-mode .scene-loading { color: var(--ink); }
+
+.night-mode .minimap-campus { fill: #93bbbe0c; stroke: #8ca9b957; }
+.night-mode .minimap-road { stroke: #a6b7cb; }.night-mode .minimap-building { fill: #779f9d; stroke: #a4c4b4; }
+.night-mode .minimap-selected, .night-mode .minimap-building:hover { fill: #e9bb76; stroke: #f3d49f; }
+.night-mode button:disabled { cursor: default; }
+
+.walk-transport { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; margin: .75rem 0; }
+.walk-transport button[aria-pressed="true"] { background: var(--accent, #277c77); color: #fff; border-color: #277c77; }
+.walk-speed { font-size: .8rem; font-variant-numeric: tabular-nums; margin-left: auto; opacity: .85; }
+
+.graphics-control { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; color: inherit; white-space: nowrap; }
+.graphics-control select { color: inherit; background: var(--panel-bg, #faf9f2); border: 1px solid var(--border, #d6ddd2); border-radius: .65rem; padding: .45rem .6rem; font: inherit; cursor: pointer; }
+.night-mode .graphics-control select { background: #203342; border-color: #415568; color: #edf2ef; }
+.graphics-control select:focus-visible { outline: 2px solid #5c9c83; outline-offset: 2px; }

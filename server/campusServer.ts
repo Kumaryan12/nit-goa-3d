@@ -5,9 +5,11 @@ import { attachLiveAccess } from './liveAccess.ts'
 import { createCampusRoom, publishedCampusBoundary } from './campusRoom.ts'
 import { CAMPUS_CAPACITY } from '../src/lib/campusProtocol.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
+import { publishedSocialSeats } from './socialSeats.ts'
+import type { SocialSeat } from '../src/lib/social.ts'
 
-export function attachCampusServer(server: EventEmitter, origin?: string, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary()) {
-  const room = createCampusRoom(boundary), sockets = new Map<string, WebSocket>()
+export function attachCampusServer(server: EventEmitter, origin?: string, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats()) {
+  const room = createCampusRoom(boundary, seats), sockets = new Map<string, WebSocket>()
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384, perMessageDeflate: false })
   const access = attachLiveAccess(server, wss, '/presence', origin, CAMPUS_CAPACITY, verify)
   const send = (ws: WebSocket, value: unknown) => { if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(JSON.stringify(value)) }
@@ -22,6 +24,11 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
       try { msg = JSON.parse(bytes.toString()) } catch { return }
       if (!msg || typeof msg !== 'object') return
       if (msg.type === 'pose') room.pose(identity.id, msg.pose, msg.activity)
+      if (msg.type === 'social-action') send(ws, { type: 'social-result', ...room.social(identity.id, msg.action, msg.seatId) })
+      if (msg.type === 'buggy-ride') {
+        const result = room.ride(identity.id, msg.driverId)
+        send(ws, { type: 'buggy-result', ...result })
+      }
       if (msg.type === 'chat') {
         const result = room.chat(identity.id, msg.text, msg.scope)
         if ('error' in result) send(ws, { type: 'notice', message: result.error })

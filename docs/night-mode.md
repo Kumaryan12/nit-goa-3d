@@ -1,0 +1,9 @@
+# Campus at night
+
+The night presentation keeps a cool moonlit sky and ground, with warmer light around the roads, building windows, bridge and OAT. The sports ground has four neutral-white floodlight masts outside the pitch. Explorable classrooms/hostel rooms get warm ceiling panels and two nearby light sources. Chat, player captions, search, map and event controls follow the night palette.
+
+The lamp plan samples accumulated road distance (24 m on roads, 18 m on paths), tries alternating verges, rejects building walls, trees, canal openings, the theatre footprint, road surfaces and the campus boundary, then samples pole height on the actual terrain. It places 143 fixtures on the current saved campus: 139 road lamps and four floodlights. These are stylized placements, not a claim about the physical campus's actual light locations.
+
+Fixtures use three instanced meshes; lamp halos use one instanced billboard mesh. Ground pools are merged into one mesh, with small terrain-draped triangles for the slopes. Street lighting has a fixed budget of eight point lights with no extra shadow maps. Only nearby fixtures activate those lights; selection updates at 5 Hz and disables outdoor sources inside an explorable building. OAT retains two unshadowed stage sources. Window illumination is a stable shader variation on existing instances, without per-window lights. Day mode retains the fixtures with the night glow disabled.
+
+Pole bases use the same swept avatar collision as walls/trees and stop the follow camera clipping through masts. Tests cover map/terrain alignment, deterministic placement, source preservation, spacing and obstacles, pitch clearance, the light budget, camera clearance and airborne collisions. Production shaders and visual appearance were checked in a Chrome guest preview. No claim is made about performance on every visitor's device or a multiplayer load test.

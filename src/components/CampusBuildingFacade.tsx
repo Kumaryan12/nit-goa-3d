@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { DistantDetail } from './ScenePerformance'
+import { memo, useMemo } from 'react'
 import { Shape } from 'three'
 import type { CampusFacadePlan } from '../lib/campusFacade'
 import { Boxes, Roof, Sign } from './BuildingFacadeParts'
@@ -28,10 +29,11 @@ function ArchedGlass({ x, y, width, height, night }: { x: number; y: number; wid
   </group>
 }
 
-export default function CampusBuildingFacade({ plan, night }: { plan: CampusFacadePlan; night: boolean }) {
+function CampusBuildingFacade({ plan, night, selected=false }: { plan: CampusFacadePlan; night: boolean; selected?: boolean }) {
   const { front, width, height, appearance, canopyWidth: canopy, canopyDepth: out } = plan
   const tutorial = appearance.style === 'tutorial', department = appearance.style === 'department', hostel = appearance.style === 'hostel', seminar = appearance.style === 'seminar', bank = appearance.style === 'bank'
   const canopyY = tutorial ? height - 1.1 : Math.min(3.3, height * .72)
+  const detailRadius = useMemo(() => Math.max(width / 2, ...plan.walls.map(wall => Math.hypot(wall.center.x - front.center.x, wall.center.z - front.center.z) + wall.length / 2)), [plan, width, front])
   const shapes = useMemo(() => {
     const gable = new Shape(); gable.moveTo(-canopy / 2, 0); gable.lineTo(canopy / 2, 0); gable.lineTo(0, tutorial ? 1.4 : .75); gable.closePath()
     const span = Math.min(4.5, canopy / 4), arch = new Shape(); arch.moveTo(-span / 2, .5); arch.lineTo(span / 2, .5); arch.lineTo(span / 2, 0); arch.quadraticCurveTo(0, .8, -span / 2, 0); arch.closePath()
@@ -47,10 +49,13 @@ export default function CampusBuildingFacade({ plan, night }: { plan: CampusFaca
     return Array.from({ length: Math.max(2, Math.floor(canopy / shapes.span)) + 1 }, (_, i) => (i - Math.floor(canopy / shapes.span) / 2) * shapes.span).filter(x => Math.abs(x) > 2.5)
   }, [canopy, department, tutorial, shapes.span])
   return <group name={`campus-facade-${appearance.style}`}>
+    <DistantDetail center={[front.center.x,height/2,front.center.z]} radius={detailRadius} selected={selected}>
     <Boxes boxes={plan.frames} color={white} />
     <Boxes boxes={plan.trim} color={white} />
-    <Boxes boxes={plan.panes} color={night ? '#b9b298' : '#637a79'} night={night} />
+    </DistantDetail>
+    <Boxes boxes={plan.panes} color={'#637a79'} night={night} />
     <Roof vertices={plan.roof.vertices} indices={plan.roof.indices} />
+    <DistantDetail center={[front.center.x,height/2,front.center.z]} radius={detailRadius} selected={selected}>
     <group position={[front.center.x, 0, front.center.z]} rotation={[0, front.angle, 0]}>
       {department && [-1.15, 1.15].map(x => <ArchedGlass key={x} x={x} y={height * .66} width={2.1} height={height * .24} night={night} />)}
       {hostel && <GlassTower x={0} bottom={3.2} top={height + .65} width={Math.min(5.4, width * .16)} night={night} />}
@@ -77,5 +82,8 @@ export default function CampusBuildingFacade({ plan, night }: { plan: CampusFaca
       <mesh position={[0, tutorial ? canopyY - .5 : 3.05, Math.max(.25, out - .08)]}><boxGeometry args={[Math.min(canopy - .3, 12), .55, .12]} /><meshStandardMaterial color="#333b38" /></mesh>
       <Sign text={plan.name.toUpperCase()} width={Math.min(canopy - .7, 11.6)} height={.38} position={[0, tutorial ? canopyY - .5 : 3.05, Math.max(.32, out)]} color={white} />
     </group>
+    </DistantDetail>
   </group>
 }
+
+export default memo(CampusBuildingFacade)
