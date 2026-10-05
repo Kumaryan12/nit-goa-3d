@@ -21,6 +21,7 @@ import { createEntranceCanal } from './canal.ts'
 import { createTheatreLayout } from './theatre.ts'
 import { createCampusLawns } from './landscaping.ts'
 import { createCampusFlag } from './campusFlag.ts'
+import { generateCampusGardens } from './campusGardens.ts'
 
 export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadData | null, vegetationReady = true, overrides: CampusOverrides = {}, terrainSettings: TerrainSettings = defaultTerrainSettings) {
   const relief = validateTerrainSettings(terrainSettings)
@@ -78,6 +79,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const vegetationClearings = access.length ? [...clearings, { x: (access[0].x + access[1].x) / 2, z: (access[0].z + access[1].z) / 2, halfX: Math.abs(access[1].x - access[0].x) / 2 + 1.2, halfZ: Math.abs(access[1].z - access[0].z) / 2 + 1.2 }] : clearings
   const trees = vegetationReady ? generateTrees(boundary, buildings, roads?.roads ?? [], vegetationClearings, terrain) : []
   const lamps = generateCampusLamps({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, locations })
-  return { lamps, lawns, flag, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
+  const gardens = vegetationReady ? generateCampusGardens({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, lamps, clearings: vegetationClearings, locations: [...locations, ...selections.map(s => s.location)] }) : { beds: [], flowers: [], shrubs: [] }
+  return { lamps, lawns, flag, gardens, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
 }
 export type DigitalTwin = ReturnType<typeof createDigitalTwin>

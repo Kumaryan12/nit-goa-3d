@@ -15,6 +15,7 @@ import type { BuildingSelection } from '../types/campus'
 import Lighting from './Lighting'
 import CampusStreetlights from './CampusStreetlights'
 import CampusNationalFlag from './CampusNationalFlag'
+import CampusGardens from './CampusGardens'
 import FootballScene from './FootballScene'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
@@ -184,6 +185,7 @@ function CampusScene({ onBuggyRide, campusPeople, campusSession, campusPose, cam
       <CampusStreetlights lamps={twin.lamps} terrain={twin.terrain} night={night} indoors={view==='walk' && hostelFloor!==null} />
       {twin.flag && <CampusNationalFlag flag={twin.flag} night={night} />}
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
+      {twin.vegetationReady && <CampusGardens gardens={twin.gardens} terrain={twin.terrain} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
         selected={selectedLocationId === 'open-air-theatre'} onSelect={() => onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location: twin.locations.find(location => location.id === 'open-air-theatre')! })} />}
