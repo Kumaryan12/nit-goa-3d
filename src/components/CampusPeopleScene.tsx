@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import type { Group } from 'three'
 import StudentAvatar from './StudentAvatar'
 import CampusVehicle from './CampusVehicle'
+import SocialBubble from './SocialBubble'
 import { motionDelta, stridePhase } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
 import { CAMPUS_COLORS } from '../lib/campusProtocol'
@@ -15,7 +16,7 @@ function Visitor({ person, session, messages, space, walking }: { person: Campus
   const camera = useThree(state => state.camera)
   const message = useMemo(() => [...messages].reverse().find(m => m.sender === person.id && m.scope === 'nearby'), [messages, person.id])
   useFrame((_, delta) => {
-    const group = root.current, pose = session.current.snapshot?.people.find(p => p.id === person.id)?.pose
+    const group = root.current, currentPerson = session.current.snapshot?.people.find(p => p.id === person.id), pose = currentPerson?.pose
     if (!group || !pose) { if (group) group.visible = false; return }
     const allowedSpace = walking ? pose.space === space : pose.space === 'outdoors'
     group.visible = pose.visible && allowedSpace && camera.position.distanceToSquared(group.position) < (walking ? 160 ** 2 : 1200 ** 2)
@@ -32,10 +33,12 @@ function Visitor({ person, session, messages, space, walking }: { person: Campus
     motion.current.driveSpeed = (motion.current.speed ?? 0) * (forwardTravel < 0 ? -1 : 1)
     motion.current.vehicle = person.ride ? 'buggy' : pose.vehicle ?? 'walk'
     motion.current.phase = stridePhase(motion.current.phase, distance, pose.running)
+    motion.current.social = currentPerson?.social; motion.current.airborne = pose.airborne
     if (bubble.current) bubble.current.hidden = !message || Date.now() - message.time > 8000
   })
   return <group ref={root} position={person.pose ? [person.pose.x, person.pose.y, person.pose.z] : [0, 0, 0]} name="shared-campus-visitor">
     {person.ride ? <StudentAvatar motion={motion} jersey={CAMPUS_COLORS[person.color]} /> : <CampusVehicle mode={person.pose?.vehicle ?? 'walk'} motion={motion} jersey={CAMPUS_COLORS[person.color]} />}
+    <SocialBubble session={session} personId={person.id} />
     <Html center position={[0, 2.25, 0]} zIndexRange={[20, 0]} occlude distanceFactor={12}>
       <div className="campus-avatar-caption"><span ref={bubble} className="campus-speech" hidden>{message?.text}</span>{person.handle ? <a href={`/people/${person.handle}`} target="_blank" rel="noopener noreferrer" className="campus-avatar-name" onPointerDown={event => event.stopPropagation()}>{person.name}</a> : <span className="campus-avatar-name">{person.name}</span>}</div>
     </Html>

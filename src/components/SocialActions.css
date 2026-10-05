@@ -1,0 +1,21 @@
+.social-actions { position: relative; }
+.social-action-panel { position: absolute; right: 0; top: calc(100% + 14px); width: min(350px, calc(100vw - 32px)); padding: 22px; border: 1px solid #d7ded2; border-radius: 22px; background: #fbfaf5; color: #2c4038; box-shadow: 0 18px 55px #183c2c26; z-index: 100; max-height: min(650px, 75vh); overflow: auto; }
+.social-action-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.social-action-heading h2 { font-size: 1.2rem; line-height: 1.2; margin: 6px 0 12px; }
+.social-action-panel p { font-size: .84rem; line-height: 1.5; color: #61746b; margin: 0 0 16px; }
+.social-action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+.social-action-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 90px; border: 1px solid #d9e1d4; border-radius: 16px; background: #f0f3e9; color: inherit; font: inherit; font-size: .76rem; cursor: pointer; padding: 10px 5px; }
+.social-action-tile > span { font-size: 1.7rem; line-height: 1; }
+.social-action-tile:hover:not(:disabled), .social-action-tile[aria-pressed="true"] { background: #dce9d6; border-color: #8cab8f; }
+.social-action-tile:disabled { opacity: .4; cursor: default; }
+.social-action-tile:focus-visible { outline: 3px solid #5a9479; outline-offset: 2px; }
+.social-seat-button, .social-action-panel > .navigate-button { width: 100%; margin: 0 0 12px; }
+.social-stop { display: block; margin: 0 auto 12px; }
+.social-action-panel .social-action-note { font-size: .76rem; margin: 0; }
+.campus-reaction { display: block; padding: 7px 13px; color: #bc4870; font-size: 30px; line-height: 1.1; background: #fff9edee; border: 1px solid #e6d8bd; border-radius: 22px 22px 22px 4px; box-shadow: 0 5px 20px #243d3026; white-space: nowrap; }
+.campus-reaction[hidden] { display: none; }
+.night-mode .social-action-panel { background: #15293a; color: #e2ebe6; border-color: #3c535b; }
+.night-mode .social-action-panel p { color: #bdccc6; }
+.night-mode .social-action-tile { background: #203a47; border-color: #405b63; }
+.night-mode .social-action-tile:hover:not(:disabled), .night-mode .social-action-tile[aria-pressed="true"] { background: #30554e; }
+@media (max-width: 700px) { .social-action-panel { position: fixed; top: auto; right: 16px; bottom: 18px; max-height: 70vh; } }

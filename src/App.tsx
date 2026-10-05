@@ -56,6 +56,9 @@ import type { CampusMapState, CampusRoadState } from './types/osm'
 import type { BuildingSelection } from './types/campus'
 import GraphicsControl from './components/GraphicsControl'
 import { validGraphicsMode } from './lib/graphics'
+import AtmosphereControls from './components/AtmosphereControls'
+import SocialActions from './components/SocialActions'
+import { theatreSeats } from './lib/social'
 
 const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
 const readState = () => {
@@ -150,7 +153,14 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const roadData = roadState.status === 'ready' ? roadState.data : null
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useDigitalTwin(mapData, roadData, requestsSettled, overrides, terrainSettings)
-  const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview')
+  const socialSeats = useMemo(() => twin ? theatreSeats(twin.theatre).filter(seat => seat.row >= 3) : [], [twin])
+  const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview', import.meta.env.DEV && !firebasePublicConfig, socialSeats)
+  const stopSocial = useCallback(() => { campusLive.socialAction('stop') }, [campusLive.socialAction])
+  useEffect(() => {
+    if (!oatJoined || !twin || view === 'walk') return
+    // Concert visitors have a live presence even before their first walk.
+    campusPose.current = { x: twin.theatre.center.x, y: twin.theatre.elevation + .53, z: twin.theatre.center.z, yaw: twin.theatre.rotation, vehicle: 'walk', moving: false, running: false, airborne: false, active: true, visible: false, space: 'outdoors', epoch: (campusPose.current?.epoch ?? 0) + 1 }
+  }, [oatJoined, twin, view])
   const selfColor = campusLive.people.find(p => p.id === campusLive.session.current.id)?.color
   const unreadChat = campusOpen ? 0 : campusLive.messages.filter(m => m.time > chatReadAt && m.sender !== campusLive.session.current.id).length
   useEffect(() => { if (campusOpen) setChatReadAt(Date.now()) }, [campusOpen, campusLive.messages])
@@ -306,7 +316,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
           oatConcert={oat.snapshot}
-          onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
+          onSocialStop={stopSocial} onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}
           showContours={terrainSettings.showContours} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null} interiorBuildingId={walkStatus?.interior ? interiorPose.current?.buildingId ?? null : null}
           view={view} walkPaused={walkPaused} walkInput={walkInput} avatarPosition={avatarPosition} walkSpawn={walkSpawn} onWalkStatus={onWalkStatus} onWalkInspect={chooseLocation}
@@ -363,6 +373,8 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
           <GraphicsControl mode={graphicsMode} onChange={changeGraphics} />
+          <SocialActions live={campusLive} pose={campusPose} seats={socialSeats} walking={view === 'walk'} concert={oatJoined} disabled={footballJoined || view === 'walk' && walkPaused} />
+          <AtmosphereControls pose={campusPose} night={night} walking={view === 'walk'} concert={oatJoined} />
           {view === 'overview' && <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>}
           {canEdit && <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>}
           {canEdit && <TerrainControls settings={terrainSettings} onChange={applyTerrainSettings} onOpenChange={setTerrainControlsOpen} onViewCampusSlope={twin?.slope ? viewCampusSlope : undefined} onEditSlopes={twin ? openSlopeEditor : undefined} onViewSlope={twin?.slope ? viewNescafeSlope : undefined} />}

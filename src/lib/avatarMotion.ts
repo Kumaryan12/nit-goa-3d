@@ -1,6 +1,7 @@
 import type { LocalCoordinate } from './geo.ts'
+import type { SocialState } from './social.ts'
 
-export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number }
+export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; social?: SocialState; seated?: boolean }
 export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0
@@ -74,4 +75,58 @@ export function ridingPose(kind: 'bicycle' | 'buggy', phase: number, speed: numb
   const hips = cycling ? [.8 + pedal * .25, .8 - pedal * .25] : [1.2, 1.2]
   const knees = cycling ? [-1.25 - pedal * .35, -1.25 + pedal * .35] : [-1.4, -1.4]
   return { hips, knees, ankles: hips.map((hip, i) => -hip - knees[i]), arms: [.85, .85], elbows: [.35, .35], rootY: cycling ? .15 : -.26, lean: cycling ? -.18 : 0, sway: 0, bank: 0 }
+}
+
+export interface SocialPose extends ReturnType<typeof avatarPose> { armY: number[]; armZ: number[]; weight: number }
+const socialActions = new Set(['wave', 'dance', 'applause', 'heart', 'cheer', 'sit'])
+const smoothStep = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
+
+// Times are server-issued milliseconds. Absolute time keeps gestures in phase
+// for late arrivals, while the finite, bounded phase also handles clock jumps.
+export function socialPose(state: SocialState | undefined, now: number, reducedMotion = false, seated = false): SocialPose | null {
+  const active = !!state && socialActions.has(state.action) && [state.startedAt, state.until, now].every(Number.isFinite)
+    && state.until > state.startedAt && now >= state.startedAt && now < state.until
+  if (!active && !seated) return null
+  const seconds = active ? Math.max(0, Math.min(120, (now - state.startedAt) / 1000)) : 0
+  const action = active ? state.action : 'sit', sitting = seated || action === 'sit'
+  const pose: SocialPose = { ...avatarPose(0, 0, false, 0), armY: [0, 0], armZ: [.07, -.07], weight: seated ? 1 : smoothStep(seconds / .2) * smoothStep((state!.until - now) / 350) }
+  const rhythm = reducedMotion ? 0 : Math.sin(seconds * Math.PI * 3)
+  if (sitting) {
+    pose.hips = [2.18, 2.18]; pose.knees = [-2.7, -2.7]
+    pose.arms = [.65, .65]; pose.elbows = [.4, .4]
+    pose.lean = -.03
+  }
+  if (action === 'wave') {
+    pose.arms[1] = .1; pose.elbows[1] = -.24
+    pose.armZ[1] = 2.52 + rhythm * .19; pose.armY[1] = .1
+  } else if (action === 'applause') {
+    // YXZ shoulder rotation turns the raised forearms inward. At the closed
+    // part of the cycle, the hand centres meet in front of the chest.
+    const closed = reducedMotion ? 1 : (rhythm + 1) / 2
+    pose.arms = [1.05, 1.05]; pose.elbows = [.22, .22]
+    pose.armY = [-.23 - closed * .42, .23 + closed * .42]; pose.armZ = [0, 0]
+  } else if (action === 'heart') {
+    pose.arms = [1.05, 1.05]; pose.elbows = [.45, .45]
+    pose.armY = [-.59, .59]; pose.armZ = [0, 0]
+  } else if (action === 'cheer') {
+    pose.arms = [.15, .15]; pose.elbows = [.25 + rhythm * .1, .25 - rhythm * .1]
+    pose.armZ = [-2.35, 2.35]; pose.sway = rhythm * .025
+  } else if (action === 'dance') {
+    const step = reducedMotion ? .5 : Math.sin(seconds * Math.PI * 2)
+    pose.arms = [.35 + step * .3, .35 - step * .3]; pose.elbows = [.7, .7]
+    pose.armZ = [-.55, .55]; pose.sway = step * .09
+    if (!sitting) {
+      pose.hips = [step * .23, -step * .23]
+      pose.knees = [-Math.max(0, -step) * .35, -Math.max(0, step) * .35]
+    }
+  }
+  pose.ankles = pose.hips.map((hip, i) => -hip - pose.knees[i])
+  const lowestSole = Math.min(...pose.hips.map((hip, i) => .88 - .37 * Math.cos(hip) - .37 * Math.cos(hip + pose.knees[i]) - .129))
+  pose.rootY = .011 - lowestSole
+  return pose
+}
+
+export function socialPoseForMotion(motion: AvatarMotion, now: number, reducedMotion = false) {
+  if (motion.moving || motion.airborne || (motion.speed ?? 0) > .05 || (motion.vehicle && motion.vehicle !== 'walk')) return null
+  return socialPose(motion.social, now, reducedMotion, motion.seated)
 }

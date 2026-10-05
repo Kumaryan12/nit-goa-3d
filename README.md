@@ -226,6 +226,8 @@ Day/night colors remain readable. Reduced-motion CSS removes UI transitions; wal
 
 ## Performance
 
+**Actions** adds shared waving, dancing, applause, hearts and celebration, with reserved rear OAT bench seating and seated concert reactions. **Sounds** enables wind, birds, footsteps and bicycle ambience with saved volume, mute and channel controls. Sounds require a click and pause in background tabs. Controls, server limits and validation are documented in [campus-social.md](docs/campus-social.md).
+
 The landing page and Firebase sign-in load before the 3D explorer. Campus generation runs in a cancellable worker; transferable terrain patches let the renderer skip off-screen ground without changing slopes or canal cuts. Interiors mount on entry, distant facade decoration uses distance limits, static shadows are cached, moving shadows refresh at 10–20 Hz, and hidden tabs stop rendering. **Graphics → Auto / Smooth / Detailed** controls resolution, shadow size and facade detail; Auto adapts to sustained frame rates. Build-time Brotli/gzip files reduce public asset transfer, with ETags for HTML/map revalidation. The scene still exceeds Vite's 500 kB chunk advisory; the production build succeeds. Performance depends on the device, power settings and OSM coverage. Validation and measurement limits are in [performance.md](docs/performance.md).
 
 ## Production deployment

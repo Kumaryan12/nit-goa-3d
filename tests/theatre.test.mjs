@@ -12,6 +12,7 @@ import { createWalkWorld, isWalkable, stepWalking, walkSurfaceHeightAt } from '.
 import { selectionForLocation } from '../src/lib/locations.ts'
 import { searchCampus } from '../src/lib/search.ts'
 import { validateOverrides } from '../src/lib/locationOverrides.ts'
+import { nearbySeat, theatreSeats } from '../src/lib/social.ts'
 
 const elements = name => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url))).elements
 const buildings = elements('nit-goa-campus'), roadElements = elements('nit-goa-roads')
@@ -67,6 +68,16 @@ test('the central and rear stairs can be traversed to the stage while benches bl
   assert.ok(isWalkable(aisle, world))
   close(theatreSurfaceHeightAt(aisle, theatre), theatre.elevation + .08 + 7 * .15)
   assert.equal(theatreSurfaceHeightAt({ x: 0, z: 0 }, theatre), null)
+})
+
+test('rear OAT aisle seats can be reached from the clear stairs without walking through benches', () => {
+  const theatre = twin.theatre, world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain)
+  for (const seat of theatreSeats(theatre).filter(seat => seat.row >= 3 && [3, 4].includes(Number(seat.id.split('-')[2])))) {
+    const local = theatreToLocal(seat, theatre), approach = theatreToWorld({ x: 0, z: local.z }, theatre)
+    assert.ok(isWalkable(approach, world))
+    assert.equal(nearbySeat([seat], { ...approach, y: walkSurfaceHeightAt(twin.terrain, approach.x, approach.z) })?.id, seat.id)
+    assert.equal(nearbySeat([seat], { ...approach, y: seat.y }, [seat.id]), null)
+  }
 })
 
 test('theatre placement and rotation remain editable and never claim a real building', () => {

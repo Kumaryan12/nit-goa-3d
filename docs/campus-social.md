@@ -1,0 +1,13 @@
+# Social actions and campus sounds
+
+Open **Actions** while walking to wave, dance, applaud, send a heart or celebrate. Start while stationary and on foot; walking, jumping, boarding a vehicle, changing activity or losing active presence ends the action. Gestures expire automatically. Reduced-motion preferences replace repeated animation with a still pose.
+
+At the OAT, approach a rear bench from the central stairs and choose **Sit on nearby OAT bench**. The live server reserves one of 24 rear-row seats, checks distance and height, and supplies its position. **Stand up** or movement restores the last accepted standing position. Seats release on expiry, inactivity or disconnect. The front 24 seats belong to the concert audience, whose gestures keep their seated pose. Concert reactions also work when joining directly from overview.
+
+Actions use the authenticated `/presence` connection and existing bounded snapshots. Clients cannot select another identity, set action timestamps, claim arbitrary seat coordinates or move a reserved seat. Starts have a 650 ms cooldown and an eight-start limit per ten seconds. Bench coordinates are generated from the published map, saved overrides and terrain during the production build; local unpublished theatre edits do not change server seating.
+
+Open **Sounds off → Enable campus sounds** to listen. Volume, mute and separate wind, birds and movement switches are saved locally. Audio starts only after an explicit click in each visit. Turning sounds off closes its audio context; hiding or leaving the tab pauses it. A resume button appears if the browser requires another interaction.
+
+Wind and birds are synthesized with Web Audio, and footsteps and bicycle sounds follow actual movement rather than held keys. Jumping, blocked motion, teleporting and buggy passengers do not trigger footsteps. Indoor ambience is quieter, night birds are subdued, and ambience ducks during concerts. Concert music and live singing retain their own volume controls. No microphone permission is needed for ambience.
+
+Validation covers bounded avatar transforms, grounded shoes, seated reactions, reduced motion, two authenticated WebSocket peers sharing an action, exclusive seat claims, spoofed movement rejection, clear aisle approaches, concert presence, audio scheduling and lifecycle cleanup. Browser checks cover the local waving pose and reaction bubble, sound enable/mute/unmute/volume controls, and the OAT walk approach. Local preview gestures stay offline and exist only in development builds. This does not substitute for a live rehearsal with multiple Google accounts or listening calibration on different speakers.
