@@ -49,6 +49,18 @@ test('release brakes promptly, reversals pass smoothly through rest, and pausing
   assert.equal(paused.speed, 0); assert.deepEqual(state.velocity, { x: 0, z: 0 })
 })
 
+test('direction changes respond promptly instead of drifting forward through the acceleration ramp', () => {
+  const state = freshLocomotion()
+  for (let i = 0; i < 120; i++) advanceLocomotion(state, { x: 0, z: -1 }, 2.3, 1 / 60)
+  let drift = 0
+  for (let i = 0; i < 60; i++) {
+    const frame = advanceLocomotion(state, { x: 1, z: 0 }, 2.3, 1 / 60)
+    drift += Math.abs(frame.direction.z) * frame.delta
+  }
+  assert.ok(drift < .45, 'one-second direction change carries less than 45 cm of old momentum')
+  assert.ok(state.velocity.x > 2 && Math.abs(state.velocity.z) < .05)
+})
+
 test('smooth momentum cannot tunnel through walls and blocked axes do not retain momentum', () => {
   const outer = [{ x: 0, z: -10 }, { x: .05, z: -10 }, { x: .05, z: 10 }, { x: 0, z: 10 }, { x: 0, z: -10 }].map(localToGps)
   const terrain = { size: 400, segments: 40, heights: new Float32Array(41 ** 2), colors: new Float32Array(41 ** 2 * 3) }
