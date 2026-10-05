@@ -206,6 +206,25 @@ test('live buggy boarding follows a driver, rejects position spoofing, and frees
   assert.equal(released.people[0].pose.vehicle, 'walk'); assert.equal(released.people[0].pose.y, 0)
 })
 
+test('full-speed buggy movement and grounded slope pitch reach the driver and passenger live', async t => {
+  const { peer } = await campusFixture(t), driver = peer('alice'), rider = peer('bob')
+  await waitFor(() => driver.messages.some(m => m.type === 'campus-welcome') && rider.messages.some(m => m.type === 'campus-welcome'))
+  driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', y: .07 }) }))
+  rider.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: 1 }) }))
+  await waitFor(() => rider.messages.some(m => m.type === 'campus-state' && m.people.every(p => p.pose)))
+  rider.ws.send(JSON.stringify({ type: 'buggy-ride', driverId: 'alice' }))
+  await waitFor(() => rider.messages.some(m => m.type === 'campus-state' && m.people.find(p => p.id === 'bob')?.ride))
+  for (let i = 1; i <= 2; i++) {
+    await new Promise(resolve => setTimeout(resolve, 510))
+    driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', x: i * 3.75, y: .07 + i * .2, pitch: .3 }) }))
+    const shared = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.find(p => p.id === 'alice')?.pose?.x === i * 3.75))
+    const seat = shared.people.find(p => p.id === 'bob'), accepted = shared.people.find(p => p.id === 'alice')
+    assert.equal(seat.ride.driverId, 'alice'); assert.equal(seat.pose.pitch, .3)
+    assert.ok(Math.abs(seat.pose.x - accepted.pose.x) < 1)
+    assert.ok(seat.pose.y > accepted.pose.y)
+  }
+})
+
 test('anonymous, wrong-origin, invalid-account and duplicate-account campus joins cannot receive shared state', async t => {
   const { peer } = await campusFixture(t), a = peer('alice')
   await waitFor(() => a.messages.some(m => m.type === 'campus-welcome'))

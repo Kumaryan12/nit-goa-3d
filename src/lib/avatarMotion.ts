@@ -5,19 +5,30 @@ export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0
 
-// Exponential response integrated over the whole frame: acceleration feels the
-// same at 30/60/120 Hz, and analog input keeps its magnitude after normalization.
+// Holding movement builds speed; short taps stay precise. Integrate the ramp
+// and its capped remainder exactly so rendering frequency cannot change travel.
 export function advanceLocomotion(state: Locomotion, direction: LocalCoordinate, maxSpeed: number, delta: number, enabled = true) {
   const dt = motionDelta(delta), length = Math.hypot(direction.x, direction.z)
   const valid = enabled && Number.isFinite(length) && Number.isFinite(maxSpeed) && maxSpeed > 0
-  if (!enabled || !valid) { state.velocity = { x: 0, z: 0 }; return { direction: { x: 0, z: 0 }, speed: 0, delta: dt } }
+  if (!valid) { state.velocity = { x: 0, z: 0 }; return { direction: { x: 0, z: 0 }, speed: 0, delta: dt } }
   const amount = Math.min(1, length), speed = Math.min(5.5, maxSpeed) * amount
   const target = length ? { x: direction.x / length * speed, z: direction.z / length * speed } : { x: 0, z: 0 }
-  const rate = length > 0 ? 6 : 22, decay = Math.exp(-rate * dt)
-  const previous = state.velocity, integral = dt > 0 ? (1 - decay) / (rate * dt) : 1
-  const average = { x: target.x + (previous.x - target.x) * integral, z: target.z + (previous.z - target.z) * integral }
-  state.velocity = { x: target.x + (previous.x - target.x) * decay, z: target.z + (previous.z - target.z) * decay }
-  if (length === 0 && Math.hypot(state.velocity.x, state.velocity.z) < .02) state.velocity = { x: 0, z: 0 }
+  const previous = state.velocity
+  let average: LocalCoordinate
+  if (!length) {
+    const rate = 30, decay = Math.exp(-rate * dt), integral = dt ? (1 - decay) / (rate * dt) : 1
+    average = { x: previous.x * integral, z: previous.z * integral }
+    state.velocity = { x: previous.x * decay, z: previous.z * decay }
+    if (Math.hypot(state.velocity.x, state.velocity.z) < .02) state.velocity = { x: 0, z: 0 }
+  } else {
+    const dx = target.x - previous.x, dz = target.z - previous.z, difference = Math.hypot(dx, dz)
+    const slowing = Math.hypot(previous.x, previous.z) > speed || previous.x * target.x + previous.z * target.z < 0
+    const rate = slowing ? 10 : 1.8 * amount
+    const ramp = Math.min(dt, difference / rate), fraction = difference ? Math.min(1, rate * dt / difference) : 1
+    state.velocity = { x: previous.x + dx * fraction, z: previous.z + dz * fraction }
+    const weight = dt ? ramp / (2 * dt) : 0
+    average = { x: state.velocity.x + (previous.x - state.velocity.x) * weight, z: state.velocity.z + (previous.z - state.velocity.z) * weight }
+  }
   return { direction: average, speed: Math.hypot(average.x, average.z), delta: dt }
 }
 

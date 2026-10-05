@@ -1,7 +1,9 @@
 import type { LocalCoordinate } from './geo.ts'
 import type { RoadFootprint } from '../types/osm.ts'
 import { motionDelta } from './avatarMotion.ts'
-import { distanceToSegment } from './terrain.ts'
+import { terrainHeightAt } from './terrain.ts'
+import { bridgeSurfaceHeightAt } from './canalGeometry.ts'
+import { roadRibbon, ROAD_ELEVATION, FOOTPATH_ELEVATION } from './roadRibbon.ts'
 import { isWalkable, stepWalking, walkSurfaceHeightAt } from './walking.ts'
 import type { WalkWorld } from './walking.ts'
 
@@ -9,41 +11,83 @@ export type TransportMode = 'walk' | 'bicycle' | 'buggy'
 export type VehicleKind = Exclude<TransportMode, 'walk'>
 export interface VehicleState { speed: number; yaw: number; steering: number }
 export const VEHICLES = {
-  bicycle: { speed: 3.8, reverse: 0, acceleration: 1.8, brake: 5, radius: .3, halfLength: .7, wheelbase: 1.4, wheelRadius: .37 },
-  buggy: { speed: 5.2, reverse: 1.4, acceleration: 1.6, brake: 6, radius: .92, halfLength: .9, wheelbase: 2.1, wheelRadius: .33 },
+  bicycle: { speed: 5.4, reverse: 0, acceleration: 1.8, brake: 5, radius: .3, halfLength: .7, wheelbase: 1.4, wheelRadius: .37 },
+  buggy: { speed: 7.5, reverse: 1.4, acceleration: 2.2, brake: 10, radius: .92, halfLength: .9, wheelbase: 2.1, wheelRadius: .33 },
 } as const
 export const freshVehicle = (yaw = 0): VehicleState => ({ speed: 0, yaw, steering: 0 })
 const clamp = (n: number) => Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0
 const approach = (current: number, target: number, amount: number) => current + Math.max(-amount, Math.min(amount, target - current))
 
-interface RoadSegment { a: LocalCoordinate; b: LocalCoordinate; radius: number; kind: RoadFootprint['kind'] }
-const roadIndexes = new WeakMap<RoadFootprint[], Map<string, RoadSegment[]>>()
+interface RoadTriangle { a: LocalCoordinate; b: LocalCoordinate; c: LocalCoordinate; elevation: number }
+const roadIndexes = new WeakMap<RoadFootprint[], Map<string, RoadTriangle[]>>()
 function roadIndex(roads: RoadFootprint[]) {
   let index = roadIndexes.get(roads)
   if (index) return index
-  index = new Map<string, RoadSegment[]>()
+  index = new Map<string, RoadTriangle[]>()
   for (const road of roads) {
     if (road.tags.highway === 'steps') continue
-    for (const path of road.paths) for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1], b = path[i], radius = road.width / 2, segment = { a, b, radius, kind: road.kind }
-      for (let x = Math.floor((Math.min(a.x, b.x) - radius) / 8); x <= Math.floor((Math.max(a.x, b.x) + radius) / 8); x++)
-        for (let z = Math.floor((Math.min(a.z, b.z) - radius) / 8); z <= Math.floor((Math.max(a.z, b.z) + radius) / 8); z++) {
-          const key = `${x},${z}`; if (!index.has(key)) index.set(key, []); index.get(key)!.push(segment)
+    const { points, indices } = roadRibbon(road.paths, road.width, true)
+    for (let i = 0; i < indices.length; i += 3) {
+      const a = points[indices[i]], b = points[indices[i + 1]], c = points[indices[i + 2]]
+      const triangle = { a, b, c, elevation: road.kind === 'road' ? ROAD_ELEVATION : FOOTPATH_ELEVATION }
+      for (let x = Math.floor(Math.min(a.x, b.x, c.x) / 8); x <= Math.floor(Math.max(a.x, b.x, c.x) / 8); x++)
+        for (let z = Math.floor(Math.min(a.z, b.z, c.z) / 8); z <= Math.floor(Math.max(a.z, b.z, c.z) / 8); z++) {
+          const key = `${x},${z}`; if (!index.has(key)) index.set(key, []); index.get(key)!.push(triangle)
         }
     }
   }
   roadIndexes.set(roads, index); return index
 }
+function contains(point: LocalCoordinate, { a, b, c }: RoadTriangle) {
+  const cross = (p: LocalCoordinate, q: LocalCoordinate) => (q.x - p.x) * (point.z - p.z) - (q.z - p.z) * (point.x - p.x)
+  if (Math.abs((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x)) < 1e-8) return false
+  const sides = [cross(a, b), cross(b, c), cross(c, a)]
+  return sides.every(s => s >= -1e-7) || sides.every(s => s <= 1e-7)
+}
+export function vehicleSurfaceHeightAt(point: LocalCoordinate, world: WalkWorld, roads: RoadFootprint[]) {
+  const ground = terrainHeightAt(world.terrain, point.x, point.z)
+  let height = walkSurfaceHeightAt(world.terrain, point.x, point.z)
+  for (const triangle of roadIndex(roads).get(`${Math.floor(point.x / 8)},${Math.floor(point.z / 8)}`) ?? [])
+    if (contains(point, triangle)) height = Math.max(height, ground + triangle.elevation)
+  const canal = world.terrain.canal
+  if (canal) height = Math.max(height, bridgeSurfaceHeightAt(point, canal, world.terrain) ?? -Infinity)
+  return height
+}
+// Tyre centres match CampusVehicle's model, including its bicycle Z offset.
+const contacts = {
+  bicycle: [{ x: 0, z: -.74, radius: .37, width: .055 }, { x: 0, z: .66, radius: .37, width: .055 }],
+  buggy: [-.81, .81].flatMap(x => [-1.08, 1.08].map(z => ({ x, z, radius: .33, width: .2 }))),
+}
+export function vehicleGroundPose(point: LocalCoordinate, yaw: number, kind: VehicleKind, world: WalkWorld, roads: RoadFootprint[], steering = 0) {
+  const c = Math.cos(yaw), s = Math.sin(yaw), wheels = contacts[kind]
+  const sample = (x: number, z: number) => vehicleSurfaceHeightAt({ x: point.x + x * c + z * s, z: point.z - x * s + z * c }, world, roads)
+  const front = wheels.filter(w => w.z < 0), rear = wheels.filter(w => w.z > 0)
+  const frontY = front.reduce((y, w) => y + sample(w.x, w.z), 0) / front.length
+  const rearY = rear.reduce((y, w) => y + sample(w.x, w.z), 0) / rear.length
+  const pitch = Math.max(-.75, Math.min(.75, Math.atan2(frontY - rearY, rear[0].z - front[0].z)))
+  const cp = Math.cos(pitch), sp = Math.sin(pitch)
+  let y = -Infinity
+  // Contact the rendered surface, not just the terrain beneath it. Sampling the
+  // lower tyre arc also clears road edges and slope changes under the wheelbase.
+  for (const wheel of wheels) for (const side of [-1, 1]) for (let i = 0; i <= 16; i++) {
+    const angle = Math.PI + i * Math.PI / 16
+    const turn = kind === 'bicycle' && wheel.z < 0 ? Math.max(-.38, Math.min(.38, steering)) : 0
+    const rimZ = wheel.radius * Math.cos(angle), rimX = side * wheel.width / 2
+    const localX = wheel.x + rimX * Math.cos(turn) + rimZ * Math.sin(turn)
+    const localY = wheel.radius * (1 + Math.sin(angle)), localZ = wheel.z + rimZ * Math.cos(turn) - rimX * Math.sin(turn)
+    const z = localY * sp + localZ * cp, vertical = localY * cp - localZ * sp
+    y = Math.max(y, sample(localX, z) - vertical + .01)
+  }
+  return { y, pitch }
+}
 
-export function canRideAt(point: LocalCoordinate, yaw: number, kind: VehicleKind, world: WalkWorld, roads: RoadFootprint[]) {
+export function canRideAt(point: LocalCoordinate, yaw: number, kind: VehicleKind, world: WalkWorld, _roads: RoadFootprint[]) {
   if (!Number.isFinite(yaw)) return false
-  const spec = VEHICLES[kind], index = roadIndex(roads)
+  const spec = VEHICLES[kind]
   // Overlapping disks cover the full body, not just the avatar at its centre.
   for (let offset = -spec.halfLength; offset <= spec.halfLength + .001; offset += .1) {
     const p = { x: point.x - Math.sin(yaw) * offset, z: point.z - Math.cos(yaw) * offset }
     if (!isWalkable(p, world, spec.radius)) return false
-    const onRoad = index.get(`${Math.floor(p.x / 8)},${Math.floor(p.z / 8)}`)?.some(segment => (kind === 'bicycle' || segment.kind === 'road') && distanceToSegment(p, segment.a, segment.b) <= segment.radius - spec.radius)
-    if (!onRoad) return false
   }
   return true
 }
@@ -51,17 +95,10 @@ export function canRideAt(point: LocalCoordinate, yaw: number, kind: VehicleKind
 export function findVehicleMount(point: LocalCoordinate, yaw: number, kind: VehicleKind, world: WalkWorld, roads: RoadFootprint[]) {
   const candidates: { point: LocalCoordinate; yaw: number; distance: number }[] = []
   if (canRideAt(point, yaw, kind, world, roads)) return { point: { ...point }, yaw }
-  for (const road of roads) {
-    if (kind === 'buggy' && road.kind !== 'road') continue
-    for (const path of road.paths) for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1], b = path[i], dx = b.x - a.x, dz = b.z - a.z, squared = dx * dx + dz * dz
-      if (!squared) continue
-      const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.z - a.z) * dz) / squared))
-      const projected = { x: a.x + dx * t, z: a.z + dz * t }, distance = Math.hypot(projected.x - point.x, projected.z - point.z)
-      let heading = Math.atan2(-dx, -dz)
-      if (Math.cos(heading - yaw) < 0) heading += Math.PI
-      if (distance <= 5) candidates.push({ point: projected, yaw: heading, distance })
-    }
+  // Try nearby open ground, with a walkable approach; never snap to a road.
+  for (let distance = .25; distance <= 3; distance += .25) for (let i = 0; i < 16; i++) {
+    const angle = i * Math.PI / 8
+    candidates.push({ point: { x: point.x + Math.cos(angle) * distance, z: point.z + Math.sin(angle) * distance }, yaw, distance })
   }
   candidates.sort((a, b) => a.distance - b.distance)
   return candidates.find(candidate => {
@@ -84,7 +121,7 @@ export function advanceVehicle(state: VehicleState, point: LocalCoordinate, kind
   for (let i = 0; i < steps; i++) {
     const previous = state.speed
     state.speed = approach(state.speed, braking || opposing ? 0 : target, rate * sub)
-    state.steering = approach(state.steering, clamp(steering) * .48, sub * 2.4)
+    state.steering = approach(state.steering, clamp(steering) * .48 / (1 + (Math.abs(state.speed) / 5) ** 2), sub * 2.4)
     const speed = (previous + state.speed) / 2
     const heading = state.yaw - speed / spec.wheelbase * Math.tan(state.steering) * sub
     const next = { x: current.x - Math.sin(heading) * speed * sub, z: current.z - Math.cos(heading) * speed * sub }

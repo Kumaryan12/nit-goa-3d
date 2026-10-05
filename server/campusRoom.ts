@@ -78,7 +78,8 @@ export function createCampusRoom(boundary: LocalCoordinate[]) {
       if (relocated && now - member.spawnAt < 1000) return false
       if (previous && !relocated) {
         const elapsed = Math.min(.5, Math.max(0, (now - member.poseAt) / 1000))
-        if (Math.hypot(pose.x - previous.x, pose.z - previous.z) > 5.8 * elapsed + .4 || Math.abs(pose.y - previous.y) > 6 * elapsed + .5) return false
+        const maximumSpeed = pose.vehicle === 'buggy' && pose.space === 'outdoors' && activity === 'walk' ? 8.1 : 5.8
+        if (Math.hypot(pose.x - previous.x, pose.z - previous.z) > maximumSpeed * elapsed + .4 || Math.abs(pose.y - previous.y) > 6 * elapsed + .5) return false
       }
       if (previous?.vehicle === 'buggy' && (relocated || pose.vehicle !== 'buggy' || pose.space !== 'outdoors' || !pose.visible || activity !== 'walk')) releasePassengers(id, now)
       if (relocated) member.spawnAt = now

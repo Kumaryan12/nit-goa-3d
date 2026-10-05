@@ -26,7 +26,7 @@ function Visitor({ person, session, messages, space, walking }: { person: Campus
     group.rotation.x += ((pose.pitch ?? 0) - group.rotation.x) * blend
     group.rotation.y += Math.atan2(Math.sin(pose.yaw - group.rotation.y), Math.cos(pose.yaw - group.rotation.y)) * blend
     const distance = snap ? 0 : Math.hypot(group.position.x - beforeX, group.position.z - beforeZ)
-    motion.current.moving = pose.active && distance > .001; motion.current.running = pose.running; motion.current.speed = motion.current.moving && dt ? Math.min(5.5, distance / dt) : 0
+    motion.current.moving = pose.active && distance > .001; motion.current.running = pose.running; motion.current.speed = motion.current.moving && dt ? Math.min(pose.vehicle === 'buggy' || person.ride ? 8.1 : 5.5, distance / dt) : 0
     const forwardTravel = -(group.position.x - beforeX) * Math.sin(pose.yaw) - (group.position.z - beforeZ) * Math.cos(pose.yaw)
     motion.current.driveSpeed = (motion.current.speed ?? 0) * (forwardTravel < 0 ? -1 : 1)
     motion.current.vehicle = person.ride ? 'buggy' : pose.vehicle ?? 'walk'

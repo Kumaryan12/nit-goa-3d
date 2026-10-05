@@ -22,8 +22,8 @@ test('vehicles accelerate gently, stay within presence speed limits, and agree a
   const slow=drive(kind,30,5),fast=drive(kind,120,5)
   assert.ok(Math.abs(slow.p.z-fast.p.z)<.04)
   assert.equal(slow.state.speed,VEHICLES[kind].speed)
-  assert.ok(VEHICLES[kind].speed<5.8)
-  assert.ok(drive(kind,60,.5).state.speed<1)
+  assert.ok(VEHICLES[kind].speed<(kind==='buggy'?8.1:5.8))
+  assert.ok(drive(kind,60,.5).state.speed<1.2)
  }
 })
 test('braking, reverse, coasting, blur/pause and frame stalls remain controlled',()=>{
@@ -36,13 +36,17 @@ test('braking, reverse, coasting, blur/pause and frame stalls remain controlled'
  const a=freshVehicle(),b=freshVehicle();assert.deepEqual(advanceVehicle(a,p,'buggy',1,0,false,10,world,roads),advanceVehicle(b,p,'buggy',1,0,false,.1,world,roads))
  state.speed=2;for(let i=0;i<60;i++)advanceVehicle(state,p,'buggy',0,0,false,1/60,world,roads);assert.equal(state.speed,0)
 })
-test('buggies stay on roads, bicycles fit footpaths, and steps never become vehicle routes',()=>{
- const path=[{...roads[0],kind:'footpath',width:1.8}]
- assert.ok(canRideAt({x:0,z:0},0,'bicycle',world,path));assert.equal(canRideAt({x:0,z:0},0,'buggy',world,path),false)
- assert.equal(canRideAt({x:0,z:0},0,'bicycle',world,[{...path[0],tags:{highway:'steps'}}]),false)
- assert.equal(canRideAt({x:4,z:0},0,'buggy',world,roads),false)
- const state=freshVehicle();state.speed=5.2;let p={x:2,z:0};for(let i=0;i<100;i++)p=advanceVehicle(state,p,'buggy',1,1,false,1/60,world,roads).point
- assert.ok(p.x>2,'right input steers right');assert.ok(canRideAt(p,state.yaw,'buggy',world,roads));assert.equal(state.speed,0)
+test('both vehicles mount and travel across open ground without mapped roads',()=>{
+ for(const kind of ['bicycle','buggy']){
+  const start={x:20,z:40},mount=findVehicleMount(start,0,kind,world,[])
+  assert.deepEqual(mount,{point:start,yaw:0});assert.ok(canRideAt(start,Math.PI/2,kind,world,[]))
+  const state=freshVehicle();let p=start
+  for(let i=0;i<300;i++)p=advanceVehicle(state,p,kind,1,0,false,1/60,world,[]).point
+  assert.ok(p.z<30);assert.equal(state.speed,VEHICLES[kind].speed);assert.ok(canRideAt(p,state.yaw,kind,world,[]))
+ }
+ const state=freshVehicle();state.speed=5.2;let p={x:2,z:0}
+ for(let i=0;i<100;i++)p=advanceVehicle(state,p,'buggy',1,1,false,1/60,world,roads).point
+ assert.ok(p.x>4,'right input can steer clear of the road');assert.ok(canRideAt(p,state.yaw,'buggy',world,[]));assert.ok(state.speed>0)
 })
 test('the full vehicle blocks thin walls, tree trunks, streetlights and unsafe turns',()=>{
  const building={id:'wall',outer:ring(-20,-.02,20,.02).map(localToGps),holes:[],height:10}
@@ -52,14 +56,15 @@ test('the full vehicle blocks thin walls, tree trunks, streetlights and unsafe t
   for(let i=0;i<180;i++)p=advanceVehicle(state,p,'buggy',1,0,false,1/60,w,roads).point
   assert.ok(p.z>1.75);assert.ok(canRideAt(p,state.yaw,'buggy',w,roads));assert.equal(state.speed,0)
  }
- assert.equal(canRideAt({x:3,z:0},Math.PI/2,'buggy',world,roads),false,'nose cannot rotate off the road')
+ assert.equal(canRideAt({x:98.5,z:0},Math.PI/2,'buggy',world,roads),false,'nose cannot rotate outside the campus')
 })
 test('mounting and dismounting find safe nearby positions without crossing solids',()=>{
  const mount=findVehicleMount({x:4.5,z:0},0,'buggy',world,roads);assert.ok(mount);assert.ok(canRideAt(mount.point,mount.yaw,'buggy',world,roads))
- assert.equal(findVehicleMount({x:20,z:0},0,'buggy',world,roads),null)
+ assert.ok(findVehicleMount({x:20,z:0},0,'buggy',world,roads))
+ assert.equal(findVehicleMount({x:105,z:0},0,'buggy',world,[]),null)
  const wall={id:'wall',outer:ring(2,-20,2.1,20).map(localToGps),holes:[],height:10}
  const w=createWalkWorld([wall],boundary,flat)
- assert.equal(findVehicleMount({x:4.5,z:0},0,'buggy',w,roads),null)
+ const beside=findVehicleMount({x:2.6,z:0},0,'buggy',w,[]);assert.ok(beside);assert.ok(beside.point.x>3,'mount stays on the reachable side of the wall')
  const dismount=findVehicleDismount({x:0,z:0},0,'buggy',w);assert.ok(isWalkable(dismount,w));assert.ok(dismount.x<2)
 })
 test('shared presence validates vehicle modes, excludes interiors, and keeps speed enforcement',()=>{
@@ -73,6 +78,33 @@ test('shared presence validates vehicle modes, excludes interiors, and keeps spe
  assert.ok(room.pose('alice',pose({vehicle:'buggy',z:-.52}),'walk',1100))
  assert.equal(room.snapshot(1100).people[0].pose.vehicle,'buggy')
  assert.equal(room.pose('alice',pose({vehicle:'buggy',z:-10}),'walk',1200),false)
+})
+test('full-speed riding shares every step without granting walking or unknown modes the buggy allowance',()=>{
+ for(const kind of ['bicycle','buggy']) {
+  const room=createCampusRoom(boundary);room.add({id:'driver',name:'Driver',role:'member',expiresAt:Date.now()+60000})
+  const state=freshVehicle();let p={x:20,z:40};assert.ok(room.pose('driver',pose({...p,vehicle:kind}),'walk',1000))
+  for(let i=0;i<60;i++) {
+   p=advanceVehicle(state,p,kind,1,0,false,.1,world,[]).point
+   assert.ok(room.pose('driver',pose({...p,vehicle:kind}),'walk',1100+i*100))
+  }
+  assert.equal(state.speed,VEHICLES[kind].speed)
+ }
+ for(const [vehicle,space,activity,accepted] of [['buggy','outdoors','walk',true],['walk','outdoors','walk',false],['bicycle','outdoors','walk',false],['plane','outdoors','walk',false],['buggy','gyan:0','walk',false],['buggy','outdoors','football',false]]) {
+  const room=createCampusRoom(boundary);room.add({id:'alice',name:'Alice',role:'member',expiresAt:Date.now()+60000});room.pose('alice',pose(),'walk',1000)
+  assert.equal(room.pose('alice',pose({vehicle,space,x:3.75}),activity,1500),accepted,vehicle+'/'+space+'/'+activity)
+ }
+})
+test('off-road freedom still blocks the canal, bridge parapets and unsafe grades',()=>{
+ const model={...flat,canal:{center:{x:0,z:0},along:{x:1,z:0},across:{x:0,z:1},length:80,width:3,bankWidth:1,depth:1.2,bridge:{width:12,length:7,roadIds:[]}}}
+ const w=createWalkWorld([],boundary,model)
+ for(const kind of ['bicycle','buggy']) {
+  assert.ok(canRideAt({x:0,z:0},0,kind,w,[]),'bridge stays usable')
+  assert.equal(canRideAt({x:20,z:0},0,kind,w,[]),false,'water is blocked')
+  assert.equal(canRideAt({x:5.8,z:0},0,kind,w,[]),false,'parapet is blocked')
+  const steep={...flat,heights:Float32Array.from(flat.heights,(_,i)=>Math.floor(i/41)*20)}
+  const state=freshVehicle();state.speed=2;const start={x:20,z:40}
+  assert.ok(advanceVehicle(state,start,kind,1,0,false,.1,createWalkWorld([],boundary,steep),[]).blocked)
+ }
 })
 test('real campus has legal bicycle and buggy routes and safe movement',()=>{
  const elements=JSON.parse(readFileSync(new URL('./fixtures/nit-goa-campus.json',import.meta.url))).elements

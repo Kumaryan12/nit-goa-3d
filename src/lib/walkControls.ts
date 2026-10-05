@@ -1,8 +1,8 @@
 import { motionDelta } from './avatarMotion.ts'
 
 export const WALK_CONTROLS = {
-  walkSpeed: 1.45,
-  runSpeed: 3.2,
+  walkSpeed: 2.3,
+  runSpeed: 4.2,
   indoorWalkSpeed: 1.15,
   indoorRunSpeed: 1.9,
   turnSpeed: 1,

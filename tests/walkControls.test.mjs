@@ -6,7 +6,7 @@ import { cameraWheelStep, smoothLookAngle, walkSpeed } from '../src/lib/walkCont
 test('campus and indoor pacing stay controlled across frame rates, with running opt-in', () => {
   for (const indoors of [false, true]) {
     const walk = walkSpeed(false, indoors), run = walkSpeed(true, indoors)
-    assert.ok(walk <= 1.5 && run <= 3.2 && run > walk)
+    assert.ok(walk <= (indoors ? 1.15 : 2.3) && run <= (indoors ? 1.9 : 4.2) && run > walk)
     const distances = [30, 60, 144].map(fps => {
       const state = freshLocomotion(); let distance = 0
       for (let i = 0; i < fps * 2; i++) {

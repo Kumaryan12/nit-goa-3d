@@ -10,7 +10,7 @@ import { footballToLocal, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch } from '../lib/football'
 import StudentAvatar from './StudentAvatar'
 import CampusVehicle from './CampusVehicle'
-import { advanceVehicle, findVehicleMount, findVehicleDismount, freshVehicle } from '../lib/vehicles'
+import { advanceVehicle, findVehicleMount, findVehicleDismount, freshVehicle, vehicleGroundPose } from '../lib/vehicles'
 import type { TransportMode } from '../lib/vehicles'
 import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, stridePhase } from '../lib/avatarMotion'
 import { advanceJump, freshJump } from '../lib/avatarJump'
@@ -228,7 +228,7 @@ export default function AvatarExplorer({ campusSession, onBuggyRide, campusPose,
         } else if (requested !== 'walk' && !activityBlocked && !interiorPose.current && !footballPitch && jump.current.grounded) {
           const mount = findVehicleMount(position.current, avatar.current.rotation.y, requested, world, twin.roads)
           if (mount) { position.current = mount.point; ride.current = requested; setRideMode(requested); vehicle.current = freshVehicle(mount.yaw); avatar.current.rotation.y = mount.yaw; yaw.current = mount.yaw; lookTarget.current.yaw = mount.yaw; jump.current = freshJump(); locomotion.current = freshLocomotion(); campusEpoch.current++ }
-          else rideMessage.current = requested === 'buggy' ? 'Move closer to a wider campus road to take the buggy.' : 'Move closer to an open road or path to take the bicycle.'
+          else rideMessage.current = 'Move to open ground with enough space for the vehicle.'
         } else rideMessage.current = 'Vehicles are available outdoors, outside football, while standing on the ground.'
         if (ride.current === requested && !rideMessage.current) { gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }) }
         publish()
@@ -252,15 +252,13 @@ export default function AvatarExplorer({ campusSession, onBuggyRide, campusPose,
     } else if (ride.current !== 'walk') {
       const result = advanceVehicle(vehicle.current, before, ride.current, forward, side - turn, !!input.current.brake || !!key('Space'), delta, world, twin.roads, allowed)
       next = result.point; vehicleBlocked = result.blocked
-      surfaceY = walkSurfaceHeightAt(twin.terrain, next.x, next.z)
+      const ground = vehicleGroundPose(next, vehicle.current.yaw, ride.current, world, twin.roads, -vehicle.current.steering)
+      surfaceY = ground.y
       avatar.current.rotation.order = 'YXZ'
       avatar.current.rotation.y = vehicle.current.yaw
       const difference = Math.atan2(Math.sin(vehicle.current.yaw - yaw.current), Math.cos(vehicle.current.yaw - yaw.current))
       yaw.current += difference * (1 - Math.exp(-delta * 3)); lookTarget.current.yaw = yaw.current
-      // Follow the slope without pitching the rider through the road surface.
-      const frontY = walkSurfaceHeightAt(twin.terrain, next.x - Math.sin(vehicle.current.yaw), next.z - Math.cos(vehicle.current.yaw))
-      const rearY = walkSurfaceHeightAt(twin.terrain, next.x + Math.sin(vehicle.current.yaw), next.z + Math.cos(vehicle.current.yaw))
-      avatar.current.rotation.x = Math.atan2(rearY - frontY, 2)
+      avatar.current.rotation.x = ground.pitch
     } else if (pose && plan) {
       avatar.current.rotation.x = 0
       surfaceY = plan.base + pose.floor * plan.floorHeight + .14
@@ -281,14 +279,14 @@ export default function AvatarExplorer({ campusSession, onBuggyRide, campusPose,
       surfaceY = walkSurfaceHeightAt(twin.terrain, next.x, next.z)
     }
     if (footballPitch && !pose) { const local = footballToLocal(next, footballPitch); next = footballToWorld({ x:Math.max(-44,Math.min(44,local.x)), z:Math.max(-24,Math.min(24,local.z)) }, footballPitch); surfaceY = footballPitch.elevation + .11 }
-    if (!journey.current && !passengerPose) advanceJump(jump.current, surfaceY, delta, requestedJump && ride.current === 'walk', allowed, pose && plan ? interiorJumpCeiling(plan, next, pose.floor) : treeCeilingAt(next, world))
-    const feetY = passengerPose ? surfaceY : journey.current ? surfaceY : jump.current.y ?? surfaceY
+    if (!journey.current && !passengerPose && ride.current === 'walk') advanceJump(jump.current, surfaceY, delta, requestedJump, allowed, pose && plan ? interiorJumpCeiling(plan, next, pose.floor) : treeCeilingAt(next, world))
+    const feetY = passengerPose || journey.current || ride.current !== 'walk' ? surfaceY : jump.current.y ?? surfaceY
     reconcileLocomotion(locomotion.current, before, next, travel)
     const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = !passengerPose && (vehicleBlocked || Math.hypot(direction.x, direction.z) > 0 && moved < .001 && !journey.current)
     footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running, active:allowed && footballLive && !pose } : null
     position.current = next
     motion.current.moving = moved > .001
-    motion.current.speed = delta > 0 ? Math.min(5.5, moved / delta) : 0
+    motion.current.speed = delta > 0 ? Math.min(ride.current === 'walk' && !passengerPose ? 5.5 : 8.1, moved / delta) : 0
     motion.current.driveSpeed = vehicle.current.speed
     motion.current.vehicle = passengerPose ? 'buggy' : ride.current
     motion.current.running = !passengerPose && ride.current === 'walk' && running
