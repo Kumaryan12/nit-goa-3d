@@ -216,8 +216,8 @@ test('full-speed buggy movement and grounded slope pitch reach the driver and pa
   await waitFor(() => rider.messages.some(m => m.type === 'campus-state' && m.people.find(p => p.id === 'bob')?.ride))
   for (let i = 1; i <= 2; i++) {
     await new Promise(resolve => setTimeout(resolve, 510))
-    driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', x: i * 3.75, y: .07 + i * .2, pitch: .3 }) }))
-    const shared = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.find(p => p.id === 'alice')?.pose?.x === i * 3.75))
+    driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', x: i * 4.5, y: .07 + i * .2, pitch: .3 }) }))
+    const shared = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.find(p => p.id === 'alice')?.pose?.x === i * 4.5))
     const seat = shared.people.find(p => p.id === 'bob'), accepted = shared.people.find(p => p.id === 'alice')
     assert.equal(seat.ride.driverId, 'alice'); assert.equal(seat.pose.pitch, .3)
     assert.ok(Math.abs(seat.pose.x - accepted.pose.x) < 1)

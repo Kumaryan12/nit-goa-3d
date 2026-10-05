@@ -16,6 +16,7 @@ import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, s
 import { advanceJump, freshJump } from '../lib/avatarJump'
 import type { AvatarMotion } from '../lib/avatarMotion'
 import { cameraWheelStep, smoothLookAngle, walkSpeed, WALK_CONTROLS } from '../lib/walkControls'
+import { PRESENCE_SPEED_LIMITS } from '../lib/movementLimits'
 import type { CampusPose, CampusSession } from '../lib/campusProtocol'
 import { canUseStairs, interiorFloorPlan, interiorLocationId, interiorRoomLabel, interiorSpace, interiorCameraFraction, interiorJumpCeiling, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
@@ -286,7 +287,7 @@ export default function AvatarExplorer({ campusSession, onBuggyRide, campusPose,
     footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running, active:allowed && footballLive && !pose } : null
     position.current = next
     motion.current.moving = moved > .001
-    motion.current.speed = delta > 0 ? Math.min(ride.current === 'walk' && !passengerPose ? 5.5 : 8.1, moved / delta) : 0
+    motion.current.speed = delta > 0 ? Math.min(PRESENCE_SPEED_LIMITS[passengerPose ? 'buggy' : ride.current], moved / delta) : 0
     motion.current.driveSpeed = vehicle.current.speed
     motion.current.vehicle = passengerPose ? 'buggy' : ride.current
     motion.current.running = !passengerPose && ride.current === 'walk' && running

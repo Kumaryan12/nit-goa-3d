@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { localToGps } from '../src/lib/geo.ts'
 import { createWalkWorld, isWalkable } from '../src/lib/walking.ts'
 import { advanceVehicle, canRideAt, findVehicleMount, findVehicleDismount, freshVehicle, VEHICLES } from '../src/lib/vehicles.ts'
+import { PRESENCE_SPEED_LIMITS } from '../src/lib/movementLimits.ts'
 import { parseCampusPose } from '../src/lib/campusProtocol.ts'
 import { createCampusRoom } from '../server/campusRoom.ts'
 import { extractBuildingFootprints } from '../src/lib/buildings.ts'
@@ -19,10 +20,10 @@ const drive=(kind,hz,seconds,throttle=1)=>{const state=freshVehicle();let p={x:0
 
 test('vehicles accelerate gently, stay within presence speed limits, and agree across frame rates',()=>{
  for(const kind of ['bicycle','buggy']){
-  const slow=drive(kind,30,5),fast=drive(kind,120,5)
+  const slow=drive(kind,30,6),fast=drive(kind,120,6)
   assert.ok(Math.abs(slow.p.z-fast.p.z)<.04)
   assert.equal(slow.state.speed,VEHICLES[kind].speed)
-  assert.ok(VEHICLES[kind].speed<(kind==='buggy'?8.1:5.8))
+  assert.ok(VEHICLES[kind].speed<PRESENCE_SPEED_LIMITS[kind])
   assert.ok(drive(kind,60,.5).state.speed<1.2)
  }
 })
@@ -36,12 +37,29 @@ test('braking, reverse, coasting, blur/pause and frame stalls remain controlled'
  const a=freshVehicle(),b=freshVehicle();assert.deepEqual(advanceVehicle(a,p,'buggy',1,0,false,10,world,roads),advanceVehicle(b,p,'buggy',1,0,false,.1,world,roads))
  state.speed=2;for(let i=0;i<60;i++)advanceVehicle(state,p,'buggy',0,0,false,1/60,world,roads);assert.equal(state.speed,0)
 })
+test('held throttle gains speed over five seconds, caps sustained travel and brakes from maximum speed',()=>{
+ for(const kind of ['bicycle','buggy'])for(const fps of [30,120]){
+  const state=freshVehicle();let p={x:20,z:60}, previous=0, atTwo=0, atFour=0
+  for(let i=0;i<fps*8;i++){
+   p=advanceVehicle(state,p,kind,1,0,false,1/fps,world,[]).point
+   assert.ok(state.speed>=previous-1e-8&&state.speed<=VEHICLES[kind].speed)
+   if(i===fps*2-1)atTwo=state.speed
+   if(i===fps*4-1)atFour=state.speed
+   previous=state.speed
+  }
+  assert.ok(atTwo<atFour&&atFour<VEHICLES[kind].speed)
+  assert.equal(state.speed,VEHICLES[kind].speed)
+  const before=p
+  for(let i=0;i<fps*2;i++)p=advanceVehicle(state,p,kind,0,0,true,1/fps,world,[]).point
+  assert.equal(state.speed,0);assert.ok(before.z-p.z<3.6,'maximum-speed braking remains controlled')
+ }
+})
 test('both vehicles mount and travel across open ground without mapped roads',()=>{
  for(const kind of ['bicycle','buggy']){
   const start={x:20,z:40},mount=findVehicleMount(start,0,kind,world,[])
   assert.deepEqual(mount,{point:start,yaw:0});assert.ok(canRideAt(start,Math.PI/2,kind,world,[]))
   const state=freshVehicle();let p=start
-  for(let i=0;i<300;i++)p=advanceVehicle(state,p,kind,1,0,false,1/60,world,[]).point
+  for(let i=0;i<360;i++)p=advanceVehicle(state,p,kind,1,0,false,1/60,world,[]).point
   assert.ok(p.z<30);assert.equal(state.speed,VEHICLES[kind].speed);assert.ok(canRideAt(p,state.yaw,kind,world,[]))
  }
  const state=freshVehicle();state.speed=5.2;let p={x:2,z:0}
@@ -79,7 +97,7 @@ test('shared presence validates vehicle modes, excludes interiors, and keeps spe
  assert.equal(room.snapshot(1100).people[0].pose.vehicle,'buggy')
  assert.equal(room.pose('alice',pose({vehicle:'buggy',z:-10}),'walk',1200),false)
 })
-test('full-speed riding shares every step without granting walking or unknown modes the buggy allowance',()=>{
+test('full-speed riding shares every step without granting walking or unknown modes vehicle allowances',()=>{
  for(const kind of ['bicycle','buggy']) {
   const room=createCampusRoom(boundary);room.add({id:'driver',name:'Driver',role:'member',expiresAt:Date.now()+60000})
   const state=freshVehicle();let p={x:20,z:40};assert.ok(room.pose('driver',pose({...p,vehicle:kind}),'walk',1000))
@@ -91,7 +109,7 @@ test('full-speed riding shares every step without granting walking or unknown mo
  }
  for(const [vehicle,space,activity,accepted] of [['buggy','outdoors','walk',true],['walk','outdoors','walk',false],['bicycle','outdoors','walk',false],['plane','outdoors','walk',false],['buggy','gyan:0','walk',false],['buggy','outdoors','football',false]]) {
   const room=createCampusRoom(boundary);room.add({id:'alice',name:'Alice',role:'member',expiresAt:Date.now()+60000});room.pose('alice',pose(),'walk',1000)
-  assert.equal(room.pose('alice',pose({vehicle,space,x:3.75}),activity,1500),accepted,vehicle+'/'+space+'/'+activity)
+  assert.equal(room.pose('alice',pose({vehicle,space,x:4.5}),activity,1500),accepted,vehicle+'/'+space+'/'+activity)
  }
 })
 test('off-road freedom still blocks the canal, bridge parapets and unsafe grades',()=>{

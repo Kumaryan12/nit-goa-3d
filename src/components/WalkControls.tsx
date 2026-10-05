@@ -4,6 +4,7 @@ import { boysHostelDetails } from '../data/buildingDetails'
 import type { HostelAction } from '../lib/hostelInterior'
 import { emptyWalkInput } from '../lib/walking'
 import { joystickInput } from '../lib/avatarMotion'
+import { MOVEMENT_SPEEDS } from '../lib/movementLimits'
 import type { WalkInput, WalkStatus } from '../lib/walking'
 import type { CampusLocation } from '../types/campus'
 
@@ -56,7 +57,7 @@ export default function WalkControls({ campusLive, input, status, paused, ready,
     <p className="walk-location" role="status">{status?.error ? status.error : !ready ? 'Waiting for campus geometry…' : paused ? 'Walk paused' : inside ? `${inside.kind==='classroom'?(inside.floor===0?'Ground floor':`Floor ${inside.floor}`):boysHostelDetails.floors[inside.floor]?.label ?? 'Hostel'} · ${inside.stairLowFloor !== null ? 'Using stairs…' : inside.room ?? 'Corridor'}` : nearest ? `Near ${nearest.name} · ${status!.distance.toFixed(1)} m` : 'Explore the paths and open spaces'}{status?.blocked && !paused && ' · Path blocked'}</p>
     <div className="walk-transport" role="group" aria-label="Choose how to explore">
       {(['walk', 'bicycle', 'buggy'] as const).map(mode => <button key={mode} className="fly-button" aria-pressed={(status?.vehicle ?? 'walk') === mode} disabled={paused || !ready || !!status?.error || !!passenger || mode !== 'walk' && !status?.canRide} onClick={() => { pointers.current.clear(); clearStick(); input.current = { ...emptyWalkInput(), vehicle: mode } }}>{mode === 'walk' ? 'On foot' : mode === 'bicycle' ? 'Bicycle' : 'Buggy'}</button>)}
-      {riding && <span className="walk-speed">{Math.round((status?.speed ?? 0) * 3.6)} km/h</span>}
+      {riding && <span className="walk-speed">{Math.round((status?.speed ?? 0) * 3.6)} / {Math.round((status?.vehicle === 'bicycle' && !passenger ? MOVEMENT_SPEEDS.bicycle : MOVEMENT_SPEEDS.buggy) * 3.6)} km/h</span>}
     </div>
     {(passenger || status?.vehicle === 'buggy') && <p className="walk-note" role="status">{occupants}/4 seats occupied{passenger ? ` · Passenger seat ${passenger.seat}` : ' · You are driving'}</p>}
     {passenger && <button className="navigate-button" disabled={paused || !!driver?.pose?.moving} onClick={() => campusLive.rideBuggy(null)}>{driver?.pose?.moving ? 'Get out when stopped' : 'Get out of buggy · F'}</button>}

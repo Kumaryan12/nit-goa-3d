@@ -24,7 +24,7 @@ export function advanceLocomotion(state: Locomotion, direction: LocalCoordinate,
     const dx = target.x - previous.x, dz = target.z - previous.z, difference = Math.hypot(dx, dz)
     const currentSpeed = Math.hypot(previous.x, previous.z), dot = previous.x * target.x + previous.z * target.z
     const slowing = currentSpeed > speed, turning = currentSpeed > .02 && dot < currentSpeed * speed * .995
-    const rate = slowing || turning ? 10 : 1.8 * amount
+    const rate = slowing || turning ? 10 : 1.2 * amount
     const ramp = Math.min(dt, difference / rate), fraction = difference ? Math.min(1, rate * dt / difference) : 1
     state.velocity = { x: previous.x + dx * fraction, z: previous.z + dz * fraction }
     const weight = dt ? ramp / (2 * dt) : 0

@@ -7,6 +7,7 @@ import { PROFILE_COLORS } from '../src/lib/profile.ts'
 import { CAMPUS_CAPACITY, campusName, campusHandle, chatText, canHearNearby, parseCampusPose, buggySeatPose, campusId } from '../src/lib/campusProtocol.ts'
 import type { CampusPerson, CampusSnapshot, CampusChat, CampusActivity, BuggyRide } from '../src/lib/campusProtocol.ts'
 import type { CampusIdentity } from './access.ts'
+import { presenceSpeedLimit } from '../src/lib/movementLimits.ts'
 
 export function publishedCampusBoundary(): LocalCoordinate[] {
   const source = ['dist/map/nit-goa-campus.json', 'public/map/nit-goa-campus.json'].map(p => resolve(p)).find(existsSync)
@@ -78,7 +79,7 @@ export function createCampusRoom(boundary: LocalCoordinate[]) {
       if (relocated && now - member.spawnAt < 1000) return false
       if (previous && !relocated) {
         const elapsed = Math.min(.5, Math.max(0, (now - member.poseAt) / 1000))
-        const maximumSpeed = pose.vehicle === 'buggy' && pose.space === 'outdoors' && activity === 'walk' ? 8.1 : 5.8
+        const maximumSpeed = presenceSpeedLimit(pose, activity)
         if (Math.hypot(pose.x - previous.x, pose.z - previous.z) > maximumSpeed * elapsed + .4 || Math.abs(pose.y - previous.y) > 6 * elapsed + .5) return false
       }
       if (previous?.vehicle === 'buggy' && (relocated || pose.vehicle !== 'buggy' || pose.space !== 'outdoors' || !pose.visible || activity !== 'walk')) releasePassengers(id, now)

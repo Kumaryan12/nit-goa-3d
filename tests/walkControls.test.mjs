@@ -6,7 +6,7 @@ import { cameraWheelStep, smoothLookAngle, walkSpeed } from '../src/lib/walkCont
 test('campus and indoor pacing stay controlled across frame rates, with running opt-in', () => {
   for (const indoors of [false, true]) {
     const walk = walkSpeed(false, indoors), run = walkSpeed(true, indoors)
-    assert.ok(walk <= (indoors ? 1.15 : 2.3) && run <= (indoors ? 1.9 : 4.2) && run > walk)
+    assert.ok(walk <= (indoors ? 1.15 : 2.5) && run <= (indoors ? 1.9 : 5) && run > walk)
     const distances = [30, 60, 144].map(fps => {
       const state = freshLocomotion(); let distance = 0
       for (let i = 0; i < fps * 2; i++) {
@@ -39,6 +39,23 @@ test('short walking taps allow fine positioning and key release brakes within te
     releasedDistance += frame.speed * frame.delta
   }
   assert.ok(releasedDistance < .1, 'full walking speed also stops precisely')
+})
+
+test('walking and running continue gaining speed until their caps, then stay capped', () => {
+  for (const running of [false, true]) for (const fps of [30, 60, 144]) {
+    const state = freshLocomotion(), cap = walkSpeed(running, false)
+    let previous = 0, atOneSecond = 0, atTwoSeconds = 0
+    for (let i = 0; i < fps * 8; i++) {
+      advanceLocomotion(state, { x: 0, z: -1 }, cap, 1 / fps)
+      const speed = Math.hypot(state.velocity.x, state.velocity.z)
+      assert.ok(speed >= previous - 1e-8 && speed <= cap + 1e-8)
+      if (i === fps - 1) atOneSecond = speed
+      if (i === fps * 2 - 1) atTwoSeconds = speed
+      previous = speed
+    }
+    assert.ok(atOneSecond < atTwoSeconds && atTwoSeconds < cap)
+    assert.ok(Math.abs(previous - cap) < 1e-8)
+  }
 })
 
 test('large camera drags settle without a snap, overshoot or frame-rate-dependent rotation', () => {

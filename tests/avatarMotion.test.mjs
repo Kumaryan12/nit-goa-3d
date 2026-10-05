@@ -10,7 +10,7 @@ test('acceleration and travel are independent of rendering at 30, 60 or 144 Hz',
     for (let i = 0; i < fps * 2; i++) { const frame = advanceLocomotion(state, { x: 0, z: -1 }, 5.5, 1 / fps); distance += frame.speed * frame.delta }
     return { distance, speed: Math.hypot(state.velocity.x, state.velocity.z) }
   })
-  for (const result of results) { assert.ok(Math.abs(result.distance - results[0].distance) < 1e-8); assert.ok(result.speed <= 5.5); assert.ok(result.distance > 3 && result.distance < 4) }
+  for (const result of results) { assert.ok(Math.abs(result.distance - results[0].distance) < 1e-8); assert.ok(result.speed <= 5.5); assert.ok(result.distance > 2 && result.distance < 3) }
 })
 
 test('analog magnitude is preserved while diagonals and repeated inputs cannot exceed running speed', () => {
@@ -29,7 +29,7 @@ test('held walking builds speed gradually, reaches its cap and brakes when runni
     advanceLocomotion(state, { x: 0, z: -1 }, 4.2, .1)
     speeds.push(Math.hypot(state.velocity.x, state.velocity.z))
   }
-  assert.ok(speeds[1] < .5 && speeds[9] < 2 && speeds[19] > 3)
+  assert.ok(speeds[1] < .5 && speeds[9] < 2 && speeds[19] > 2 && speeds[19] < 3)
   assert.ok(speeds.every((speed, i) => speed <= 4.2 && (!i || speed >= speeds[i - 1])))
   assert.ok(Math.abs(speeds.at(-1) - 4.2) < 1e-8)
   for (let i = 0; i < 4; i++) advanceLocomotion(state, { x: 0, z: -1 }, 2.3, .1)
