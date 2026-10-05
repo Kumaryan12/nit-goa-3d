@@ -85,6 +85,8 @@ The recorded response contains **20 service-road ways, 193 centerline segments a
 
 Terrain is deterministic procedural elevation, approximately 0–2.1 m in open areas, with flat clearance around built features. Boundary panels follow the OSM polygon. Three instanced meshes render 640 seeded trees with road/building/POI clearance; tree placement waits for both map requests to settle. Terrain, field/gate geometry and landscaping are illustrative, not surveyed elevations or structures.
 
+Two satellite/aerial-informed lawns flank the Seminar Complex to the north and south. Their GPS polygons paint green turf onto the existing terrain, retain road/building/plaza and utility-pad clearance, and exclude generated large trees so the lawns remain open for exploring and riding. Heights and slopes remain unchanged. References, approximate outlines and validation are recorded in [seminar-lawns.md](docs/seminar-lawns.md).
+
 The seven main locations are Academic Block, Administration Block, Boys Hostel, Girls Hostel, Canteen, Sports Ground and Main Entrance. Named OSM buildings take precedence over proximity matches within 40 m, with one-to-one deterministic assignment. Talpona/Terekhol hostel identities have OSM name support. Academic, administration and canteen proximity assignments are provisional. Sports-field/entrance anchors and door connections are approximate. Unmatched buildings retain their OSM IDs, names and click behavior. These distinctions remain visible in the UI.
 
 ## Search, navigation and URLs

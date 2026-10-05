@@ -19,6 +19,7 @@ import { generateTrees } from './vegetation.ts'
 import type { CampusMapData, CampusRoadData } from '../types/osm.ts'
 import { createEntranceCanal } from './canal.ts'
 import { createTheatreLayout } from './theatre.ts'
+import { createCampusLawns } from './landscaping.ts'
 
 export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadData | null, vegetationReady = true, overrides: CampusOverrides = {}, terrainSettings: TerrainSettings = defaultTerrainSettings) {
   const relief = validateTerrainSettings(terrainSettings)
@@ -59,7 +60,8 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const canal = boundary.length ? createEntranceCanal(roads?.roads ?? [], entrance.coordinates) : undefined
   const slopePatches = resolveSlopePatches(relief.customSlopes, slope)
   const hasRelief = !!slope || slopePatches.length > 0
-  const terrain = generateTerrain(size, { boundary, buildings, roads: roads?.roads ?? [], clearings, slope, slopePatches, canal })
+  const lawns = createCampusLawns(buildings)
+  const terrain = generateTerrain(size, { boundary, buildings, roads: roads?.roads ?? [], clearings, slope, slopePatches, canal, lawns })
   if (hasRelief) {
     buildings.forEach((building) => { const point = buildingCenter(building); building.baseElevation = terrainHeightAt(terrain, point.x, point.z) })
     for (const location of [...locations, ...selections.map((selection) => selection.location)]) location.elevation = terrainHeightAt(terrain, location.coordinates.x, location.coordinates.z)
@@ -73,6 +75,6 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const vegetationClearings = access.length ? [...clearings, { x: (access[0].x + access[1].x) / 2, z: (access[0].z + access[1].z) / 2, halfX: Math.abs(access[1].x - access[0].x) / 2 + 1.2, halfZ: Math.abs(access[1].z - access[0].z) / 2 + 1.2 }] : clearings
   const trees = vegetationReady ? generateTrees(boundary, buildings, roads?.roads ?? [], vegetationClearings, terrain) : []
   const lamps = generateCampusLamps({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, locations })
-  return { lamps, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
+  return { lamps, lawns, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
 }
 export type DigitalTwin = ReturnType<typeof createDigitalTwin>

@@ -8,6 +8,8 @@ import type { BuildingFootprint, RoadFootprint } from '../types/osm.ts'
 import { canalPoint, cutCanalTriangle } from './canal.ts'
 import type { CanalLayout, TerrainCutVertex } from './canal.ts'
 import type { TheatreLayout } from './theatre.ts'
+import { lawnWeightAt } from './landscaping.ts'
+import type { LawnPatch } from './landscaping.ts'
 
 export interface GroundRect { x: number; z: number; halfX: number; halfZ: number; benchBuildingId?: string }
 export interface TerrainModel {
@@ -17,6 +19,7 @@ export interface TerrainModel {
   colors: Float32Array
   canal?: CanalLayout
   theatre?: TheatreLayout
+  lawns?: LawnPatch[]
 }
 export interface TerrainFeatures {
   boundary: LocalCoordinate[]
@@ -26,6 +29,7 @@ export interface TerrainFeatures {
   slope?: TerrainSlope
   slopePatches?: SlopePatch[]
   canal?: CanalLayout
+  lawns?: LawnPatch[]
 }
 
 export function footprintRect(building: BuildingFootprint): GroundRect {
@@ -69,6 +73,7 @@ export function generateTerrain(size: number, features: TerrainFeatures, segment
   const heights = new Float32Array((segments + 1) ** 2)
   const colors = new Float32Array(heights.length * 3)
   const beige = new Color('#ded2b7'), grass = new Color('#81965a'), outside = new Color('#587a4e')
+  const lawnGrass = new Color('#6f9751')
   const color = new Color()
   const hasRelief = !!features.slope || !!features.slopePatches?.length
   const terraceHeights = rectangles.map(rect => terraceElevationAt(rect, features.slope, features.slopePatches))
@@ -139,13 +144,18 @@ export function generateTerrain(size: number, features: TerrainFeatures, segment
       // Once campus relief is known, use only those grades and terraces. Random
       // raised mounds would imply earth banks the owner says do not exist.
       heights[index] = hasRelief ? base : blend * (0.25 + noise * 1.5 + terrainNoise(point.x, point.z, 32) * 0.35)
-      if (features.boundary.length && pointInCampus(point, features.boundary)) color.copy(beige).lerp(grass, smooth((settlementDistance - 5) / 45))
-      else color.copy(outside)
+      if (features.boundary.length && pointInCampus(point, features.boundary)) {
+        color.copy(beige).lerp(grass, smooth((settlementDistance - 5) / 45))
+        // Paint the existing ground, preserving the exact height field and
+        // road/building/plaza aprons. No floating turf or extra collision layer.
+        const lawn = lawnWeightAt(point, features.lawns ?? []) * smooth(settlementDistance / 2.5)
+        if (lawn > 0) color.lerp(lawnGrass, lawn)
+      } else color.copy(outside)
       color.multiplyScalar(0.92 + noise * 0.16)
       color.toArray(colors, index * 3)
     }
   }
-  return { size, segments, heights, colors, ...(features.canal ? { canal: features.canal } : {}) }
+  return { size, segments, heights, colors, ...(features.canal ? { canal: features.canal } : {}), ...(features.lawns?.length ? { lawns: features.lawns } : {}) }
 }
 
 export function terrainGradeAt(model: TerrainModel, x: number, z: number): number {
