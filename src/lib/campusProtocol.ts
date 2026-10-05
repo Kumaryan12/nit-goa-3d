@@ -1,8 +1,8 @@
-import { PROFILE_COLORS } from './profile.ts'
+import { PROFILE_COLORS, PROFILE_COLOR_HEX } from './profile.ts'
 import type { CampusProfile } from './profile.ts'
 export const CAMPUS_CAPACITY = 32
 export const NEARBY_CHAT_RADIUS = 35
-export const CAMPUS_COLORS = { forest: '#277c77', clay: '#ad684c', ocean: '#388fc1', plum: '#866086' }
+export const CAMPUS_COLORS = PROFILE_COLOR_HEX
 export type CampusActivity = 'walk' | 'overview' | 'football' | 'concert'
 export interface CampusPose { pitch?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; x: number; y: number; z: number; yaw: number; moving: boolean; running: boolean; active: boolean; visible: boolean; space: string; epoch: number }
 export interface BuggyRide { driverId: string; seat: 1 | 2 | 3 }

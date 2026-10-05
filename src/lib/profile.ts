@@ -1,4 +1,45 @@
-export const PROFILE_COLORS = ['forest', 'clay', 'ocean', 'plum'] as const
+export const PROFILE_COLOR_HEX = {
+  forest: '#277c77', clay: '#ad684c', ocean: '#388fc1', plum: '#866086',
+  sunflower: '#e4b83d', coral: '#e87168', indigo: '#5966bf', mint: '#65bd98',
+  rose: '#d66598', copper: '#c88034', lime: '#99b942', violet: '#a36bd3',
+  crimson: '#bb465e', sky: '#69b8dc', pine: '#437744', apricot: '#f2a76c',
+  lavender: '#b199df', jade: '#3fa486', sapphire: '#435a9b', peach: '#e7a794',
+  amber: '#d58c25', fuchsia: '#be55ad', olive: '#858b43', aqua: '#45bfc5',
+  burgundy: '#854862', cobalt: '#3b72db', moss: '#7ca269', orchid: '#cf93c8',
+  tangerine: '#e57c3b', lemon: '#d8d766', teal: '#3c9ba4', slate: '#6b7d96',
+} as const
+export type AvatarColor = keyof typeof PROFILE_COLOR_HEX
+export const PROFILE_COLORS: readonly AvatarColor[] = Object.keys(PROFILE_COLOR_HEX) as AvatarColor[]
+export const isAvatarColor = (value: unknown): value is AvatarColor => typeof value === 'string' && Object.hasOwn(PROFILE_COLOR_HEX, value)
+
+// Account IDs, rather than names/emails, give new profiles a stable default.
+export function defaultAvatarColor(id: string): AvatarColor {
+  let hash = 2166136261
+  for (const character of id) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619)
+  return PROFILE_COLORS[(hash >>> 0) % PROFILE_COLORS.length]
+}
+export function allocateAvatarColor(id: string, preferred: unknown, occupied: Iterable<AvatarColor>): AvatarColor {
+  const used = new Set(occupied), wanted = isAvatarColor(preferred) ? preferred : defaultAvatarColor(id)
+  if (!used.has(wanted)) return wanted
+  const start = PROFILE_COLORS.indexOf(defaultAvatarColor(id))
+  for (let i = 0; i < PROFILE_COLORS.length; i++) {
+    const color = PROFILE_COLORS[(start + i) % PROFILE_COLORS.length]
+    if (!used.has(color)) return color
+  }
+  throw new Error('The campus avatar palette is full.')
+}
+export function profileColorStyle(color: AvatarColor) {
+  const hex = PROFILE_COLOR_HEX[color] ?? PROFILE_COLOR_HEX.forest
+  return { '--profile-color': hex, '--profile-pale': `color-mix(in srgb, ${hex} 16%, #f7f5ed)`, '--profile-ink': avatarTextColor(color) }
+}
+export function avatarTextColor(color: AvatarColor) {
+  const hex = PROFILE_COLOR_HEX[color] ?? PROFILE_COLOR_HEX.forest
+  const rgb = [1, 3, 5].map(offset => {
+    const channel = parseInt(hex.slice(offset, offset + 2), 16) / 255
+    return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4
+  })
+  return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722 > .179 ? '#000000' : '#ffffff'
+}
 export interface CampusProfile {
   id: string
   display_name: string
@@ -39,7 +80,7 @@ export function profileError(profile: Partial<CampusProfile>): string | null {
     (profile.interests?.join(',').length || 0) > 160
   )
     return 'Add up to five interests, each a few words.'
-  if (!PROFILE_COLORS.includes(profile.avatar_color || 'forest'))
+  if (profile.avatar_color !== undefined && !isAvatarColor(profile.avatar_color))
     return 'Choose an available profile color.'
   return null
 }

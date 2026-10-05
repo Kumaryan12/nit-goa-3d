@@ -3,7 +3,7 @@ import { firebaseAdmin, firebaseProject } from './firebaseAdmin.ts'
 import type { Auth } from 'firebase-admin/auth'
 import type { Firestore } from 'firebase-admin/firestore'
 import { campusRole, ownerPolicyPath } from './authorization.ts'
-import { PROFILE_COLORS } from '../src/lib/profile.ts'
+import { defaultAvatarColor, isAvatarColor } from '../src/lib/profile.ts'
 import type { CampusProfile } from '../src/lib/profile.ts'
 class MembershipUnavailable extends Error {}
 export interface CampusIdentity {
@@ -83,7 +83,7 @@ export function createAccessVerifier(deps?: AccessDependencies): VerifyAccess {
             bio: '',
             course: '',
             interests: [],
-            avatar_color: 'forest',
+            avatar_color: defaultAvatarColor(user.uid),
             is_public: false,
             created_at: now,
           }
@@ -115,7 +115,7 @@ export function createAccessVerifier(deps?: AccessDependencies): VerifyAccess {
       expiresAt: decoded.exp * 1000,
       authTime: decoded.auth_time * 1000,
       publicHandle: access.profile.is_public === true && typeof access.profile.handle === 'string' && /^[a-z][a-z0-9_]{2,23}$/.test(access.profile.handle) ? access.profile.handle : null,
-      avatarColor: PROFILE_COLORS.includes(access.profile.avatar_color) ? access.profile.avatar_color : 'forest',
+      avatarColor: isAvatarColor(access.profile.avatar_color) ? access.profile.avatar_color : defaultAvatarColor(user.uid),
     }
   }
 }

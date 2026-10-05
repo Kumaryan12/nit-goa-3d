@@ -3,7 +3,8 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { gpsToLocal, localToGps, pointInRing, validClosedRing } from '../src/lib/geo.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
-import { PROFILE_COLORS } from '../src/lib/profile.ts'
+import { allocateAvatarColor, defaultAvatarColor, isAvatarColor } from '../src/lib/profile.ts'
+import type { AvatarColor } from '../src/lib/profile.ts'
 import { CAMPUS_CAPACITY, campusName, campusHandle, chatText, canHearNearby, parseCampusPose, buggySeatPose, campusId } from '../src/lib/campusProtocol.ts'
 import type { CampusPerson, CampusSnapshot, CampusChat, CampusActivity, BuggyRide } from '../src/lib/campusProtocol.ts'
 import type { CampusIdentity } from './access.ts'
@@ -20,11 +21,13 @@ export function publishedCampusBoundary(): LocalCoordinate[] {
 export function createCampusRoom(boundary: LocalCoordinate[]) {
   if (boundary.length < 4) throw new Error('Campus presence requires a closed boundary.')
   const region = boundary.map(localToGps)
-  const members = new Map<string, { person: CampusPerson; poseAt: number; spawnAt: number }>()
+  const members = new Map<string, { person: CampusPerson; preferredColor: AvatarColor; poseAt: number; spawnAt: number }>()
   const rideLimits = new Map<string, number>()
   const chatLimits = new Map<string, number[]>(), history: CampusChat[] = []
   let sequence = 0
-  const metadata = (identity: CampusIdentity) => ({ name: campusName(identity.name), handle: campusHandle(identity.publicHandle) ? identity.publicHandle : null, color: PROFILE_COLORS.includes(identity.avatarColor!) ? identity.avatarColor! : 'forest' as const })
+  const preferredColor = (identity: CampusIdentity) => isAvatarColor(identity.avatarColor) ? identity.avatarColor : defaultAvatarColor(identity.id)
+  const metadata = (identity: CampusIdentity) => ({ name: campusName(identity.name), handle: campusHandle(identity.publicHandle) ? identity.publicHandle : null })
+  const assignColor = (identity: CampusIdentity) => allocateAvatarColor(identity.id, preferredColor(identity), [...members.values()].filter(member => member.person.id !== identity.id).map(member => member.person.color))
   const prune = (now: number) => {
     while (history.length && (history.length > 50 || now - history[0].time > 15 * 60000)) history.shift()
     for (const [id, times] of chatLimits) if (now - times.at(-1)! > 60000) chatLimits.delete(id)
@@ -52,12 +55,16 @@ export function createCampusRoom(boundary: LocalCoordinate[]) {
   return {
     add(identity: CampusIdentity) {
       if (members.size >= CAMPUS_CAPACITY || members.has(identity.id)) return null
-      const person: CampusPerson = { id: identity.id, ...metadata(identity), activity: 'overview', pose: null }
-      members.set(identity.id, { person, poseAt: 0, spawnAt: -Infinity }); return person
+      const person: CampusPerson = { id: identity.id, ...metadata(identity), color: assignColor(identity), activity: 'overview', pose: null }
+      members.set(identity.id, { person, preferredColor: preferredColor(identity), poseAt: 0, spawnAt: -Infinity }); return person
     },
     updateIdentity(identity: CampusIdentity) {
       const member = members.get(identity.id)
-      if (member) Object.assign(member.person, metadata(identity))
+      if (member) {
+        // Auth refreshes and name changes keep a visitor's assigned colour.
+        if (member.preferredColor !== preferredColor(identity)) { member.person.color = assignColor(identity); member.preferredColor = preferredColor(identity) }
+        Object.assign(member.person, metadata(identity))
+      }
     },
     remove(id: string) { releasePassengers(id, Date.now()); members.delete(id); rideLimits.delete(id) },
     removeMessages(id: string) { for (let i = history.length - 1; i >= 0; i--) if (history[i].sender === id) history.splice(i, 1) },

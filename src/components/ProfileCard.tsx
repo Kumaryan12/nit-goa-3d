@@ -1,4 +1,5 @@
 import { initials } from '../lib/community'
+import { profileColorStyle } from '../lib/profile'
 import type { CampusProfile } from '../lib/community'
 export default function ProfileCard({
   profile,
@@ -10,6 +11,7 @@ export default function ProfileCard({
   return (
     <article
       className={`profile-card ${compact ? 'profile-compact' : ''} color-${profile.avatar_color}`}
+      style={profileColorStyle(profile.avatar_color) as React.CSSProperties}
     >
       <div className="profile-cover">
         <span>NITG / EXPLORED</span>

@@ -43,7 +43,7 @@ const soles = [box([.18, .042, .29], [0, -.108, -.07]), box([.12, .018, .045], [
 const sleeve = [capsule(.083, .12, [0, -.11, 0])]
 const forearm = [capsule(.06, .16, [0, -.105, 0]), sphere(.067, [0, -.24, -.007], [.85, 1.1, .85])]
 
-export default function StudentAvatar({ motion, jersey = '#277c77' }: { motion: React.RefObject<AvatarMotion>; jersey?: string }) {
+export default function StudentAvatar({ motion, jersey = '#277c77', accent = '#cf9254' }: { motion: React.RefObject<AvatarMotion>; jersey?: string; accent?: string }) {
   const root = useRef<Group>(null), torso = useRef<Group>(null)
   const leftHip = useRef<Group>(null), rightHip = useRef<Group>(null), leftKnee = useRef<Group>(null), rightKnee = useRef<Group>(null), leftFoot = useRef<Group>(null), rightFoot = useRef<Group>(null)
   const leftArm = useRef<Group>(null), rightArm = useRef<Group>(null), leftElbow = useRef<Group>(null), rightElbow = useRef<Group>(null)
@@ -72,7 +72,7 @@ export default function StudentAvatar({ motion, jersey = '#277c77' }: { motion: 
       <Parts parts={hairParts} color="#302a28" />
       <Parts parts={faceParts} color="#302a28" />
       <Parts parts={shirtDetail} color="#e9e9ce" />
-      <Parts parts={bagParts} color="#cf9254" />
+      <Parts parts={bagParts} color={accent} />
       <Parts parts={straps} color="#333b3b" />
     </group>
     {[[leftHip, leftKnee, leftFoot], [rightHip, rightKnee, rightFoot]].map(([hip, knee, foot], i) => <group key={`leg-${i}`} ref={hip} position={[i ? .115 : -.115, .88, 0]}>

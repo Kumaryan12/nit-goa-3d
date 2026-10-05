@@ -23,10 +23,10 @@ import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../li
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ campusSession, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, hostelPlan, gyanPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ campusSession, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
   campusSession: React.RefObject<CampusSession>; onBuggyRide: (driverId: string | null) => void
   campusPose: React.RefObject<CampusPose | null>
-  footballPitch: FootballPitch | null; footballControls: React.RefObject<FootballControls>; footballLive: boolean; footballJersey?: string
+  footballPitch: FootballPitch | null; footballControls: React.RefObject<FootballControls>; footballLive: boolean; footballJersey?: string; avatarAccent?: string
   hostelPlan: HostelPlan | null; gyanPlan: HostelPlan | null; interiorPose: React.RefObject<InteriorPose | null>
   processedSpawn: React.RefObject<number>
   twin: DigitalTwin; paused: boolean; input: React.RefObject<WalkInput>; position: React.RefObject<LocalCoordinate | null>; spawn: WalkSpawnRequest;
@@ -328,5 +328,5 @@ export default function AvatarExplorer({ campusSession, onBuggyRide, campusPose,
     }
   })
   useEffect(() => () => { footballControls.current.actor = null }, [footballControls])
-  return <group ref={avatar}><>{passengerView ? <StudentAvatar motion={motion} jersey={footballJersey} /> : <CampusVehicle mode={rideMode} motion={motion} jersey={footballJersey} />}</></group>
+  return <group ref={avatar}><>{passengerView ? <StudentAvatar motion={motion} jersey={footballJersey} accent={avatarAccent} /> : <CampusVehicle mode={rideMode} motion={motion} jersey={footballJersey} accent={avatarAccent} />}</></group>
 }

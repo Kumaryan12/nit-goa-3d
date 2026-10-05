@@ -6,6 +6,8 @@ import type { Group } from 'three'
 import { FOOTBALL_RADIUS, footballStatus, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
 import type { CampusSession } from '../lib/campusProtocol'
+import { CAMPUS_COLORS } from '../lib/campusProtocol'
+import { defaultAvatarColor } from '../lib/profile'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
 import StudentAvatar from './StudentAvatar'
 import { motionDelta, stridePhase } from '../lib/avatarMotion'
@@ -39,8 +41,9 @@ function RemotePlayer({ player, session, campusSession, pitch }: { player: Footb
     if (motion.current.moving) motion.current.phase = stridePhase(motion.current.phase, distance, current.running)
   })
   const initial = footballToWorld(player, pitch)
+  const color = campusSession.current.snapshot?.people.find(person => person.id === player.id)?.color ?? defaultAvatarColor(player.id)
   return <group ref={group} position={[initial.x,pitch.elevation+.11,initial.z]} name={`football-player-${player.number}`}>
-    <StudentAvatar motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} />
+    <StudentAvatar motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={CAMPUS_COLORS[color]} />
     <Html portal={portal} position={[0,2.2,0]} center pointerEvents="none" zIndexRange={[15,0]}><span className={`football-player-label ${player.team}`}>Player {player.number}</span></Html>
   </group>
 }
