@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Sky, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
@@ -45,10 +45,14 @@ import type { Playback, RoutePresentation } from '../lib/traversal'
 import type { LocalCoordinate } from '../lib/geo'
 import CampusPeopleScene from './CampusPeopleScene'
 import HostelCourtyards from './HostelCourtyards'
+import ScenePerformance, { GraphicsContext } from './ScenePerformance'
+import { adaptGraphics, graphicsProfile, initialGraphics } from '../lib/graphics'
+import type { GraphicsMode } from '../lib/graphics'
 import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib/campusProtocol'
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number }
 interface CampusSceneProps {
+  graphicsMode: GraphicsMode
   onBuggyRide: (driverId: string | null) => void
   campusPeople: CampusPerson[]
   campusSession: React.RefObject<CampusSession>
@@ -145,7 +149,18 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, oatConcert, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, oatConcert, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+  const compact = useRef(window.matchMedia('(pointer: coarse)').matches || navigator.hardwareConcurrency <= 4).current
+  const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
+  const profile = useMemo(() => graphicsProfile(graphicsMode, qualityLevel), [graphicsMode, qualityLevel])
+  const reportMetrics = useCallback((metrics: SceneMetrics) => {
+    onMetrics(metrics)
+    if (graphicsMode !== 'auto' || document.hidden || !document.hasFocus()) return
+    adaptation.current = adaptGraphics(adaptation.current, metrics.fps, 2, compact)
+    setQualityLevel(adaptation.current.level)
+  }, [graphicsMode, compact, onMetrics])
+  const dynamicShadows = view === 'walk' || campusPeople.some(p => p.pose?.visible) || (footballLive && footballPlayers.length > 0) || !!oatConcert?.participants.length || playback.status === 'playing'
+  const shadowRevision = useMemo(() => ({}), [twin, night, selectedBuildingId, hostelFloor, stairLowFloor, view])
   const size = twin?.size ?? 650
   const background = night ? '#101b30' : '#d9e7ec'
   const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
@@ -161,8 +176,11 @@ function CampusScene({ onBuggyRide, campusPeople, campusSession, campusPose, cam
     return plan ? [[building.id, plan] as const] : []
   }) ?? []), [twin, hostelPlan, gyanPlan])
   const activeInterior=interiorBuildingId===gyanPlan?.buildingId?gyanPlan:hostelPlan
+  const selectHostel = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === hostelPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, hostelPlan, onSelectBuilding])
+  const selectGyan = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === gyanPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, gyanPlan, onSelectBuilding])
+  const selectTheatre = useCallback(() => { const location = twin?.locations.find(item => item.id === 'open-air-theatre'); if (location) onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location }) }, [twin, onSelectBuilding])
   const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== administration?.buildingId && !facades.has(building.id) && !(view === 'walk' && hostelFloor !== null && activeInterior?.buildingId === building.id)) ?? [], [twin, administration, facades, view, hostelFloor, activeInterior])
-  return <Canvas shadows={{ type: PCFShadowMap }} dpr={[1, 1.5]}
+  return <GraphicsContext.Provider value={profile}><Canvas shadows={{ type: PCFShadowMap }} dpr={[.75, profile.dpr]}
     onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
     camera={{ position: sceneConfig.cameraPosition, fov: 45, near: 1, far: 10000 }}
     gl={{ antialias: true, toneMapping: ACESFilmicToneMapping }}
@@ -171,15 +189,16 @@ function CampusScene({ onBuggyRide, campusPeople, campusSession, campusPose, cam
     <fog attach="fog" args={[background, size * 1.1, size * 3]} />
     {night ? <Stars radius={3000} depth={150} count={1100} factor={2.2} saturation={0} fade speed={0} />
       : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={3} rayleigh={0.7} mieCoefficient={0.005} mieDirectionalG={0.8} />}
+    <ScenePerformance dynamicShadows={dynamicShadows} revision={shadowRevision} />
     <Lighting groundSize={size} night={night} />
-    <Terrain model={twin?.terrain ?? loadingTerrain} onReady={twin ? onTerrainReady : noop} />
+    <Terrain model={twin?.terrain ?? loadingTerrain} patches={twin?.terrainPatches} onReady={twin ? onTerrainReady : noop} />
     {showContours && twin && <TerrainContours model={twin.terrain} night={night} />}
     {showGrid && <gridHelper args={[size, Math.round(size / sceneConfig.gridSpacing), '#7d8970', '#9ba584']} position={[0, 0.025, 0]} />}
     {twin && <>
       <CampusBoundary terrain={twin.hasRelief ? twin.terrain : undefined} points={twin.boundary} entrance={twin.locations.find((location) => location.id === 'main-entrance')!.coordinates} />
       <OSMRoads night={night} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />
       {twin.canal && <EntranceCanal canal={twin.canal} terrain={twin.terrain} night={night} />}
-      <OSMBuildings administration={administration} facades={facades} night={night} interiorPlans={view==='walk'?[hostelPlan,gyanPlan].filter((p):p is HostelPlan=>!!p):[]} insideBuildingId={view==='walk' && hostelFloor!==null?interiorBuildingId:null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
+      <OSMBuildings administration={administration} facades={facades} night={night} insideBuildingId={view==='walk' && hostelFloor!==null?interiorBuildingId:null} buildings={twin.buildings} assignments={twin.selections} onRenderedCount={onRenderedCount} selectedBuildingId={selectedBuildingId} onSelectBuilding={onSelectBuilding} />
       <BuildingWindows doorway={view === 'walk' ? hostelPlan : null} buildings={windowBuildings} night={night} />
       {hostelPlan && <HostelCourtyards building={hostelPlan.building} />}
       <CampusStreetlights lamps={twin.lamps} terrain={twin.terrain} night={night} indoors={view==='walk' && hostelFloor!==null} />
@@ -188,10 +207,10 @@ function CampusScene({ onBuggyRide, campusPeople, campusSession, campusPose, cam
       {twin.vegetationReady && <CampusGardens gardens={twin.gardens} terrain={twin.terrain} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
-        selected={selectedLocationId === 'open-air-theatre'} onSelect={() => onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location: twin.locations.find(location => location.id === 'open-air-theatre')! })} />}
+        selected={selectedLocationId === 'open-air-theatre'} onSelect={selectTheatre} />}
       {twin.boundary.length > 0 && <OatConcertScene theatre={twin.theatre} concert={oatConcert} people={campusPeople} />}
-      {view === 'walk' && hostelPlan && <BuildingInterior night={night} plan={hostelPlan} floor={interiorBuildingId===hostelPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===hostelPlan.buildingId?stairLowFloor:null} onSelect={() => { const selection = twin.selections.find(item => item.buildingId === hostelPlan.buildingId); if (selection) onSelectBuilding(selection) }} />}
-      {view==='walk' && gyanPlan && <BuildingInterior night={night} plan={gyanPlan} floor={interiorBuildingId===gyanPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===gyanPlan.buildingId?stairLowFloor:null} onSelect={()=>{const selection=twin.selections.find(item=>item.buildingId===gyanPlan.buildingId);if(selection)onSelectBuilding(selection)}} />}
+      {view === 'walk' && hostelPlan && <BuildingInterior night={night} plan={hostelPlan} floor={interiorBuildingId===hostelPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===hostelPlan.buildingId?stairLowFloor:null} onSelect={selectHostel} />}
+      {view==='walk' && gyanPlan && <BuildingInterior night={night} plan={gyanPlan} floor={interiorBuildingId===gyanPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===gyanPlan.buildingId?stairLowFloor:null} onSelect={selectGyan} />}
       {footballPitch && <FootballScene campusSession={campusSession} pitch={footballPitch} session={footballSession} players={footballPlayers} controls={footballInput} live={footballLive} onStatus={onFootballStatus} />}
       <CampusPeopleScene people={campusPeople} session={campusSession} messages={campusMessages} excludedIds={[...(footballLive ? footballPlayers.map(p => p.id) : []), ...(oatConcert?.participants.map(p => p.id) ?? [])]} space={hostelFloor !== null ? `${activeInterior?.kind==='classroom'?'gyan':'hostel'}:${stairLowFloor ?? hostelFloor}` : 'outdoors'} walking={view === 'walk'} />
       {!(view==='walk'&&hostelFloor!==null)&&<LocationLabels locations={labelLocations} heights={heights} />}
@@ -200,8 +219,8 @@ function CampusScene({ onBuggyRide, campusPeople, campusSession, campusPose, cam
     {slopePreview && twin && <SlopePreview points={slopePreview} terrain={twin.terrain} />}
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
     {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer onBuggyRide={onBuggyRide} campusSession={campusSession} campusPose={campusPose} avatarAccent={footballJoined ? avatarColor : undefined} footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : avatarColor} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
-    <RuntimeMetrics onMetrics={onMetrics} />
-  </Canvas>
+    <RuntimeMetrics onMetrics={reportMetrics} />
+  </Canvas></GraphicsContext.Provider>
 }
 
 export default memo(CampusScene)

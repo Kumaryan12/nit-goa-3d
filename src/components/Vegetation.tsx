@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Color, DoubleSide, InstancedMesh, Object3D } from 'three'
 import type { TreeInstance } from '../lib/vegetation'
 import { createPalmFrond } from '../lib/gardenGeometry'
 
-export default function Vegetation({ trees, onReady }: { trees: TreeInstance[]; onReady: (count: number) => void }) {
+function Vegetation({ trees, onReady }: { trees: TreeInstance[]; onReady: (count: number) => void }) {
   const trunks = useRef<InstancedMesh>(null), crowns = useRef<InstancedMesh>(null), lobes = useRef<InstancedMesh>(null), fronds = useRef<InstancedMesh>(null)
   const broadleaf = useMemo(() => trees.filter((tree) => !tree.palm), [trees])
   const palms = useMemo(() => trees.filter((tree) => tree.palm), [trees])
@@ -64,3 +64,5 @@ export default function Vegetation({ trees, onReady }: { trees: TreeInstance[]; 
     </instancedMesh>
   </group>
 }
+
+export default memo(Vegetation)

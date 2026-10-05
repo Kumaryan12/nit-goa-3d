@@ -22,6 +22,8 @@ import { createTheatreLayout } from './theatre.ts'
 import { createCampusLawns } from './landscaping.ts'
 import { createCampusFlag } from './campusFlag.ts'
 import { generateCampusGardens } from './campusGardens.ts'
+import type { TerrainPatchData } from './terrainPatches.ts'
+import type { HostelPlan } from './hostelInterior.ts'
 
 export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadData | null, vegetationReady = true, overrides: CampusOverrides = {}, terrainSettings: TerrainSettings = defaultTerrainSettings) {
   const relief = validateTerrainSettings(terrainSettings)
@@ -82,4 +84,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const gardens = vegetationReady ? generateCampusGardens({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, lamps, clearings: vegetationClearings, locations: [...locations, ...selections.map(s => s.location)] }) : { beds: [], flowers: [], shrubs: [] }
   return { lamps, lawns, flag, gardens, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
 }
-export type DigitalTwin = ReturnType<typeof createDigitalTwin>
+export type DigitalTwin = ReturnType<typeof createDigitalTwin> & {
+  terrainPatches?: TerrainPatchData[]
+  interiors?: { hostel: HostelPlan | null; gyan: HostelPlan | null }
+}

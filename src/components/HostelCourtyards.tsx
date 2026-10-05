@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { DoubleSide, Shape } from 'three'
 import { gpsToLocal } from '../lib/geo'
 import { hostelBadmintonCourt } from '../lib/boysHostelGeometry'
 import type { BuildingFootprint } from '../types/osm'
 
-export default function HostelCourtyards({ building }: { building: BuildingFootprint }) {
+function HostelCourtyards({ building }: { building: BuildingFootprint }) {
   const court = useMemo(() => hostelBadmintonCourt(building), [building])
   const surfaces = useMemo(() => building.holes.map(ring => {
     const shape = new Shape()
@@ -32,3 +32,5 @@ export default function HostelCourtyards({ building }: { building: BuildingFootp
     </group>}
   </group>
 }
+
+export default memo(HostelCourtyards)

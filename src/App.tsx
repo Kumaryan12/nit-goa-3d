@@ -28,8 +28,7 @@ import { readTerrainSettings, saveTerrainSettings, validateTerrainSettings } fro
 import type { TerrainSettings } from './data/topography'
 import { emptyWalkInput, explorerViewFromURL, withExplorerView } from './lib/walking'
 import type { ExplorerView, WalkStatus, WalkSpawnRequest } from './lib/walking'
-import { createWalkWorld, isWalkable } from './lib/walking'
-import { createHostelPlan, createGyanMandirPlan, GYAN_MANDIR_ID } from './lib/hostelInterior'
+import { GYAN_MANDIR_ID } from './lib/hostelInterior'
 import type { InteriorPose } from './lib/hostelInterior'
 import { savedCampusOverrides } from './data/campusOverrides'
 import { useDigitalTwin } from './hooks/useDigitalTwin'
@@ -55,6 +54,8 @@ import { fetchCampusData, fetchCampusRoads, fetchPublishedCampusData, fetchPubli
 import { LAT0, LON0 } from './lib/geo'
 import type { CampusMapState, CampusRoadState } from './types/osm'
 import type { BuildingSelection } from './types/campus'
+import GraphicsControl from './components/GraphicsControl'
+import { validGraphicsMode } from './lib/graphics'
 
 const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
 const readState = () => {
@@ -66,6 +67,8 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const initial = useRef(readState()).current
   const initialView = useRef(explorerViewFromURL(window.location.href)).current
   const [view, setView] = useState<ExplorerView>(initialView)
+  const [graphicsMode, setGraphicsMode] = useState(() => { try { return validGraphicsMode(localStorage.getItem('nit-goa:graphics')) } catch { return validGraphicsMode(null) } })
+  const changeGraphics = (mode: typeof graphicsMode) => { setGraphicsMode(mode); try { localStorage.setItem('nit-goa:graphics', mode) } catch { /* Rendering still works without storage. */ } }
   const [terrainSettings, setTerrainSettings] = useState(() => readTerrainSettings(browserStorage))
   const [terrainControlsOpen, setTerrainControlsOpen] = useState(false)
   const [slopeEditorOpen, setSlopeEditorOpen] = useState(false)
@@ -153,20 +156,8 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   useEffect(() => { if (campusOpen) setChatReadAt(Date.now()) }, [campusOpen, campusLive.messages])
   const pitch = useMemo(() => { const sports = twin?.locations.find(location => location.id === 'sports-ground'); return sports ? footballPitch(sports) : null }, [twin])
   const football = useFootballSession(footballJoined, footballRetry, footballInput, avatarPosition, pitch)
-  const hostelPlan = useMemo(() => {
-    if (!twin) return null
-    const building = twin.buildings[twin.selections.findIndex(item => item.location.id === 'boys-hostel')]
-    if (!building) return null
-    const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
-    return createHostelPlan(building, twin.roads, point => isWalkable(point, world))
-  }, [twin])
-  const gyanPlan = useMemo(() => {
-    if(!twin)return null
-    const building=twin.buildings[twin.selections.findIndex(item=>item.location.id===GYAN_MANDIR_ID)]
-    if(!building)return null
-    const world=createWalkWorld(twin.buildings,twin.boundary,twin.terrain,twin.trees,twin.lamps)
-    return createGyanMandirPlan(building,twin.roads,p=>isWalkable(p,world),twin.selections.find(s=>s.location.id==='way/1423803680')?.location.coordinates)
-  },[twin])
+  const hostelPlan = twin?.interiors?.hostel ?? null
+  const gyanPlan = twin?.interiors?.gyan ?? null
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
   const viewHostelCourtyards = () => {
     if (!hostelPlan) return
@@ -322,7 +313,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           slopePreview={slopeEditorOpen ? slopePreview : null} pickingPosition={!!slopePicking || picking?.mode === 'point'} pickedPosition={editorOpen ? picked?.coordinates ?? null : null} onPickPosition={onPickPosition}
           showGrid={showGrid}
-          twin={twin}
+          twin={twin} graphicsMode={graphicsMode}
           night={night}
           cameraRequest={cameraRequest}
           onTerrainReady={onTerrainReady}
@@ -371,6 +362,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           {canEdit && <button className="toolbar-button edit-campus-toggle" aria-pressed={editorOpen} onClick={() => editorOpen ? closeEditor() : editLocation('main-entrance')}>✎ Edit campus</button>}
           <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
+          <GraphicsControl mode={graphicsMode} onChange={changeGraphics} />
           {view === 'overview' && <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>}
           {canEdit && <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>}
           {canEdit && <TerrainControls settings={terrainSettings} onChange={applyTerrainSettings} onOpenChange={setTerrainControlsOpen} onViewCampusSlope={twin?.slope ? viewCampusSlope : undefined} onEditSlopes={twin ? openSlopeEditor : undefined} onViewSlope={twin?.slope ? viewNescafeSlope : undefined} />}

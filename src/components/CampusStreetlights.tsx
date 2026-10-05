@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { AdditiveBlending, BufferGeometry, Color, Float32BufferAttribute, InstancedMesh, Object3D, PointLight } from 'three'
 import { lampHead, nearestCampusLamps, NIGHT_LIGHT_BUDGET } from '../lib/nightLighting'
@@ -66,7 +66,7 @@ function NearbyLights({lamps,indoors}:{lamps:CampusLamp[];indoors:boolean}) {
   })
   return <>{Array.from({length:NIGHT_LIGHT_BUDGET},(_,i)=><pointLight key={i} ref={value=>{lights.current[i]=value}} intensity={0} decay={2} castShadow={false}/>)}</>
 }
-export default function CampusStreetlights({lamps,terrain,night,indoors}:{lamps:CampusLamp[];terrain:TerrainModel;night:boolean;indoors:boolean}) {
+function CampusStreetlights({lamps,terrain,night,indoors}:{lamps:CampusLamp[];terrain:TerrainModel;night:boolean;indoors:boolean}) {
   const parts=useMemo(()=>{
     const poles:Part[]=[],heads:Part[]=[],bulbs:Part[]=[]
     for(const lamp of lamps) {
@@ -84,3 +84,5 @@ export default function CampusStreetlights({lamps,terrain,night,indoors}:{lamps:
     {night&&<><LampHalos lamps={lamps}/><LightPools lamps={lamps} terrain={terrain}/><NearbyLights lamps={lamps} indoors={indoors}/></>}
   </group>
 }
+
+export default memo(CampusStreetlights)

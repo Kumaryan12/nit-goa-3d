@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { Color, DoubleSide, InstancedMesh, Object3D } from 'three'
 import type { BufferGeometry } from 'three'
 import type { CampusGardens as GardenModel } from '../lib/campusGardens'
@@ -29,7 +29,7 @@ function PlantInstances({ parts, geometry, color, kind }: { parts: Part[]; geome
   </instancedMesh>
 }
 
-export default function CampusGardens({ gardens, terrain }: { gardens: GardenModel; terrain: TerrainModel }) {
+function CampusGardens({ gardens, terrain }: { gardens: GardenModel; terrain: TerrainModel }) {
   const soil = useMemo(() => createGardenSoil(gardens.beds, terrain), [gardens.beds, terrain])
   const petals = useMemo(createFlowerPetals, []), leaves = useMemo(createFlowerLeaves, [])
   useEffect(() => () => { soil.dispose() }, [soil])
@@ -58,3 +58,5 @@ export default function CampusGardens({ gardens, terrain }: { gardens: GardenMod
     <PlantInstances parts={parts.shrubs} color="white" kind="shrub" />
   </group>
 }
+
+export default memo(CampusGardens)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import { createRoadGeometry, FOOTPATH_ELEVATION, ROAD_ELEVATION } from '../lib/roadGeometry'
 import type { TerrainModel } from '../lib/terrain'
 import type { RoadFootprint } from '../types/osm'
@@ -22,7 +22,9 @@ function OSMRoad({ road, terrain, night }: { road: RoadFootprint; terrain?: Terr
   )
 }
 
-export default function OSMRoads({ roads, terrain, night=false }: { roads: RoadFootprint[]; terrain?: TerrainModel; night?:boolean }) {
+function OSMRoads({ roads, terrain, night=false }: { roads: RoadFootprint[]; terrain?: TerrainModel; night?:boolean }) {
   // Roads have no pointer handlers, so they don't intercept building selection.
   return <group>{roads.map((road) => <OSMRoad key={road.id} road={road} terrain={terrain} night={night} />)}</group>
 }
+
+export default memo(OSMRoads)

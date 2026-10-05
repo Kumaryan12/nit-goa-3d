@@ -226,7 +226,7 @@ Day/night colors remain readable. Reduced-motion CSS removes UI transitions; wal
 
 ## Performance
 
-The landing page and Firebase sign-in load before the 3D explorer. The campus scene and optional dialogs load as separate chunks. The scene still exceeds Vite's 500 kB chunk advisory; the production build succeeds. DPR is capped at 1.5, trees stay instanced and geometry is memoized/disposed. Performance depends on the device, power settings and OSM coverage. Earlier renderer measurements describe prior builds and are not a benchmark of the authenticated release.
+The landing page and Firebase sign-in load before the 3D explorer. Campus generation runs in a cancellable worker; transferable terrain patches let the renderer skip off-screen ground without changing slopes or canal cuts. Interiors mount on entry, distant facade decoration uses distance limits, static shadows are cached, moving shadows refresh at 10–20 Hz, and hidden tabs stop rendering. **Graphics → Auto / Smooth / Detailed** controls resolution, shadow size and facade detail; Auto adapts to sustained frame rates. Build-time Brotli/gzip files reduce public asset transfer, with ETags for HTML/map revalidation. The scene still exceeds Vite's 500 kB chunk advisory; the production build succeeds. Performance depends on the device, power settings and OSM coverage. Validation and measurement limits are in [performance.md](docs/performance.md).
 
 ## Production deployment
 

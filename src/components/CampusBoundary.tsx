@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { InstancedMesh, Object3D } from 'three'
 import { createRoadGeometry } from '../lib/roadGeometry'
 import { campusLocations } from '../data/campus'
@@ -7,7 +7,7 @@ import type { TerrainModel } from '../lib/terrain'
 import { distanceToSegment } from '../lib/terrain'
 import type { LocalCoordinate } from '../lib/geo'
 
-export default function CampusBoundary({ points, terrain, entrance = campusLocations.find((location) => location.id === 'main-entrance')!.coordinates }: { points: LocalCoordinate[]; entrance?: LocalCoordinate; terrain?: TerrainModel }) {
+function CampusBoundary({ points, terrain, entrance = campusLocations.find((location) => location.id === 'main-entrance')!.coordinates }: { points: LocalCoordinate[]; entrance?: LocalCoordinate; terrain?: TerrainModel }) {
   const wallsRef = useRef<InstancedMesh>(null)
   const postsRef = useRef<InstancedMesh>(null)
   const outline = useMemo(() => createRoadGeometry(points.length > 2 ? [points] : [], 0.8, 0.12, terrain), [points, terrain])
@@ -54,3 +54,5 @@ export default function CampusBoundary({ points, terrain, entrance = campusLocat
     </instancedMesh>
   </group>
 }
+
+export default memo(CampusBoundary)

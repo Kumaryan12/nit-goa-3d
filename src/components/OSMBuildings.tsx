@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { useCursor } from '@react-three/drei'
 import { buildingShape, roofShape } from '../lib/buildingGeometry'
 import { applyRoofTiles } from '../lib/roofMaterial'
 import { assignCampusLocations } from '../lib/campus'
 import type { BuildingSelection } from '../types/campus'
 import type { BuildingFootprint } from '../types/osm'
-import type { HostelPlan } from '../lib/hostelInterior'
 import type { AdministrationFacadePlan } from '../lib/administrationFacade'
 import AdministrationBlock from './AdministrationBlock'
 import CampusBuildingFacade from './CampusBuildingFacade'
@@ -15,7 +14,6 @@ interface OSMBuildingsProps {
   facades?: Map<string, CampusFacadePlan>
   administration?: AdministrationFacadePlan | null
   night?: boolean
-  interiorPlans?: HostelPlan[]
   insideBuildingId?: string | null
   buildings: BuildingFootprint[]
   assignments?: BuildingSelection[]
@@ -24,7 +22,7 @@ interface OSMBuildingsProps {
   onSelectBuilding: (selection: BuildingSelection) => void
 }
 
-function OSMBuilding({ building, selection, selected, onSelect, groundShellHeight = 0, hidden = false, administration, facade, night = false }: {
+const OSMBuilding = memo(function OSMBuilding({ building, selection, selected, onSelect, groundShellHeight = 0, hidden = false, administration, facade, night = false }: {
   facade?: CampusFacadePlan
   administration?: AdministrationFacadePlan | null
   night?: boolean
@@ -65,13 +63,13 @@ function OSMBuilding({ building, selection, selected, onSelect, groundShellHeigh
         <extrudeGeometry args={[roof, roofExtrusion]} />
         <meshStandardMaterial color={selected ? '#d8954a' : '#b86640'} roughness={0.92} onBeforeCompile={applyRoofTiles} />
       </mesh>}
-      {administration && <AdministrationBlock plan={administration} night={night} />}
-      {facade && <CampusBuildingFacade plan={facade} night={night} />}
+      {administration && <AdministrationBlock plan={administration} night={night} selected={selected} />}
+      {facade && <CampusBuildingFacade plan={facade} night={night} selected={selected} />}
     </group>
   )
-}
+})
 
-export default function OSMBuildings({ administration, facades, night = false, interiorPlans = [], insideBuildingId = null, buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
+function OSMBuildings({ administration, facades, night = false, insideBuildingId = null, buildings, assignments, onRenderedCount, selectedBuildingId, onSelectBuilding }: OSMBuildingsProps) {
   const selections = useMemo(() => assignments ?? assignCampusLocations(buildings), [buildings, assignments])
   useEffect(() => { onRenderedCount(buildings.length) }, [buildings, onRenderedCount])
 
@@ -82,7 +80,6 @@ export default function OSMBuildings({ administration, facades, night = false, i
           facade={facades?.get(building.id)}
           administration={administration?.buildingId === building.id ? administration : null}
           night={night}
-          groundShellHeight={interiorPlans.find(plan=>plan.buildingId===building.id)?.floorHeight ?? 0}
           hidden={insideBuildingId===building.id}
           key={building.id}
           building={building}
@@ -94,3 +91,5 @@ export default function OSMBuildings({ administration, facades, night = false, i
     </group>
   )
 }
+
+export default memo(OSMBuildings)

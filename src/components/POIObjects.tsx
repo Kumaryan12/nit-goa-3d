@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import { createRoadGeometry } from '../lib/roadGeometry'
 import type { TerrainModel } from '../lib/terrain'
 import type { CampusLocation } from '../types/campus'
@@ -15,7 +15,7 @@ function Goal({ x }: { x: number }) {
   </group>
 }
 
-export default function POIObjects({ locations, roads, terrain }: { locations: CampusLocation[]; roads: RoadFootprint[]; terrain?: TerrainModel }) {
+function POIObjects({ locations, roads, terrain }: { locations: CampusLocation[]; roads: RoadFootprint[]; terrain?: TerrainModel }) {
   const sports = locations.find((location) => location.id === 'sports-ground')!
   const entrance = locations.find((location) => location.id === 'main-entrance')!
   const pathway = useMemo(() => {
@@ -48,3 +48,5 @@ export default function POIObjects({ locations, roads, terrain }: { locations: C
     </group>
   </group>
 }
+
+export default memo(POIObjects)
