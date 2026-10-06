@@ -76,7 +76,7 @@ export default function SignInForm({ destination }: { destination?: '/student' |
       <p className="join-note">
         {destination === '/admin'
           ? 'Use the campus owner’s Google account to open the admin space.'
-          : 'Your Google account gets you in. Your profile can wait.'}
+          : 'Your profile can wait.'}
       </p>
       {!firebasePublicConfig && (
         <p className="community-notice">

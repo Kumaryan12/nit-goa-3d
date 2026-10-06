@@ -33,8 +33,8 @@ export default function CampusIllustration() {
     >
       <defs>
         <linearGradient id="land" x2="0.8" y2="1">
-          <stop stopColor="#ecebd5" />
-          <stop offset="1" stopColor="#d7debd" />
+          <stop stopColor="#b3c694" />
+          <stop offset="1" stopColor="#7e9f72" />
         </linearGradient>
         <filter id="mapShadow">
           <feDropShadow
@@ -56,7 +56,7 @@ export default function CampusIllustration() {
       </defs>
       <ellipse cx="300" cy="414" rx="207" ry="17" fill="#254d3520" />
       <g filter="url(#mapShadow)">
-        <path d="M55 287 237 43 545 167 394 409Z" fill="#afbf94" />
+        <path d="M55 287 237 43 545 167 394 409Z" fill="#607d56" />
         <path d="M55 274 237 30 545 154 394 396Z" fill="url(#land)" />
         <path
           d="m90 266 120-139q18-22 49-9l229 92M155 316l56-73q19-28 55-13l124 51q29 13 44-12l56-76"
@@ -148,7 +148,7 @@ export default function CampusIllustration() {
             )}
           </g>
         ))}
-        <path d="m126 337 12-17 30 12-11 15Z" fill="#e5dcc0" />
+        <path d="m126 337 12-17 30 12-11 15Z" fill="#eadcc0" />
         <path d="M138 320v-13m30 25v-13" stroke="#697b63" strokeWidth="3" />
       </g>
       <g className="map-pin" transform="translate(457 108)">
@@ -159,13 +159,6 @@ export default function CampusIllustration() {
           stroke="#39694e"
           strokeWidth="1.8"
         />
-      </g>
-      <g transform="translate(110 359)">
-        <rect x="-35" y="-12" width="122" height="27" rx="14" fill="#f8f5e8" />
-        <circle cx="-19" cy="1" r="3" fill="#618460" />
-        <text x="-8" y="5" fontSize="10" fill="#425c44" fontFamily="sans-serif">
-          Goa, together.
-        </text>
       </g>
     </svg>
   )

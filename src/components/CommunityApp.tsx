@@ -3,7 +3,8 @@ import { useAuth } from '../hooks/useAuth'
 import { campusAPI, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, initials, navigate } from '../lib/community'
 import SignInForm from './SignInForm'
-import CampusIllustration from './CampusIllustration'
+import LandingPage from './LandingPage'
+import NitGoaLogo from './NitGoaLogo'
 import ProfilePage from './ProfilePage'
 import PeoplePage from './PeoplePage'
 import CrowdDesk from './CrowdDesk'
@@ -15,152 +16,6 @@ interface Access {
   name: string
   role: 'member' | 'moderator' | 'admin'
   status: string
-}
-function Landing({
-  signedIn,
-  onEnter,
-}: {
-  signedIn: boolean
-  onEnter: () => void
-}) {
-  return (
-    <main>
-      <section className="community-hero community-container">
-        <div className="hero-copy">
-          <div className="hero-badge">
-            <span /> A little closer to campus
-          </div>
-          <h1>
-            Same campus.
-            <br />A whole new
-            <br />
-            <em>way to belong.</em>
-          </h1>
-          <p className="hero-description">
-            Take the familiar roads. Meet at the ground.
-            <br className="desktop-break" /> Give the OAT a night to remember.
-          </p>
-          {signedIn ? (
-            <div className="hero-return">
-              <button className="community-primary" onClick={onEnter}>
-                Step into campus <span>↗</span>
-              </button>
-              <p>Your people. Your places. All right here.</p>
-            </div>
-          ) : (
-            <div id="join">
-              <SignInForm destination={window.location.search ? undefined : '/student'} />
-              <button className="access-switch" onClick={() => navigate('/admin')}>Campus owner? Admin entrance ↗</button>
-            </div>
-          )}
-        </div>
-        <div className="hero-world">
-          <span className="world-coordinate">15.1677° N &nbsp; 74.0155° E</span>
-          <CampusIllustration />
-          <div className="world-caption">
-            <span className="world-label">NIT GOA, IN A NEW DIMENSION</span>
-            <span>Built around the places we know.</span>
-          </div>
-        </div>
-      </section>
-      <section
-        className="community-features community-container"
-        id="experiences"
-      >
-        <div className="feature-heading">
-          <span className="community-kicker">MORE THAN A MAP</span>
-          <h2>
-            The best bits happen
-            <br />
-            when we’re together.
-          </h2>
-          <p>
-            A place to explore, play, perform
-            <br />
-            and make a little space of your own.
-          </p>
-        </div>
-        <div className="feature-grid">
-          <article>
-            <span className="feature-icon">↗</span>
-            <span className="feature-number">01 / WANDER</span>
-            <h3>Know every corner.</h3>
-            <p>
-              Walk the campus in 3D. Find your next class, your favourite stop,
-              or somewhere new.
-            </p>
-          </article>
-          <article className="feature-dark">
-            <span className="feature-icon">♫</span>
-            <span className="feature-number">02 / TAKE THE STAGE</span>
-            <h3>Your OAT. Your encore.</h3>
-            <p>
-              Gather an audience, share a track, and sing live. Or settle into
-              the seats and listen.
-            </p>
-          </article>
-          <article>
-            <span className="feature-icon">◉</span>
-            <span className="feature-number">03 / FIND YOUR TEAM</span>
-            <h3>A quick game, anyone?</h3>
-            <p>
-              Head to the sports ground. One shared ball, two teams, and whoever
-              turns up.
-            </p>
-          </article>
-        </div>
-      </section>
-      <section className="community-profile-promo community-container">
-        <div className="promo-art" aria-hidden="true">
-          <div className="promo-orbit" />
-          <div className="promo-avatar">YOU</div>
-          <span className="promo-tag tag-one">Your story</span>
-          <span className="promo-tag tag-two">Your kind of people</span>
-          <span className="promo-tag tag-three">Your campus</span>
-        </div>
-        <div>
-          <span className="community-kicker">COME AS YOU ARE</span>
-          <h2>
-            A profile that
-            <br />
-            feels like <em>you.</em>
-          </h2>
-          <p>
-            A bio, a few interests, your favourite colour.
-            <br />
-            Make it yours whenever you feel like it.
-            <br />
-            Keep it private or share it with the campus.
-          </p>
-          <button
-            className="community-secondary"
-            onClick={() =>
-              signedIn
-                ? navigate('/me')
-                : document
-                    .getElementById('join')
-                    ?.scrollIntoView({ behavior: 'smooth' })
-            }
-          >
-            {signedIn ? 'Make it yours' : 'Join first. Make it yours later.'} ↗
-          </button>
-        </div>
-      </section>
-      <footer className="community-footer community-container">
-        <span>
-          NITG <b>Explored</b>
-        </span>
-        <p>
-          An independent campus experience.
-          <br />
-          Made for the people who make this place.
-        </p>
-        <button onClick={() => navigate('/people')}>
-          Meet the community ↗
-        </button>
-      </footer>
-    </main>
-  )
 }
 export default function CommunityApp() {
   const auth = useAuth(),
@@ -324,7 +179,7 @@ export default function CommunityApp() {
       </Suspense>
     )
   return (
-    <div className="community-shell">
+    <div className={`community-shell ${path === '/' ? 'welcome-shell' : ''}`}>
       <a className="community-skip" href="#community-content">
         Skip to content
       </a>
@@ -337,16 +192,14 @@ export default function CommunityApp() {
             navigate('/')
           }}
         >
-          <span className="brand-mark" aria-hidden="true">
-            ✳
-          </span>
+          <NitGoaLogo />
           <span>
             NITG <b>Explored</b>
-            <small>A CAMPUS, CONNECTED.</small>
+            <small>NIT GOA · CUNCOLIM</small>
           </span>
         </a>
         <nav aria-label="Main navigation">
-          <a href="/student" onClick={(e) => { e.preventDefault(); navigate('/student') }}>Student space</a>
+          {path === '/' ? <a href="#experiences">Experiences</a> : <a href="/student" onClick={(e) => { e.preventDefault(); navigate('/student') }}>Student space</a>}
           <a
             href="/people"
             onClick={(e) => {
@@ -354,7 +207,7 @@ export default function CommunityApp() {
               navigate('/people')
             }}
           >
-            The people
+            Community
           </a>
           {signedIn && (
             <a
@@ -367,7 +220,7 @@ export default function CommunityApp() {
               My profile
             </a>
           )}
-          {(!signedIn || isAdmin) && (
+          {((path !== '/' && !signedIn) || isAdmin) && (
             <a
               href="/admin"
               onClick={(e) => {
@@ -389,17 +242,18 @@ export default function CommunityApp() {
                 Sign out
               </button>
               <button className="community-primary" onClick={enter}>
-                Enter campus ↗
+                {path === '/' ? 'Enter ↗' : 'Enter campus ↗'}
               </button>
             </>
           ) : (
             <button
               className="community-secondary"
               onClick={() => {
-                navigate(adminPage ? '/admin' : '/student')
+                if (path === '/') document.getElementById('join')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
+                else navigate(adminPage ? '/admin' : '/student')
               }}
             >
-              Come on in ↗
+              {path === '/' ? 'Join ↗' : 'Enter campus ↗'}
             </button>
           )}
         </div>
@@ -449,16 +303,9 @@ export default function CommunityApp() {
             ) : (path === '/campus' && !signedIn) ||
               (memberPage && !signedIn) ? (
               <div className="community-container entry-page">
-                <span className="community-kicker">YOU’RE ALMOST HERE</span>
-                <h1>
-                  Campus starts
-                  <br />
-                  with a hello.
-                </h1>
-                <p>
-                  Sign in to join the campus. A concert or game invitation will
-                  be waiting when you return.
-                </p>
+                <span className="community-kicker">NIT GOA, TOGETHER</span>
+                <h1>Step into campus.</h1>
+                <p>Sign in with Google to join.</p>
                 <SignInForm />
                 {import.meta.env.DEV && !auth.configured && (
                   <button
@@ -473,7 +320,7 @@ export default function CommunityApp() {
                 )}
               </div>
             ) : (
-              <Landing signedIn={signedIn} onEnter={() => navigate(window.location.search ? campusDestination() : '/student')} />
+              <LandingPage signedIn={signedIn} onEnter={enter} />
             )}
           </>
         )}
