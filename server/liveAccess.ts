@@ -21,6 +21,7 @@ export function attachLiveAccess(
   verify: VerifyAccess = createAccessVerifier(),
 ) {
   const alive = new WeakSet<WebSocket>()
+  const entryBySocket = new WeakMap<WebSocket, Entry>()
   const entries = new Map<string, Entry>(),
     pending = new Set<WebSocket>(),
     attempts = new Map<string, { count: number; until: number }>(),
@@ -115,7 +116,7 @@ export function attachLiveAccess(
       windowAt = Date.now()
     const deadline = setTimeout(() => {
       if (!entry) ws.close(4401, 'Sign-in required')
-    }, 15000)
+    }, 30000)
     deadline.unref()
     send(ws, { type: 'auth-required' })
     ws.on('message', async (bytes, binary) => {
@@ -174,6 +175,7 @@ export function attachLiveAccess(
             checking: false,
           }
           entries.set(identity.id, entry)
+          entryBySocket.set(ws, entry)
           expire(entry)
           pending.delete(ws)
           clearTimeout(deadline)
@@ -194,6 +196,7 @@ export function attachLiveAccess(
       clearTimeout(entry?.expiry)
       clearTimeout(deadline)
       pending.delete(ws)
+      entryBySocket.delete(ws)
       if (entry && entries.get(entry.identity.id) === entry)
         entries.delete(entry.identity.id)
       queueMicrotask(drain)
@@ -232,10 +235,12 @@ export function attachLiveAccess(
       admitted = callback
     },
     isAdmitted(ws: WebSocket) {
-      return [...entries.values()].some((e) => e.ws === ws && e.admitted && e.identity.expiresAt > Date.now() && e.ws.readyState === WebSocket.OPEN)
+      const entry = entryBySocket.get(ws)
+      return !!(entry && entries.get(entry.identity.id) === entry && entry.admitted && entry.identity.expiresAt > Date.now() && ws.readyState === WebSocket.OPEN)
     },
     identity(ws: WebSocket) {
-      return [...entries.values()].find(e => e.ws === ws && e.admitted && e.identity.expiresAt > Date.now() && e.ws.readyState === WebSocket.OPEN)?.identity ?? null
+      const entry = entryBySocket.get(ws)
+      return entry && entries.get(entry.identity.id) === entry && entry.admitted && entry.identity.expiresAt > Date.now() && ws.readyState === WebSocket.OPEN ? entry.identity : null
     },
     snapshot() {
       return {

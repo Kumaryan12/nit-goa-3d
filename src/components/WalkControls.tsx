@@ -9,7 +9,8 @@ import type { WalkInput, WalkStatus } from '../lib/walking'
 import type { CampusLocation } from '../types/campus'
 
 type Direction = 'forward' | 'back' | 'left' | 'right' | 'turn-left' | 'turn-right'
-export default function WalkControls({ campusLive, input, status, paused, ready, locations, onPause, onSpawn, onInspect, onOverview }: {
+export default function WalkControls({ compact = false, campusLive, input, status, paused, ready, locations, onPause, onSpawn, onInspect, onOverview }: {
+  compact?: boolean
   campusLive: CampusLiveSession; input: React.RefObject<WalkInput>; status: WalkStatus | null; paused: boolean; ready: boolean; locations: CampusLocation[];
   onPause: () => void; onSpawn: (id: string) => void; onInspect: (id: string) => void; onOverview: () => void
 }) {
@@ -51,7 +52,7 @@ export default function WalkControls({ campusLive, input, status, paused, ready,
     onPointerUp={event => { pointers.current.delete(event.pointerId); update() }} onPointerCancel={event => { pointers.current.delete(event.pointerId); update() }} onLostPointerCapture={event => { pointers.current.delete(event.pointerId); update() }}
     onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); pointers.current.set(-1, direction); update() } }}
     onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') { pointers.current.delete(-1); update() } }} onBlur={() => { pointers.current.delete(-1); update() }}>{symbol}</button>
-  return <aside className="walk-controls" aria-label="Avatar exploration controls">
+  return <aside className={`walk-controls ${compact ? 'walk-controls-compact' : ''}`} aria-label="Avatar exploration controls">
     <div className="walk-heading"><div><span className="eyebrow">Walk the campus</span><h2>{inside ? inside.kind==='classroom'?'Gyan Mandir, on foot':'Talpona, on foot' : passenger ? 'Ride with ' + (driver?.name ?? 'your campus friend') : riding ? status?.vehicle === 'buggy' ? 'Drive the campus buggy' : 'Cycle the campus' : 'Your campus, on foot'}</h2></div><button className="text-button" onClick={onOverview}>Overview ↗</button></div>
     <p className="walk-help">{passenger ? 'Enjoy the ride. Wait for the driver to stop, then choose Get out or press F.' : riding ? 'W / ↑ to accelerate · S / ↓ to brake (hold to reverse the buggy) · A/D or ←→ to steer · Space to brake · F to dismount.' : <>Hold WASD / ↑↓ to build speed · ←→ or drag to look · Shift to run · Space / J to jump (J during football) · E to inspect, enter, or use stairs.</>}</p>
     <p className="walk-location" role="status">{status?.error ? status.error : !ready ? 'Waiting for campus geometry…' : paused ? 'Walk paused' : inside ? `${inside.kind==='classroom'?(inside.floor===0?'Ground floor':`Floor ${inside.floor}`):boysHostelDetails.floors[inside.floor]?.label ?? 'Hostel'} · ${inside.stairLowFloor !== null ? 'Using stairs…' : inside.room ?? 'Corridor'}` : nearest ? `Near ${nearest.name} · ${status!.distance.toFixed(1)} m` : 'Explore the paths and open spaces'}{status?.blocked && !paused && ' · Path blocked'}</p>

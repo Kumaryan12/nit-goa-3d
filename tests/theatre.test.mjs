@@ -70,6 +70,48 @@ test('the central and rear stairs can be traversed to the stage while benches bl
   assert.equal(theatreSurfaceHeightAt({ x: 0, z: 0 }, theatre), null)
 })
 
+test('avatars enter and leave the OAT plaza at normal frame rates, including slow acceleration', () => {
+  const theatre = twin.theatre, world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
+  // Previous stair tests began inside the plaza and missed its 8 cm edge.
+  for (const fps of [30, 60, 120]) for (const speed of [.3, 2.3, 5]) {
+    for (const [start, end] of [
+      [{ x: 0, z: 14.7 }, { x: 0, z: 14.3 }],
+      [{ x: 11.7, z: -4.5 }, { x: 11.3, z: -4.5 }],
+      [{ x: -11.7, z: -4.5 }, { x: -11.3, z: -4.5 }],
+    ]) for (const reverse of [false, true]) {
+      let point = theatreToWorld(reverse ? end : start, theatre)
+      const target = theatreToWorld(reverse ? start : end, theatre)
+      for (let frame = 0; frame < Math.ceil(2 * theatre.depthScale / speed * fps); frame++) {
+        const distance = Math.hypot(target.x - point.x, target.z - point.z)
+        if (distance < .005) break
+        point = stepWalking(point, { x: target.x - point.x, z: target.z - point.z }, Math.min(speed, distance * fps), 1 / fps, world)
+      }
+      assert.ok(Math.hypot(target.x - point.x, target.z - point.z) < .005, `${fps} fps, ${speed} m/s, ${JSON.stringify(start)}, reverse=${reverse}`)
+    }
+  }
+})
+
+test('the roadside OAT entrance reaches the stage at 60 fps without bypassing seating or stage edges', () => {
+  const theatre = twin.theatre, world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
+  let point = { ...theatre.entrance }
+  const target = theatreToWorld({ x: 0, z: -2 }, theatre)
+  for (let frame = 0; frame < 2000; frame++) {
+    const distance = Math.hypot(target.x - point.x, target.z - point.z)
+    if (distance < .005) break
+    point = stepWalking(point, { x: target.x - point.x, z: target.z - point.z }, Math.min(2.3, distance * 60), 1 / 60, world, walkSurfaceHeightAt(twin.terrain, point.x, point.z))
+  }
+  assert.ok(Math.hypot(target.x - point.x, target.z - point.z) < .005, 'entrance, both stair flights and ramp form a traversable route')
+  for (const [start, direction] of [
+    [{ x: 3, z: -4.2 }, { x: 0, z: 1 }],
+    [{ x: 3, z: -3.8 }, { x: 0, z: -1 }],
+  ]) {
+    let edge = theatreToWorld(start, theatre)
+    const toward = theatreToWorld({ x: start.x + direction.x, z: start.z + direction.z }, theatre)
+    for (let frame = 0; frame < 60; frame++) edge = stepWalking(edge, { x: toward.x - edge.x, z: toward.z - edge.z }, 2.3, 1 / 60, world)
+    assert.ok(Math.abs(theatreToLocal(edge, theatre).z - start.z) < .21, '45 cm stage edge needs the ramp in both directions')
+  }
+})
+
 test('rear OAT aisle seats can be reached from the clear stairs without walking through benches', () => {
   const theatre = twin.theatre, world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain)
   for (const seat of theatreSeats(theatre).filter(seat => seat.row >= 3 && [3, 4].includes(Number(seat.id.split('-')[2])))) {

@@ -16,7 +16,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .explorer.night-mode { --ink: #e4ede9; --muted: #a0b6b2; --glass: #101e30ed; --border: #b9cae030; --accent: #a0d6ba; --wash: #b9cae014; color-scheme: dark; }
 .scene-viewport { position: absolute; inset: 0; }
 .scene-viewport canvas { display: block; touch-action: none; }
-.scene-header, .location-navigation, .map-status, .building-info-panel, .campus-stats, .campus-minimap, .scene-footer > div {
+.scene-header, .location-navigation, .map-status, .building-info-panel, .campus-minimap {
   border: 1px solid var(--border); background: var(--glass); backdrop-filter: blur(16px); box-shadow: 0 6px 30px #132b1910;
 }
 .scene-header { position: absolute; z-index: 50; top: 20px; left: 24px; right: 24px; display: flex; align-items: center; gap: 24px; padding: 16px 20px; border-radius: 16px; }
@@ -118,13 +118,6 @@ h1 span { font-weight: 400; }
 .navigation-foundation-note > span { color: var(--accent); }
 .navigation-foundation-note p { font-size: 9px; line-height: 1.7; margin: 0; }
 .navigation-panel > .fly-button { width: 100%; }
-.campus-stats { position: absolute; z-index: 30; left: 24px; bottom: 114px; width: 250px; padding: 15px 16px 12px; border-radius: 12px; }
-.stats-title { display: flex; justify-content: space-between; align-items: center; }
-.fps-indicator { font-size: 8px; color: var(--accent); padding: 3px 5px; border-radius: 5px; background: var(--wash); }
-.campus-stats dl { display: flex; justify-content: space-between; gap: 12px; margin: 13px 0 10px; }
-.campus-stats dt { font-size: 8px; color: var(--muted); }
-.campus-stats dd { font-size: 24px; font-weight: 500; letter-spacing: -.04em; margin: 4px 0 0; }
-.stats-detail { margin: 0; font-size: 8px; color: var(--muted); }
 .campus-minimap { position: absolute; z-index: 30; right: 24px; bottom: 24px; width: 318px; padding: 14px 16px 10px; border-radius: 12px; }
 .minimap-heading { display: flex; align-items: center; justify-content: space-between; }
 .minimap-heading > span:last-child { color: var(--accent); font-size: 10px; }
@@ -140,25 +133,13 @@ h1 span { font-weight: 400; }
 .minimap-legend span:nth-child(2) i { height: 2px; background: #859089; }
 .minimap-legend span:nth-child(3) i { border-radius: 50%; background: #d38a49; }
 .minimap-empty { position: absolute; top: 50%; width: calc(100% - 32px); text-align: center; font-size: 10px; color: var(--muted); }
-.scene-footer { position: absolute; z-index: 30; left: 24px; right: 366px; bottom: 24px; display: flex; justify-content: space-between; gap: 12px; pointer-events: none; }
-.scene-footer > div { padding: 12px 16px; border-radius: 10px; }
-.scene-footer p { margin: 0; font-size: 9px; line-height: 1.7; color: var(--muted); }
-.navigation-hint { display: flex; align-items: center; gap: 8px; color: var(--ink) !important; }
-.control-icon { font-size: 14px; margin-left: 5px; color: var(--accent); }
-.control-icon:first-child { margin-left: 0; }
-.control-detail { color: var(--muted); font-size: 8px; }
-.map-attribution { margin-top: 5px !important; }
-.map-attribution a { color: inherit; text-underline-offset: 2px; pointer-events: auto; }
-.footer-scale { text-align: right; }
-.performance-note { opacity: .8; font-size: 8px !important; }
 .webgl-fallback { padding: 150px 32px; }
-@media (max-width: 1250px) { .scene-header { gap: 18px; } .toolbar-button { padding: 10px 8px; font-size: 10px; } .footer-scale { display: none; } }
+@media (max-width: 1250px) { .scene-header { gap: 18px; } .toolbar-button { padding: 10px 8px; font-size: 10px; } }
 @media (max-height: 780px) and (min-width: 761px) {
   .location-navigation { top: 228px; padding: 12px 16px; }
   .location-buttons { margin-top: 8px; gap: 0; }
   .location-buttons button { padding: 5px; }
   .approximation-note { margin-top: 7px; padding-top: 7px; }
-  .campus-stats { bottom: 108px; padding-top: 12px; }
 }
 @media (max-height: 650px) and (min-width: 761px) { .location-navigation { display: none; } .building-info-panel { max-height: calc(100dvh - 294px); } .minimap-svg { height: 75px; } }
 @media (max-width: 1000px) and (min-width: 761px) {
@@ -188,26 +169,13 @@ h1 span { font-weight: 400; }
   .location-buttons button { white-space: nowrap; padding: 7px 9px; gap: 8px; }
   .building-info-panel { top: 197px; bottom: 230px; left: 12px; right: 12px; width: auto; max-height: none; padding: 18px; }
   .building-info-panel h2 { font-size: 22px; }
-  .campus-stats { left: 12px; bottom: 72px; width: calc(100% - 196px); min-width: 168px; padding: 10px 12px; }
-  .stats-title .eyebrow { font-size: 7px; letter-spacing: .1em; }
-  .campus-stats dl { gap: 6px; margin: 8px 0; }
-  .campus-stats dd { font-size: 20px; }
-  .campus-stats dt, .stats-detail { font-size: 7px; }
-  .fps-indicator { font-size: 7px; }
   .campus-minimap { right: 12px; bottom: 12px; width: 160px; padding: 10px; }
   .minimap-heading .eyebrow { font-size: 7px; letter-spacing: .07em; }
   .minimap-svg { height: 108px; margin-top: 7px; }
   .minimap-legend { gap: 6px; font-size: 6px; }
-  .scene-footer { left: 12px; right: 184px; bottom: 12px; }
-  .scene-footer > div { padding: 7px 10px; width: 100%; }
-  .scene-footer p { font-size: 7px; }
-  .navigation-hint { gap: 5px; }
-  .control-detail, .footer-scale { display: none; }
-  .control-icon { font-size: 10px; margin-left: 0; }
-  .map-attribution { margin-top: 2px !important; }
   .location-label { font-size: 9px; padding: 5px 7px; }
 }
-@media (max-width: 370px) { .campus-stats { min-width: 0; } .stats-title .eyebrow { font-size: 6px; } .toolbar-button { padding: 8px 5px; } }
+@media (max-width: 370px) { .toolbar-button { padding: 8px 5px; } }
 @media (prefers-reduced-motion: reduce) { .loading-dot { animation: none; } }
 /* Phase 7 navigation and community tools */
 .route-marker-label { display: block; white-space: nowrap; font-size: 9px; letter-spacing: .1em; font-weight: 700; padding: 5px 8px; border-radius: 5px; color: #163d48; background: #f5fff6ee; border: 1px solid #1b5769; pointer-events: none; }
@@ -296,7 +264,7 @@ h1 span { font-weight: 400; }
   .edit-campus-toggle { margin-right: auto; }
   .campus-editor { top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; max-height: 55dvh; padding: 16px; }
   .campus-editor.is-picking { top: auto; bottom: 12px; max-height: 30dvh; }
-  .editing-campus .location-navigation, .editing-campus .campus-stats, .editing-campus .scene-footer, .editing-campus .map-status { visibility: hidden; }
+  .editing-campus .location-navigation, .editing-campus .map-status { visibility: hidden; }
 }
 /* Two explorer versions share the same corrected campus data. */
 .explorer-version-switch { display: inline-flex; gap: 3px; padding: 3px; margin-top: 7px; border: 1px solid var(--border); background: var(--wash); border-radius: 8px; }
@@ -368,7 +336,7 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
   .campus-social { left: 12px; right: 12px; bottom: 12px; width: auto; height: 510px; padding: 16px; max-height: calc(100dvh - 220px); }
   .campus-social-heading h2 { font-size: 21px; }
   .campus-chat-composer input { font-size: 16px; padding: 9px; }
-  .social-open .walk-controls, .social-open .building-info-panel, .social-open .campus-stats, .social-open .location-navigation { visibility: hidden; }
+  .social-open .walk-controls, .social-open .building-info-panel, .social-open .location-navigation { visibility: hidden; }
 }
 @media (pointer: coarse) {
   .walk-joystick { display: block; }
@@ -382,7 +350,7 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .walk-jump { grid-column: 1 / -1; gap: 6px; }.walk-jump small { opacity: .6; }
 .walk-look .walk-direction { height: 42px; }.walk-look .fly-button { justify-content: center; padding: 8px; }
 .walk-note { margin-bottom: 0; font-size: 9px; }
-.walk-mode .location-navigation, .walk-mode .campus-stats, .walk-mode .scene-footer, .walk-mode .map-status-complete { display: none; }
+.walk-mode .location-navigation, .walk-mode .map-status-complete { display: none; }
 .minimap-you i { background: white !important; border: 1px solid #007cc2; border-radius: 50% !important; }
 .walk-mode .scene-viewport canvas { cursor: grab; }.walk-mode .scene-viewport canvas:active { cursor: grabbing; }
 @media (max-width: 760px) {
@@ -462,7 +430,7 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .football-player-label { padding: 3px 6px; border-radius: 4px; background: #3389c0; color: white; font-size: 8px; white-space: nowrap; }.football-player-label.gold { background: #b58831; }
 .football-mode .campus-minimap { display: none; }
 .oat-controls { position: absolute; z-index: 41; right: 24px; top: 132px; bottom: 24px; width: 340px; padding: 22px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border); border-radius: 16px; background: var(--glass); color: var(--ink); backdrop-filter: blur(16px); box-shadow: 0 6px 30px #132b1910; scrollbar-width: thin; }
-.oat-mode .campus-minimap, .oat-mode .campus-stats, .oat-mode .location-navigation { display: none; }
+.oat-mode .campus-minimap, .oat-mode .location-navigation { display: none; }
 .oat-heading, .oat-actions, .oat-input-row, .oat-sound-controls { display: flex; align-items: center; gap: 8px; }
 .oat-heading { justify-content: space-between; }
 .oat-controls h2 { margin: 12px 0; font-size: 25px; letter-spacing: -.04em; }
@@ -526,3 +494,54 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .graphics-control select { color: inherit; background: var(--panel-bg, #faf9f2); border: 1px solid var(--border, #d6ddd2); border-radius: .65rem; padding: .45rem .6rem; font: inherit; cursor: pointer; }
 .night-mode .graphics-control select { background: #203342; border-color: #415568; color: #edf2ef; }
 .graphics-control select:focus-visible { outline: 2px solid #5c9c83; outline-offset: 2px; }
+.campus-load-failure { max-width: 620px; margin: 12vh auto; padding: 32px; color: #234638; background: #fbfaf5; border-radius: 24px; }
+.campus-load-failure h1 { font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.15; }
+.campus-load-failure p { line-height: 1.6; margin-bottom: 24px; }
+/* The view dock stays available even when the rest of the interface is hidden. */
+.explorer { overflow: hidden; }
+.explorer:fullscreen { width: 100%; height: 100%; background: #526d47; }
+.view-controls { position: absolute; z-index: 72; right: 24px; bottom: max(24px, env(safe-area-inset-bottom)); color: var(--ink); }
+.explorer .campus-minimap { bottom: 88px; }
+.view-dock { display: flex; align-items: center; padding: 4px; gap: 3px; border: 1px solid var(--border); border-radius: 14px; background: var(--glass); backdrop-filter: blur(18px); box-shadow: 0 6px 24px #132b191c; }
+.view-dock button { min-height: 40px; border: 0; border-radius: 10px; padding: 8px 12px; color: inherit; font: inherit; font-size: 11px; white-space: nowrap; background: transparent; }
+.view-dock button:hover, .view-dock button[aria-pressed="true"], .view-dock button[aria-expanded="true"] { background: var(--wash); }
+.view-dock button:last-child { font-size: 20px; min-width: 44px; }
+.view-options { position: absolute; bottom: calc(100% + 10px); left: 0; min-width: 230px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--glass); backdrop-filter: blur(18px); box-shadow: 0 8px 30px #132b191c; }
+.view-options label { display: flex; align-items: center; gap: 10px; min-height: 42px; font-size: 12px; cursor: pointer; }
+.view-options input { width: 16px; height: 16px; accent-color: var(--accent); }
+.view-options p, .view-feedback { font-size: 10px; line-height: 1.6; color: var(--muted); }
+.view-feedback { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: 250px; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--glass); }
+.panels-hidden .location-navigation, .panels-hidden .building-info-panel { display: none; }
+.panels-hidden .map-status-complete { display: none; }
+.minimap-hidden .campus-minimap { display: none; }
+.toolbar-hidden .scene-header { display: none; }
+.toolbar-hidden .map-status, .toolbar-hidden .resilience-notice { top: 20px; }
+.walk-controls-compact { width: auto; max-width: 320px; padding: 10px; bottom: max(88px, calc(env(safe-area-inset-bottom) + 64px)); }
+.walk-controls-compact > :not(.walk-input-row):not(.walk-inspect):not(.walk-interior-actions) { display: none; }
+.walk-controls-compact .walk-input-row { margin-top: 0; gap: 10px; }
+.walk-controls-compact .walk-inspect { margin-bottom: 8px; }
+.walk-controls-compact .walk-interior-actions { margin-bottom: 8px; }
+.walk-controls-compact .walk-interior-actions p { display: none; }
+@media (min-width: 761px) {
+  .explorer .building-info-panel { max-height: calc(100dvh - 438px); }
+}
+@media (max-height: 650px) and (min-width: 761px) {
+  .explorer .building-info-panel { max-height: calc(100dvh - 358px); }
+}
+@media (max-width: 1000px) and (min-width: 761px) {
+  .explorer .building-info-panel { max-height: calc(100dvh - 472px); }
+}
+@media (max-width: 760px) {
+  .view-controls { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .view-dock button { padding: 8px 10px; }
+  .view-options { left: auto; right: 0; }
+  .explorer .campus-minimap { bottom: 76px; }
+  .walk-mode .campus-minimap { bottom: auto; }
+  .toolbar-hidden.walk-mode .campus-minimap { top: 12px; }
+  .explorer .location-navigation { bottom: 238px; }
+  .walk-mode .walk-controls { bottom: 76px; }
+  .toolbar-hidden .map-status { top: 12px; }
+  .walk-controls-compact { bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)); max-width: calc(100% - 24px); }
+}
+
+.map-credit { position: absolute; z-index: 30; left: max(12px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); padding: 3px 6px; border-radius: 4px; background: var(--glass); color: var(--muted); font-size: 9px; line-height: 1.4; text-underline-offset: 2px; }

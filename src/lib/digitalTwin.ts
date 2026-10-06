@@ -85,6 +85,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   return { lamps, lawns, flag, gardens, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
 }
 export type DigitalTwin = ReturnType<typeof createDigitalTwin> & {
+  meadow?: import('./campusMeadow.ts').MeadowChunk[]
   terrainPatches?: TerrainPatchData[]
   interiors?: { hostel: HostelPlan | null; gyan: HostelPlan | null }
 }

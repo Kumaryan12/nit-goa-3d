@@ -89,6 +89,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       }
     },
     remove(id: string) { releasePassengers(id, Date.now()); members.delete(id); rideLimits.delete(id) },
+    poseFor(id: string) { const pose = members.get(id)?.person.pose; return pose ? { ...pose } : null },
     removeMessages(id: string) { for (let i = history.length - 1; i >= 0; i--) if (history[i].sender === id) history.splice(i, 1) },
     pose(id: string, input: unknown, activity: unknown, now = Date.now()) {
       syncRides(now); syncSocial(now)

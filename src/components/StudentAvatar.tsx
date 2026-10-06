@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { BoxGeometry, CapsuleGeometry, Euler, Matrix4, Quaternion, SphereGeometry, Vector3 } from 'three'
+import type { BufferGeometry } from 'three'
 import type { Group } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { avatarPose, motionDelta, ridingPose, socialPoseForMotion } from '../lib/avatarMotion'
@@ -11,11 +12,14 @@ interface Part { shape: 'box' | 'sphere' | 'capsule'; size: Triple; at: Triple; 
 const capsule = (radius: number, length: number, at: Triple, scale?: Triple): Part => ({ shape: 'capsule', size: [radius, length, 0], at, scale })
 const sphere = (radius: number, at: Triple, scale?: Triple): Part => ({ shape: 'sphere', size: [radius, 0, 0], at, scale })
 const box = (size: Triple, at: Triple): Part => ({ shape: 'box', size, at })
+const sharedParts = new Map<Part[], { geometry: BufferGeometry; users: number }>()
 
 // Merge fixed detail by material so facial features and clothing details do not
 // each need a separate draw call in the multiplayer crowd.
 function Parts({ parts, color, roughness = .85 }: { parts: Part[]; color: string; roughness?: number }) {
-  const geometry = useMemo(() => {
+  const shared = useMemo(() => {
+    const existing = sharedParts.get(parts)
+    if (existing) return existing
     const pieces = parts.map(part => {
       const geometry = part.shape === 'capsule' ? new CapsuleGeometry(part.size[0], part.size[1], 4, 10)
         : part.shape === 'sphere' ? new SphereGeometry(part.size[0], 12, 8) : new BoxGeometry(...part.size)
@@ -24,10 +28,13 @@ function Parts({ parts, color, roughness = .85 }: { parts: Part[]; color: string
     })
     const combined = mergeGeometries(pieces)!
     pieces.forEach(piece => piece.dispose())
-    return combined
+    const shared = { geometry: combined, users: 0 }; sharedParts.set(parts, shared); return shared
   }, [parts])
-  useEffect(() => () => geometry.dispose(), [geometry])
-  return <mesh geometry={geometry} castShadow receiveShadow><meshStandardMaterial color={color} roughness={roughness} /></mesh>
+  useEffect(() => {
+    shared.users++
+    return () => { shared.users--; queueMicrotask(() => { if (!shared.users && sharedParts.get(parts) === shared) { shared.geometry.dispose(); sharedParts.delete(parts) } }) }
+  }, [parts, shared])
+  return <mesh geometry={shared.geometry} castShadow receiveShadow><meshStandardMaterial color={color} roughness={roughness} /></mesh>
 }
 
 const torsoParts = [capsule(.23, .22, [0, .31, 0], [1, 1, .66])]

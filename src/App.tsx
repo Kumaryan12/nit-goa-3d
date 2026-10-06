@@ -6,7 +6,6 @@ const PhotoUploadDialog = lazy(() => import('./components/PhotoUploadDialog'))
 const SlopeEditor = lazy(() => import('./components/SlopeEditor'))
 const CampusLocationEditor = lazy(() => import('./components/CampusLocationEditor'))
 const AuthDialog = lazy(() => import('./components/AuthDialog'))
-import type { SceneMetrics } from './components/CampusScene'
 import type { SlopeEnd, SlopePickedPoint, SlopePreviewPoints } from './components/SlopeEditor'
 import type { MapPickRequest, PickedLocation } from './components/CampusLocationEditor'
 import { applyLocationOverride, readLocationEdits, validateOverrides, writeLocationEdits } from './lib/locationOverrides'
@@ -41,16 +40,13 @@ import ErrorBoundary from './components/ErrorBoundary'
 import type { CameraRequest } from './lib/camera'
 import { createRoadGraph, planWalkingRoute } from './lib/pathfinding'
 import { campusCenter, selectionForLocation } from './lib/locations'
-import { calculateCampusStats } from './lib/stats'
 import SearchBar from './components/SearchBar'
 import NavigationMode from './components/NavigationMode'
-import CampusStats from './components/CampusStats'
 import MiniMap from './components/MiniMap'
 import { campusLocations } from './data/campus'
 import LoadingOverlay from './components/LoadingOverlay'
 import BuildingInfoPanel from './components/BuildingInfoPanel'
-import { sceneConfig } from './lib/sceneConfig'
-import { fetchCampusData, fetchCampusRoads, fetchPublishedCampusData, fetchPublishedCampusRoads, PUBLISHED_MAP_DATE } from './lib/osm'
+import { fetchCampusData, fetchCampusRoads, fetchPublishedCampusData, fetchPublishedCampusRoads } from './lib/osm'
 import { LAT0, LON0 } from './lib/geo'
 import type { CampusMapState, CampusRoadState } from './types/osm'
 import type { BuildingSelection } from './types/campus'
@@ -59,6 +55,8 @@ import { validGraphicsMode } from './lib/graphics'
 import AtmosphereControls from './components/AtmosphereControls'
 import SocialActions from './components/SocialActions'
 import { theatreSeats } from './lib/social'
+import ViewControls, { initialViewLayout } from './components/ViewControls'
+import type { ViewLayout } from './components/ViewControls'
 
 const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
 const readState = () => {
@@ -67,6 +65,14 @@ const readState = () => {
   return parseURLState(window.location.href, [...campusLocations.map((p) => p.id), ...extra])
 }
 export default function App({accountControl,accountOpen=false,canEdit=false}:{accountControl?:ReactNode;accountOpen?:boolean;canEdit?:boolean}={}) {
+  const explorer = useRef<HTMLElement>(null), [layout, setLayout] = useState(initialViewLayout)
+  const changeLayout = (value: ViewLayout) => { setLayout(value); try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(value)) } catch { /* View changes work without storage. */ } }
+  const revealPanels = useCallback(() => setLayout(previous => {
+    if (previous.panels) return previous
+    const next = { ...previous, panels: true }
+    try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(next)) } catch { /* Inspection still opens without storage. */ }
+    return next
+  }), [])
   const initial = useRef(readState()).current
   const initialView = useRef(explorerViewFromURL(window.location.href)).current
   const [view, setView] = useState<ExplorerView>(initialView)
@@ -130,23 +136,17 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const [mapState, setMapState] = useState<CampusMapState>({ status: 'loading' })
   const [roadState, setRoadState] = useState<CampusRoadState>({ status: 'loading' })
   const [roadAttempt, setRoadAttempt] = useState(0)
-  const [renderedCount, setRenderedCount] = useState(0)
   const [night, setNight] = useState(initial.night)
   const [terrainReady, setTerrainReady] = useState(false)
   const [vegetationReady, setVegetationReady] = useState(false)
-  const [treeCount, setTreeCount] = useState(0)
-  const [metrics, setMetrics] = useState<SceneMetrics | null>(null)
-  const onMetrics = useCallback((next: SceneMetrics) => setMetrics((previous) =>
-    previous?.fps === next.fps && previous.calls === next.calls && previous.triangles === next.triangles ? previous : next), [])
   const [cameraRequest, setCameraRequest] = useState<CameraRequest>({ sequence: 0, locationId: initial.to ?? initial.location })
   const onFlyTo = useCallback((locationId: string) => { if (view === 'walk') spawnNear(locationId); else setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId })) }, [view, spawnNear])
   const onResetCamera = () => { if (view === 'walk') spawnNear('main-entrance'); else setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null })) }
   const onTerrainReady = useCallback(() => setTerrainReady(true), [])
-  const onVegetationReady = useCallback((count: number) => { setTreeCount(count); setVegetationReady(true) }, [])
+  const onVegetationReady = useCallback(() => setVegetationReady(true), [])
   const retryRoads = useCallback(() => {
     setRoadState({ status: 'loading' })
     setVegetationReady(false)
-    setTreeCount(0)
     setRoadAttempt((attempt) => attempt + 1)
   }, [])
   const mapData = mapState.status === 'ready' ? mapState.data : null
@@ -192,23 +192,23 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   }, [navigationOpen, start, activeSelection, roadGraph, roadState.status])
   useEffect(() => { setPlayback((p) => ({...p, status: 'stopped', sequence: p.sequence + 1})); travelerPosition.current = null }, [presentation])
   const viewRoute = () => { if (presentation) setCameraRequest((p) => ({ sequence: p.sequence + 1, locationId: null, routePoints: routePoints(presentation) })) }
-  const stats = useMemo(() => calculateCampusStats(twin), [twin])
   const chooseLocation = useCallback((id: string) => {
     const next = selectionForLocation(id, catalog, twin?.selections)
     if (!next) return
+    revealPanels()
     setSelection(next)
     setNavigationOpen(false)
     if (view === 'overview') onFlyTo(id)
-  }, [catalog, twin, onFlyTo, view])
+  }, [catalog, twin, onFlyTo, view, revealPanels])
   const chooseNavigationDestination = useCallback((id: string) => { chooseLocation(id); setNavigationOpen(true) }, [chooseLocation])
   const closeNavigation = useCallback(() => setNavigationOpen(false), [])
-  const openNavigation = useCallback(() => { setOatJoined(false); setOatOpen(false); setView('overview'); setNavigationOpen(true) }, [])
+  const openNavigation = useCallback(() => { revealPanels(); setOatJoined(false); setOatOpen(false); setView('overview'); setNavigationOpen(true) }, [revealPanels])
   const clearSelection = useCallback(() => { if (!editorOpen && !slopeEditorOpen && !picking) setSelection(null) }, [editorOpen, picking, slopeEditorOpen])
   const onSelectBuilding = useCallback((next: BuildingSelection) => {
     if (slopeEditorOpen || picking?.mode === 'point') return
     if (picking?.mode === 'building' && next.buildingId) { setPicked({ locationId: picking.locationId, buildingId: next.buildingId, coordinates: next.location.coordinates }); setPicking(null); return }
-    if (!editorOpen) setSelection(next)
-  }, [editorOpen, picking, slopeEditorOpen])
+    if (!editorOpen) { revealPanels(); setSelection(next) }
+  }, [editorOpen, picking, slopeEditorOpen, revealPanels])
   const editLocation = useCallback((id: string) => { setOatJoined(false); setOatOpen(false); closeSlopeEditor(); setView('overview'); setEditorLocationId(id); setEditorOpen(true); setNavigationOpen(false); setPicking(null); setPicked(null); setSelection(selectionForLocation(id, catalog, twin?.selections)); if (['main-entrance', 'sports-ground'].includes(id)) setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null })) }, [catalog, twin, closeSlopeEditor])
   const changeView = useCallback((next: ExplorerView) => {
     setView(next); setFootballJoined(false); setOatJoined(false); setOatOpen(false); closeEditor(); closeSlopeEditor(); setNavigationOpen(false); setSelection(null); setWalkManualPause(false)
@@ -241,7 +241,6 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const viewSlopeSection = (points: LocalCoordinate[]) => setCameraRequest(request => ({ sequence: request.sequence + 1, locationId: null, routePoints: points }))
   const walkPaused = accountOpen || walkManualPause || galleryOpen || uploadOpen || authOpen || editorOpen || slopeEditorOpen || terrainControlsOpen
   const onRenderedCount = useCallback((count: number) => {
-    setRenderedCount(count)
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Buildings successfully rendered:', count)
   }, [])
 
@@ -312,8 +311,9 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   useEffect(() => { if (twin && !initialSelectionResolved.current && (initial.to ?? initial.location)) { initialSelectionResolved.current = true; const resolved = selectionForLocation(initial.to ?? initial.location!, catalog, twin.selections); if (resolved) setSelection(resolved) } }, [twin])
 
   return (
-    <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
-      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
+    <main ref={explorer} className={`explorer ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
+      <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} />
+      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, scroll or pinch with two fingers to zoom, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll or pinch with two fingers to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
           oatConcert={oat.snapshot}
           onSocialStop={stopSocial} onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
@@ -328,7 +328,6 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           cameraRequest={cameraRequest}
           onTerrainReady={onTerrainReady}
           onVegetationReady={onVegetationReady}
-          onMetrics={onMetrics}
           onRenderedCount={onRenderedCount}
           selectedBuildingId={activeSelection?.buildingId ?? null}
           selectedLocationId={activeSelection?.location.id ?? null}
@@ -336,7 +335,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           onClearSelection={clearSelection}
         /></Suspense>
       </div>
-      <LoadingOverlay state={mapState} roadState={roadState} terrainReady={terrainReady} vegetationReady={vegetationReady} onRetryRoads={retryRoads} />
+      <LoadingOverlay state={mapState} roadState={roadState} terrainReady={terrainReady} vegetationReady={vegetationReady} onRetryRoads={retryRoads} onRetryBuildings={() => { setMapState({ status: 'loading' }); setMapAttempt(attempt => attempt + 1) }} />
       {!editorOpen && !slopeEditorOpen && !footballJoined && !oatOpen && (navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
@@ -396,23 +395,10 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       {uploadOpen && <PhotoUploadDialog locations={locations} locationId={uploadLocation} onClose={() => setUploadOpen(false)} onAuth={() => setAuthOpen(true)} />}
       {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
       </Suspense></ErrorBoundary>
-      {view === 'walk' && <WalkControls campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
+      {view === 'walk' && <WalkControls compact={!layout.panels} campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
       {footballJoined && <FootballControls input={footballInput} status={footballStatus} connection={football.connection} players={football.players} selfId={football.session.current.id} paused={walkPaused} onLeave={() => { setFootballJoined(false); footballInput.current.actor = null }} onRetry={() => setFootballRetry(value => value + 1)} />}
       <CampusSocial live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
-      <CampusStats stats={stats} metrics={metrics} />
-      <footer className="scene-footer">
-        <div>
-          <p className="navigation-hint"><span className="control-icon">↻</span> Rotate <span className="control-detail">Drag</span><span className="control-icon">⊕</span> Zoom <span className="control-detail">Scroll / pinch</span><span className="control-icon">↖</span> Select Building <span className="control-detail">Click</span></p>
-          <p className="map-attribution">
-            © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>
-            {import.meta.env.PROD && <span> · Map updated {PUBLISHED_MAP_DATE}</span>}
-            {mapState.status === 'ready' && mapState.data.source === 'nearby-fallback' && ' · Nearby buildings (900 m fallback)'}
-          </p>
-        </div>
-        <div className="footer-scale"><p>1 unit ≈ 1 meter · {showGrid ? `Grid ${sceneConfig.gridSpacing} m` : 'Illustrative landscaping'}</p>
-          {import.meta.env.DEV && metrics && <p className="performance-note">{metrics.fps} fps · {metrics.calls} draws · {Math.round(metrics.triangles / 1000)}k triangles · {renderedCount} rendered buildings · {treeCount} trees</p>}
-        </div>
-      </footer>
+      <a className="map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
     </main>
   )
 }

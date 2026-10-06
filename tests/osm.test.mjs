@@ -41,6 +41,13 @@ test('published maps reject unavailable or incomplete geometry and respect cance
   assert.equal(fetchMock.mock.callCount(), before)
 })
 
+test('published campus loading recovers a temporary server outage before falling back to cached data', async t => {
+  let calls = 0
+  t.mock.method(globalThis, 'fetch', async () => ++calls === 1 ? new Response('', {status:503}) : Response.json(fixture))
+  const data = await fetchPublishedCampusData()
+  assert.equal(calls, 2); assert.equal(data.buildings.length, 22)
+})
+
 test('GPS origin is zero; east and north retain meter scale and correct axes', () => {
   assert.deepEqual(gpsToLocal({ lat: LAT0, lon: LON0 }), { x: 0, z: -0 })
   const point = gpsToLocal({ lat: LAT0 + 0.001, lon: LON0 + 0.001 })

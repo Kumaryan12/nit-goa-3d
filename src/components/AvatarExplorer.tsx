@@ -17,6 +17,7 @@ import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, s
 import { advanceJump, freshJump } from '../lib/avatarJump'
 import type { AvatarMotion } from '../lib/avatarMotion'
 import { cameraWheelStep, smoothLookAngle, walkSpeed, WALK_CONTROLS } from '../lib/walkControls'
+import { bindCameraGestures } from '../lib/cameraGestures'
 import { PRESENCE_SPEED_LIMITS } from '../lib/movementLimits'
 import type { CampusPose, CampusSession } from '../lib/campusProtocol'
 import { canUseStairs, interiorFloorPlan, interiorLocationId, interiorRoomLabel, interiorSpace, interiorCameraFraction, interiorJumpCeiling, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
@@ -170,23 +171,29 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
     return () => { clear(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
   }, [paused, input, onInspect, act, activePlan, interiorPose, position, footballPitch, footballLive, footballControls, onBuggyRide])
   useEffect(() => {
-    const canvas = gl.domElement
-    let drag: { id: number; x: number; y: number } | null = null
-    const start = (event: PointerEvent) => { if (!paused && event.button === 0 && event.isPrimary) { drag = { id: event.pointerId, x: event.clientX, y: event.clientY }; canvas.setPointerCapture(event.pointerId) } }
-    const move = (event: PointerEvent) => {
-      if (!drag || drag.id !== event.pointerId) return
-      lookTarget.current.yaw -= (event.clientX - drag.x) * WALK_CONTROLS.dragYaw
-      lookTarget.current.pitch = Math.max(.08, Math.min(.8, lookTarget.current.pitch + (event.clientY - drag.y) * WALK_CONTROLS.dragPitch))
-      drag.x = event.clientX; drag.y = event.clientY
-    }
-    const end = () => { const pointer = drag; drag = null; if (pointer && canvas.hasPointerCapture(pointer.id)) canvas.releasePointerCapture(pointer.id) }
-    const wheel = (event: WheelEvent) => { if (!paused) { event.preventDefault(); lookTarget.current.distance = Math.max(3, Math.min(12, lookTarget.current.distance + cameraWheelStep(event.deltaY, event.deltaMode))) } }
-    canvas.addEventListener('pointerdown', start); canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end); canvas.addEventListener('lostpointercapture', end); canvas.addEventListener('wheel', wheel, { passive: false }); window.addEventListener('blur', end)
-    return () => { end(); canvas.removeEventListener('pointerdown', start); canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', end); canvas.removeEventListener('pointercancel', end); canvas.removeEventListener('lostpointercapture', end); canvas.removeEventListener('wheel', wheel); window.removeEventListener('blur', end) }
+    if (paused) return
+    const distance = (value: number) => { lookTarget.current.distance = Math.max(3, Math.min(12, value)) }
+    return bindCameraGestures(gl.domElement, {
+      zoom: ratio => distance(lookTarget.current.distance * ratio),
+      rotate: (x, y) => { lookTarget.current.yaw -= x * WALK_CONTROLS.dragYaw; lookTarget.current.pitch = Math.max(.08, Math.min(.8, lookTarget.current.pitch + y * WALK_CONTROLS.dragPitch)) },
+      scroll: event => distance(lookTarget.current.distance + cameraWheelStep(event.deltaY, event.deltaMode)),
+    })
   }, [gl, paused])
   useFrame((_, delta) => {
     if (!avatar.current || !position.current) return
     delta = motionDelta(delta)
+    const correction = campusSession.current.correction
+    if (correction) {
+      delete campusSession.current.correction
+      // Ignore feedback for an older spawn after a view/floor change.
+      if (correction.epoch === campusEpoch.current && !seated.current && !ridingPassenger.current) {
+        position.current = { x: correction.x, z: correction.z }; avatar.current.position.set(correction.x, correction.y, correction.z)
+        avatar.current.rotation.set(correction.pitch ?? 0, correction.yaw, 0)
+        yaw.current = correction.yaw; lookTarget.current.yaw = correction.yaw
+        vehicle.current.yaw = correction.yaw; vehicle.current.speed = 0
+        locomotion.current = freshLocomotion(); jump.current = freshJump(); snapped.current = false
+      }
+    }
     const self = campusSession.current.snapshot?.people.find(p => p.id === campusSession.current.id)
     const social = self?.social && self.social.until > Date.now() ? self.social : undefined
     const sitting = social?.action === 'sit' ? self?.pose : null

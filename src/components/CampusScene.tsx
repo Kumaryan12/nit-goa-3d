@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { CameraControls, Sky, Stars } from '@react-three/drei'
+import { CameraControls, CameraControlsImpl, Sky, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
 import { sceneConfig } from '../lib/sceneConfig'
 import { campusCameraView, flyToLocation, routeCameraView } from '../lib/camera'
+import { bindCameraGestures } from '../lib/cameraGestures'
 import type { CameraRequest } from '../lib/camera'
 import { gpsToLocal } from '../lib/geo'
 import { createAdministrationFacade } from '../lib/administrationFacade'
@@ -16,6 +17,7 @@ import Lighting from './Lighting'
 import CampusStreetlights from './CampusStreetlights'
 import CampusNationalFlag from './CampusNationalFlag'
 import CampusGardens from './CampusGardens'
+import CampusMeadow from './CampusMeadow'
 import FootballScene from './FootballScene'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
@@ -98,7 +100,7 @@ interface CampusSceneProps {
   onRenderedCount: (count: number) => void
   onTerrainReady: () => void
   onVegetationReady: (count: number) => void
-  onMetrics: (metrics: SceneMetrics) => void
+  onMetrics?: (metrics: SceneMetrics) => void
   selectedBuildingId: string | null
   selectedLocationId: string | null
   onSelectBuilding: (selection: BuildingSelection) => void
@@ -110,7 +112,22 @@ const noop = () => {}
 
 function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; request: CameraRequest; facades: Map<string, CampusFacadePlan> }) {
   const controls = useRef<CameraControls>(null)
-  const { width, height } = useThree((state) => state.size)
+  const { width, height } = useThree((state) => state.size), gl = useThree(state => state.gl)
+  const pinchDistance = useRef<number | null>(null)
+  useEffect(() => {
+    const control = controls.current
+    if (!control) return
+    const reset = () => { pinchDistance.current = null }
+    const wheel = (event: WheelEvent) => { if (!event.ctrlKey) reset() }
+    gl.domElement.addEventListener('pointerdown', reset)
+    gl.domElement.addEventListener('wheel', wheel, { passive: true })
+    const unbind = bindCameraGestures(gl.domElement, { zoom: ratio => {
+      const next = Math.max(control.minDistance, Math.min(control.maxDistance, (pinchDistance.current ?? control.distance) * ratio))
+      pinchDistance.current = next; void control.dollyTo(next, true)
+    } })
+    control.addEventListener('rest', reset)
+    return () => { unbind(); gl.domElement.removeEventListener('pointerdown', reset); gl.domElement.removeEventListener('wheel', wheel); control.removeEventListener('rest', reset) }
+  }, [gl])
   // Road arrival, selection, grid and lighting changes never reframe the camera.
   const points = useMemo(() => twin?.buildings.flatMap((building) => building.outer.map(gpsToLocal)) ?? [], [twin])
   const framingKey = points.map((point) => `${point.x},${point.z}`).join(';')
@@ -124,7 +141,8 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
     const destination = request.view ?? (request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId ? facadeDestination() ?? flyToLocation(request.locationId, twin?.locations,
       twin?.locations.find((location) => location.id === request.locationId)?.height) : home)
     if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-  }, [home])
+    // Resizing or entering fullscreen preserves the visitor's camera position.
+  }, [framingKey])
   useEffect(() => {
     const building = twin?.selections.findIndex((selection) => selection.location.id === request.locationId) ?? -1
     const destination = request.view ?? (request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId
@@ -135,6 +153,7 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request])
   return <CameraControls ref={controls} makeDefault smoothTime={0.4} draggingSmoothTime={0.18} azimuthRotateSpeed={0.45} polarRotateSpeed={0.45} dollySpeed={0.28}
+    touches={{ one: CameraControlsImpl.ACTION.TOUCH_ROTATE, two: CameraControlsImpl.ACTION.TOUCH_DOLLY, three: CameraControlsImpl.ACTION.TOUCH_TRUCK }}
     minDistance={12} maxDistance={twin ? twin.size * 2 : 2000} maxPolarAngle={Math.PI / 2 - 0.035} />
 }
 
@@ -155,7 +174,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
   const profile = useMemo(() => graphicsProfile(graphicsMode, qualityLevel), [graphicsMode, qualityLevel])
   const reportMetrics = useCallback((metrics: SceneMetrics) => {
-    onMetrics(metrics)
+    onMetrics?.(metrics)
     if (graphicsMode !== 'auto' || document.hidden || !document.hasFocus()) return
     adaptation.current = adaptGraphics(adaptation.current, metrics.fps, 2, compact)
     setQualityLevel(adaptation.current.level)
@@ -163,7 +182,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
   const dynamicShadows = view === 'walk' || campusPeople.some(p => p.pose?.visible) || (footballLive && footballPlayers.length > 0) || !!oatConcert?.participants.length || playback.status === 'playing'
   const shadowRevision = useMemo(() => ({}), [twin, night, selectedBuildingId, hostelFloor, stairLowFloor, view])
   const size = twin?.size ?? 650
-  const background = night ? '#101b30' : '#d9e7ec'
+  const background = night ? '#101b30' : '#dcebe9'
   const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
   const heights = useMemo(() => Object.fromEntries(twin?.selections.map((selection, i) => [selection.location.id, twin.buildings[i].height]) ?? []), [twin])
   const administration = useMemo(() => {
@@ -189,7 +208,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
     <color attach="background" args={[background]} />
     <fog attach="fog" args={[background, size * 1.1, size * 3]} />
     {night ? <Stars radius={3000} depth={150} count={1100} factor={2.2} saturation={0} fade speed={0} />
-      : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={3} rayleigh={0.7} mieCoefficient={0.005} mieDirectionalG={0.8} />}
+      : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={2.4} rayleigh={1.1} mieCoefficient={0.004} mieDirectionalG={0.8} />}
     <ScenePerformance dynamicShadows={dynamicShadows} revision={shadowRevision} />
     <Lighting groundSize={size} night={night} />
     <Terrain model={twin?.terrain ?? loadingTerrain} patches={twin?.terrainPatches} onReady={twin ? onTerrainReady : noop} />
@@ -206,6 +225,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
       {twin.flag && <CampusNationalFlag flag={twin.flag} night={night} />}
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.vegetationReady && <CampusGardens gardens={twin.gardens} terrain={twin.terrain} />}
+      {twin.meadow && <CampusMeadow chunks={twin.meadow} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
         selected={selectedLocationId === 'open-air-theatre'} onSelect={selectTheatre} />}
