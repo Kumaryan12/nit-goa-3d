@@ -29,6 +29,8 @@ The `/presence` WebSocket room accepts 32 verified visitors and queues up to 100
 
 Chat uses plain text, a 280-character limit, one-second spacing and at most five accepted messages per ten seconds per account, with bounded WebSocket payloads and backpressure. Only admitted accounts receive presence, chat or history. The last 50 global messages from the previous 15 minutes are held in memory, cleared when the campus empties, and lost on server restart. Nearby messages are delivered live only. The owner's authenticated crowd desk includes campus occupancy and can remove or suspend visitors; a verified, audited kick/ban also removes their recent chat. The initial free-host release still needs a rehearsal with independent Google accounts before a public gathering.
 
+Interrupted campus connections retry automatically with bounded backoff. Rejected movement can recover to the server's accepted position. Nearby visitors retain articulated avatars; distant visitors use a single merged mesh, with a graphics-dependent detail budget and nearby name labels. Map requests retry transient failures, and both map responses settle before the worker builds the campus. See [multiplayer reliability verification](docs/multiplayer-reliability.md) for the 32-client check, browser rendering check and remaining hosting limits.
+
 Implementation: `lib/campusProtocol.ts`, `hooks/useCampusSession.ts`, `CampusPeopleScene.tsx`, `CampusSocial.tsx`, `server/campusRoom.ts` and `server/campusServer.ts`. `tests/campusPresence.test.mjs` checks public/private identity metadata, position validation, nearby delivery, shared movement/chat, anonymous and duplicate rejection, capacity/queue promotion and audited moderation.
 
 ## Shared football on Sports Ground

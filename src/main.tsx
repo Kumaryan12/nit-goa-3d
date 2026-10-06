@@ -1,10 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import CommunityApp from './components/CommunityApp'
+import ApplicationBoundary from './components/ApplicationBoundary'
 import './styles.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <CommunityApp />
+    <ApplicationBoundary><CommunityApp /></ApplicationBoundary>
   </StrictMode>,
 )

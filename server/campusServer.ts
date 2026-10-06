@@ -3,7 +3,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { VerifyAccess } from './access.ts'
 import { attachLiveAccess } from './liveAccess.ts'
 import { createCampusRoom, publishedCampusBoundary } from './campusRoom.ts'
-import { CAMPUS_CAPACITY } from '../src/lib/campusProtocol.ts'
+import { CAMPUS_CAPACITY, parseCampusPose } from '../src/lib/campusProtocol.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
 import { publishedSocialSeats } from './socialSeats.ts'
 import type { SocialSeat } from '../src/lib/social.ts'
@@ -18,12 +18,20 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
     sockets.set(identity.id, ws)
     send(ws, { type: 'campus-welcome', id: identity.id, history: room.history() })
     send(ws, room.snapshot())
+    let correctedAt = 0
     ws.on('message', (bytes, binary) => {
       if (binary || ws.readyState !== WebSocket.OPEN || !access.isAdmitted(ws)) return
       let msg
       try { msg = JSON.parse(bytes.toString()) } catch { return }
       if (!msg || typeof msg !== 'object') return
-      if (msg.type === 'pose') room.pose(identity.id, msg.pose, msg.activity)
+      if (msg.type === 'pose' && !room.pose(identity.id, msg.pose, msg.activity) && Date.now() - correctedAt >= 1000) {
+        const incoming = parseCampusPose(msg.pose), accepted = room.poseFor(identity.id)
+        // Keep speed/boundary checks strict, but give a stalled client the
+        // accepted position so it cannot remain invisible/desynced forever.
+        if (incoming && accepted && incoming.epoch === accepted.epoch && (Math.hypot(incoming.x - accepted.x, incoming.z - accepted.z) > 2 || Math.abs(incoming.y - accepted.y) > 1.5)) {
+          correctedAt = Date.now(); send(ws, { type: 'pose-correction', pose: accepted })
+        }
+      }
       if (msg.type === 'social-action') send(ws, { type: 'social-result', ...room.social(identity.id, msg.action, msg.seatId) })
       if (msg.type === 'buggy-ride') {
         const result = room.ride(identity.id, msg.driverId)
@@ -35,13 +43,13 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
         else for (const id of result.recipients) { const target = sockets.get(id); if (target) send(target, result.message) }
       }
     })
-    ws.on('close', () => { sockets.delete(identity.id); room.remove(identity.id); if (!sockets.size) for (const m of room.history()) room.removeMessages(m.sender) })
+    ws.on('close', () => { if (sockets.get(identity.id) !== ws) return; sockets.delete(identity.id); room.remove(identity.id); if (!sockets.size) for (const m of room.history()) room.removeMessages(m.sender) })
   })
   const timer = setInterval(() => {
     for (const [id, ws] of sockets) { const identity = access.identity(ws); if (identity) room.updateIdentity(identity); else { room.remove(id); sockets.delete(id) } }
     if (!sockets.size) return
-    const snapshot = room.snapshot()
-    for (const ws of sockets.values()) send(ws, snapshot)
+    const snapshot = JSON.stringify(room.snapshot())
+    for (const ws of sockets.values()) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(snapshot)
   }, 100)
   timer.unref()
   let closed = false

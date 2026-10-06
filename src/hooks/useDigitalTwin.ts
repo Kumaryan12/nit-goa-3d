@@ -8,7 +8,9 @@ export function useDigitalTwin(map: CampusMapData | null, roads: CampusRoadData 
   const [twin, setTwin] = useState<DigitalTwin | null>(null)
   const sequence = useRef(0)
   useEffect(() => {
-    if (!map && !roads && !settled) return
+    // Generate once after both requests settle; partial arrival used to rebuild
+    // the worker/interiors and respawn walkers while campus was still loading.
+    if (!settled) return
     let active = true, worker: Worker | undefined, fallingBack = false
     const request: TwinBuildRequest = { id: ++sequence.current, map, roads, settled, overrides, terrainSettings }
     const fallback = () => {

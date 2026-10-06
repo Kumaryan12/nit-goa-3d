@@ -526,3 +526,6 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .graphics-control select { color: inherit; background: var(--panel-bg, #faf9f2); border: 1px solid var(--border, #d6ddd2); border-radius: .65rem; padding: .45rem .6rem; font: inherit; cursor: pointer; }
 .night-mode .graphics-control select { background: #203342; border-color: #415568; color: #edf2ef; }
 .graphics-control select:focus-visible { outline: 2px solid #5c9c83; outline-offset: 2px; }
+.campus-load-failure { max-width: 620px; margin: 12vh auto; padding: 32px; color: #234638; background: #fbfaf5; border-radius: 24px; }
+.campus-load-failure h1 { font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.15; }
+.campus-load-failure p { line-height: 1.6; margin-bottom: 24px; }

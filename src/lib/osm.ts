@@ -16,7 +16,7 @@ export const PUBLISHED_MAP_DATE = '2026-10-01'
 // avoids an external map API request for every visitor entering a live room.
 async function publishedSnapshot(kind: 'campus' | 'roads', signal?: AbortSignal): Promise<OSMResponse> {
   signal?.throwIfAborted()
-  const response = await fetch(`/map/nit-goa-${kind}.json`, { signal })
+  const response = await fetchWithRetry(`/map/nit-goa-${kind}.json`, { signal }, { timeoutMs: 20000 })
   if (!response.ok) throw new Error('The campus map is temporarily unavailable.')
   const data = await response.json() as OSMResponse
   signal?.throwIfAborted()

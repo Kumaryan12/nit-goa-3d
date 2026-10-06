@@ -336,7 +336,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
           onClearSelection={clearSelection}
         /></Suspense>
       </div>
-      <LoadingOverlay state={mapState} roadState={roadState} terrainReady={terrainReady} vegetationReady={vegetationReady} onRetryRoads={retryRoads} />
+      <LoadingOverlay state={mapState} roadState={roadState} terrainReady={terrainReady} vegetationReady={vegetationReady} onRetryRoads={retryRoads} onRetryBuildings={() => { setMapState({ status: 'loading' }); setMapAttempt(attempt => attempt + 1) }} />
       {!editorOpen && !slopeEditorOpen && !footballJoined && !oatOpen && (navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />

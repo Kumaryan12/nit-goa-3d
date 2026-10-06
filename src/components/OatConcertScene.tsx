@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useContext, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { theatreToWorld } from '../lib/theatre'
@@ -9,17 +9,20 @@ import type { CampusPerson, CampusSession } from '../lib/campusProtocol'
 import { allocateAvatarColor } from '../lib/profile'
 import type { AvatarColor } from '../lib/profile'
 import StudentAvatar from './StudentAvatar'
+import CrowdAvatar from './CrowdAvatar'
+import { GraphicsContext } from './ScenePerformance'
+import { chooseCrowd } from '../lib/crowdRendering'
 import SocialBubble from './SocialBubble'
 import { theatreSeats } from '../lib/social'
 import type { SocialSeat } from '../lib/social'
 import type { AvatarMotion } from '../lib/avatarMotion'
 
-function ConcertVisitor({ point, id, name, performer, color, session }: { point: Pick<SocialSeat, 'x' | 'y' | 'z' | 'yaw'>; id: string; name: string; performer: boolean; color: string; session: React.RefObject<CampusSession> }) {
+function ConcertVisitor({ point, id, name, performer, color, session, detailed, label }: { point: Pick<SocialSeat, 'x' | 'y' | 'z' | 'yaw'>; id: string; name: string; performer: boolean; color: string; session: React.RefObject<CampusSession>; detailed: boolean; label: boolean }) {
   const motion = useRef<AvatarMotion>({ phase: 0, moving: false, seated: !performer })
   useFrame(() => { motion.current.seated = !performer; motion.current.social = session.current.snapshot?.people.find(p => p.id === id)?.social })
   return <group position={[point.x, point.y, point.z]} rotation={[0, point.yaw, 0]} name={performer ? 'concert-performer' : 'seated-concert-visitor'}>
-    <StudentAvatar motion={motion} jersey={color} />
-    <SocialBubble session={session} personId={id} height={performer ? 2.9 : 1.5} />
+    {detailed || performer ? <StudentAvatar motion={motion} jersey={color} /> : <CrowdAvatar motion={motion} color={color} seated />}
+    {(label || performer) && <SocialBubble session={session} personId={id} height={performer ? 2.9 : 1.5} />}
     {performer && <Html center position={[0, 2.1, 0]} distanceFactor={35} style={{ pointerEvents: 'none' }}><span className="oat-performer-label">🎤 {name}</span></Html>}
   </group>
 }
@@ -27,6 +30,16 @@ export default function OatConcertScene({ theatre, concert, people, session }: {
   const stage = theatreToWorld({ x: 0, z: -2 }, theatre), performer = concert?.participants.find(p => p.id === concert.performerId)
   const audience = concert?.participants.filter(p => p.id !== concert.performerId) ?? []
   const seats = useMemo(() => theatreSeats(theatre).filter(seat => seat.row < 3), [theatre])
+  const profile = useContext(GraphicsContext), elapsed = useRef(1), choiceKey = useRef(''), [detail, setDetail] = useState<{ detailed: Set<string>; labels: Set<string> }>({ detailed: new Set(), labels: new Set() })
+  useFrame(({ camera }, delta) => {
+    elapsed.current += delta
+    if (elapsed.current < .25) return
+    elapsed.current = 0
+    const visitors: CampusPerson[] = audience.map((person, index) => ({ id: person.id, name: person.name, handle: null, color: 'teal', activity: 'concert', pose: { ...seats[index], epoch: 0, moving: false, running: false, active: true, visible: true, space: 'outdoors' } }))
+    const choices = chooseCrowd(visitors, camera.position, 'outdoors', false, [], profile.dpr <= .85 ? 'smooth' : profile.dpr >= 1.5 ? 'detailed' : 'balanced')
+    const key = choices.map(person => `${person.id}:${person.detailed}:${person.label}`).join('|')
+    if (key !== choiceKey.current) { choiceKey.current = key; setDetail({ detailed: new Set(choices.filter(p => p.detailed).map(p => p.id)), labels: new Set(choices.filter(p => p.label).map(p => p.id)) }) }
+  })
   const colors = new Map<string, AvatarColor>()
   for (const participant of concert?.participants ?? []) {
     const color = people.find(person => person.id === participant.id)?.color
@@ -45,7 +58,7 @@ export default function OatConcertScene({ theatre, concert, people, session }: {
         <mesh position={[0, 1.46, 0]} rotation={[Math.PI / 2, 0, 0]}><capsuleGeometry args={[.045, .14, 4, 8]} /><meshStandardMaterial color="#1b2823" emissive="#e26f40" emissiveIntensity={concert?.micOn ? .6 : 0} /></mesh>
       </group>
     </group>
-    {performer && <ConcertVisitor point={{ ...stage, y: theatre.elevation + .53, yaw: theatre.rotation + Math.PI }} id={performer.id} session={session} name={performer.name} color={CAMPUS_COLORS[colors.get(performer.id)!]} performer />}
-    {audience.map((person, index) => <ConcertVisitor key={person.id} point={seats[index]} id={person.id} session={session} name={person.name} color={CAMPUS_COLORS[colors.get(person.id)!]} performer={false} />)}
+    {performer && <ConcertVisitor point={{ ...stage, y: theatre.elevation + .53, yaw: theatre.rotation + Math.PI }} id={performer.id} session={session} name={performer.name} color={CAMPUS_COLORS[colors.get(performer.id)!]} performer detailed label />}
+    {audience.map((person, index) => <ConcertVisitor key={person.id} point={seats[index]} id={person.id} session={session} name={person.name} color={CAMPUS_COLORS[colors.get(person.id)!]} performer={false} detailed={detail.detailed.has(person.id)} label={detail.labels.has(person.id)} />)}
   </group>
 }

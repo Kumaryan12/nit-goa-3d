@@ -187,6 +187,18 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
   useFrame((_, delta) => {
     if (!avatar.current || !position.current) return
     delta = motionDelta(delta)
+    const correction = campusSession.current.correction
+    if (correction) {
+      delete campusSession.current.correction
+      // Ignore feedback for an older spawn after a view/floor change.
+      if (correction.epoch === campusEpoch.current && !seated.current && !ridingPassenger.current) {
+        position.current = { x: correction.x, z: correction.z }; avatar.current.position.set(correction.x, correction.y, correction.z)
+        avatar.current.rotation.set(correction.pitch ?? 0, correction.yaw, 0)
+        yaw.current = correction.yaw; lookTarget.current.yaw = correction.yaw
+        vehicle.current.yaw = correction.yaw; vehicle.current.speed = 0
+        locomotion.current = freshLocomotion(); jump.current = freshJump(); snapped.current = false
+      }
+    }
     const self = campusSession.current.snapshot?.people.find(p => p.id === campusSession.current.id)
     const social = self?.social && self.social.until > Date.now() ? self.social : undefined
     const sitting = social?.action === 'sit' ? self?.pose : null
