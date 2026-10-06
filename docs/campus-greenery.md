@@ -22,6 +22,10 @@ Chunk selection updates four times per second, uses camera height as well as hor
 
 ## Validation
 
+The development-only `/tests/fixtures/foliage-preview.html` exercises the actual tree and flag materials, production lighting, cached shadows and Day → Night → Day transitions with a fixed camera. It measures framebuffer coverage independently for trunks, broadleaf cores/lobes, palm fronds and flag cloth, and reports shader compilation failures. Chrome Guest produced nonzero coverage for every group in all three phases, with zero shader errors. This fixture is excluded from the production build.
+
+That investigation exposed a separate flag shader defect: its wind function and Three's leading `#define` were concatenated onto one line. A newline now preserves the directive boundary, restoring the tricolour and removing its GPU compilation errors. Full-campus checks after a fresh reload showed palm and broadleaf foliage in Day and Night, and foliage remained visible after returning to Day. These observations do not establish that the flag error caused the reported intermittent tree disappearance or cover every browser/device.
+
 391 tests and the production build pass. New tests cover deterministic, bounded planting across all campus quadrants, terrain attachment, route/plaza/canal/flag clearance, finite quality budgets, distant/aerial omission, blade geometry and preservation of the standard shader's instancing/lighting path. The real worker test checks meadow transfer while the parent remains responsive. Existing terrain, interiors, collisions, vehicles, multiplayer and authorization tests continue to pass.
 
 Chrome Guest checks covered daytime overview, avatar-height foliage/grass, Administration Block lawns and nighttime street/window lighting. The preview reached the local display's 60 fps cap in the inspected scenes; this is not a mobile or crowded-campus benchmark. A separate local generation sample took approximately 235 ms for meadow placement on this development machine, in addition to the existing campus build. Full-campus device/load measurements remain separate work.

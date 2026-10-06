@@ -58,11 +58,13 @@ export default function CampusNationalFlag({ flag, night }: { flag: CampusFlagLa
     const cloth = new MeshStandardMaterial({ map: texture, roughness: .95, side: DoubleSide, emissive: '#ffffff' })
     cloth.onBeforeCompile = shader => {
       shader.uniforms.flagTime = time
-      shader.vertexShader = windShader + shader.vertexShader
+      // Three's source starts with a preprocessor directive, which must begin
+      // on its own line after our wind function's closing brace.
+      shader.vertexShader = `${windShader}\n${shader.vertexShader}`
       shader.vertexShader = shader.vertexShader.replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nobjectNormal = flagNormal(uv);')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.z += flagWind(uv);')
     }
-    cloth.customProgramCacheKey = () => 'campus-national-flag-wind-v1'
+    cloth.customProgramCacheKey = () => 'campus-national-flag-wind-v2'
     return cloth
   }, [texture, time])
   useEffect(() => { material.emissiveIntensity = night ? .08 : 0 }, [material, night])
