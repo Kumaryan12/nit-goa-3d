@@ -12,3 +12,7 @@ The landing/header/footer frame the emblem through CSS. The source artwork is un
 ## Campus hero photograph
 
 `nit-goa-campus.jpg` is the unmodified official photograph from https://www.nitgoa.ac.in/static/Slideshow1%20Academic%20Block.jpg (retrieved 2026-10-06). The landing page applies restrained CSS color grading and a feathered mask; architecture and facade lettering remain the original pixels. Image rights remain with the original rights holder. A generated color-grade experiment was rejected because it distorted signage.
+
+## Cinematic landing artwork
+
+`campus-night-concept.jpg` is original artwork generated with the built-in imagegen tool, then JPEG-encoded for delivery. It is a Goa-inspired concept scene, not a photograph or surveyed rendering of NIT Goa. Prompt: cinematic elevated tropical university at blue-hour dusk; cream buildings, terracotta roofs, palms, illuminated amphitheatre and football pitch; dark left-side space for typography; no text, badges or UI. The full production prompt is recorded in `docs/landing-page.md`.

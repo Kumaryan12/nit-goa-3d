@@ -31,7 +31,6 @@ function ExperienceArt({ kind }: { kind: 'walk' | 'football' | 'oat' }) {
 }
 
 export default function LandingPage({ signedIn, onEnter }: { signedIn: boolean; onEnter: () => void }) {
-  const join = () => document.getElementById('join')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
   const experiences = [
     { kind: 'walk', title: 'Take the scenic route.', detail: 'Familiar roads. A new perspective.', destination: '/campus?view=walk', label: 'Explore campus' },
     { kind: 'football', title: 'Find your team.', detail: 'A shared ball. A game with friends.', destination: '/campus?view=walk&location=sports-ground', label: 'Visit the sports ground' },
@@ -39,23 +38,20 @@ export default function LandingPage({ signedIn, onEnter }: { signedIn: boolean; 
   ] as const
   return <main className="landing-page">
     <section className="welcome-hero community-container" aria-labelledby="welcome-title">
+      <img className="welcome-scene" src="/brand/campus-night-concept.jpg" alt="" width="1672" height="941" fetchPriority="high" decoding="async" />
       <div className="welcome-copy">
-        <h1 id="welcome-title">Your campus.<br /><em>Your people.</em></h1>
-        <p className="welcome-description">Explore NIT Goa in 3D.<br />Meet, play and take the stage.</p>
+        <h1 id="welcome-title">Your campus.<br /><em>Unlocked.</em></h1>
+        <p className="welcome-description">Explore. Play. Find your people.</p>
         <div id="join" className="welcome-join">
           {signedIn ? <button className="welcome-enter" onClick={onEnter}>Enter campus <span aria-hidden="true">↗</span></button>
             : <SignInForm destination={window.location.search ? undefined : '/student'} />}
         </div>
-        <a className="welcome-discover" href="#experiences">A little look around <span aria-hidden="true">↓</span></a>
+        <a className="welcome-discover" href="#experiences">Explore the experience <span aria-hidden="true">↘</span></a>
       </div>
-      <div className="welcome-world">
-        <span className="welcome-world-label">CUNCOLIM · GOA</span>
-        <div className="welcome-photo"><img src="/brand/nit-goa-campus.jpg" alt="NIT Goa administration building at the Cuncolim campus" width="1280" height="640" fetchPriority="high" decoding="async" /></div>
-        <button className="welcome-map-link" onClick={signedIn ? onEnter : join}><span className="welcome-map-icon" aria-hidden="true">↗</span><span>Familiar places.<small>A whole new way to explore.</small></span><span aria-hidden="true">→</span></button>
-      </div>
+      <div className="welcome-scene-caption"><span>A campus without closing hours.</span><small>Goa-inspired concept artwork</small></div>
     </section>
     <section className="welcome-experiences community-container" id="experiences" aria-labelledby="experiences-title">
-      <div className="welcome-section-heading"><h2 id="experiences-title">Meet you on campus.</h2><span>Explore it your way.</span></div>
+      <div className="welcome-section-heading"><h2 id="experiences-title">Make yourself at home.</h2><span>THREE WAYS TO DROP IN ↙</span></div>
       <div className="welcome-experience-grid">
         {experiences.map(item => <button className={`welcome-experience experience-${item.kind}`} key={item.kind} onClick={() => navigate(item.destination)} aria-label={item.label}>
           <ExperienceArt kind={item.kind} />
