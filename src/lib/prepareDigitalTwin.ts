@@ -1,6 +1,7 @@
 import { createDigitalTwin } from './digitalTwin.ts'
 import type { DigitalTwin } from './digitalTwin.ts'
 import { createTerrainPatches } from './terrainPatches.ts'
+import { generateCampusMeadow } from './campusMeadow.ts'
 import { createHostelPlan, createGyanMandirPlan, GYAN_MANDIR_ID } from './hostelInterior.ts'
 import { createWalkWorld, isWalkable } from './walking.ts'
 import type { CampusOverrides } from './locationOverrides.ts'
@@ -13,6 +14,7 @@ export type TwinBuildReply = { id: number; twin: DigitalTwin } | { id: number; e
 export function prepareDigitalTwin(request: TwinBuildRequest): DigitalTwin {
   const twin: DigitalTwin = createDigitalTwin(request.map, request.roads, request.settled, request.overrides, request.terrainSettings)
   twin.terrainPatches = createTerrainPatches(twin.terrain)
+  twin.meadow = twin.vegetationReady ? generateCampusMeadow(twin) : []
   const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
   const safe = (point: { x: number; z: number }) => isWalkable(point, world)
   const hostel = twin.buildings[twin.selections.findIndex(s => s.location.id === 'boys-hostel')]

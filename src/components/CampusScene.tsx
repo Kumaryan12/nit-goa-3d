@@ -17,6 +17,7 @@ import Lighting from './Lighting'
 import CampusStreetlights from './CampusStreetlights'
 import CampusNationalFlag from './CampusNationalFlag'
 import CampusGardens from './CampusGardens'
+import CampusMeadow from './CampusMeadow'
 import FootballScene from './FootballScene'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
@@ -181,7 +182,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
   const dynamicShadows = view === 'walk' || campusPeople.some(p => p.pose?.visible) || (footballLive && footballPlayers.length > 0) || !!oatConcert?.participants.length || playback.status === 'playing'
   const shadowRevision = useMemo(() => ({}), [twin, night, selectedBuildingId, hostelFloor, stairLowFloor, view])
   const size = twin?.size ?? 650
-  const background = night ? '#101b30' : '#d9e7ec'
+  const background = night ? '#101b30' : '#dcebe9'
   const labelLocations = useMemo(() => twin ? [...twin.locations, ...(twin.upperLocation && !twin.locations.some((location) => location.id === twin.upperLocation!.id) ? [twin.upperLocation] : [])] : [], [twin])
   const heights = useMemo(() => Object.fromEntries(twin?.selections.map((selection, i) => [selection.location.id, twin.buildings[i].height]) ?? []), [twin])
   const administration = useMemo(() => {
@@ -207,7 +208,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
     <color attach="background" args={[background]} />
     <fog attach="fog" args={[background, size * 1.1, size * 3]} />
     {night ? <Stars radius={3000} depth={150} count={1100} factor={2.2} saturation={0} fade speed={0} />
-      : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={3} rayleigh={0.7} mieCoefficient={0.005} mieDirectionalG={0.8} />}
+      : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={2.4} rayleigh={1.1} mieCoefficient={0.004} mieDirectionalG={0.8} />}
     <ScenePerformance dynamicShadows={dynamicShadows} revision={shadowRevision} />
     <Lighting groundSize={size} night={night} />
     <Terrain model={twin?.terrain ?? loadingTerrain} patches={twin?.terrainPatches} onReady={twin ? onTerrainReady : noop} />
@@ -224,6 +225,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
       {twin.flag && <CampusNationalFlag flag={twin.flag} night={night} />}
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.vegetationReady && <CampusGardens gardens={twin.gardens} terrain={twin.terrain} />}
+      {twin.meadow && <CampusMeadow chunks={twin.meadow} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
         selected={selectedLocationId === 'open-air-theatre'} onSelect={selectTheatre} />}

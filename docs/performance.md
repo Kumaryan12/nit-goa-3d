@@ -19,7 +19,7 @@ Nearby detail has a 20 m hysteresis band to avoid flicker. A selected building a
 - A module worker builds the digital twin, its terrain patches and both interior plans. It transfers typed-array buffers instead of copying them. Rapid terrain/location changes terminate obsolete workers; sequence checks prevent stale results. Browsers without usable workers retain the main-thread fallback.
 - The original 512-grid campus terrain has 524,356 triangles, including canal clipping. All original triangles, colours and normals are retained across 64 patches. Patch bounds allow Three.js to cull off-screen ground. The physics sampler and slope settings are unchanged.
 - Gyan Mandir and Boys Hostel furniture/walls mount after entry. Outdoor exploration retains the full exterior shell and entry signs. Only the current floor and necessary stair transition floors mount inside.
-- Static scene components are memoized, geometry options stay stable, and generated geometries/materials are disposed on replacement. Trees and gardens remain instanced.
+- Static scene components are memoized, geometry options stay stable, and generated geometries/materials are disposed on replacement. Trees and gardens remain instanced. The greenery update adds worker-generated grass with finite nearby chunk budgets and GPU foliage breeze; see [campus-greenery.md](campus-greenery.md).
 - Overview shadows are cached until terrain, lighting, interior or facade visibility changes. Walking, live avatars, football, concerts and route playback enable rate-limited updates. Rendering pauses while the page is hidden and resumes on return.
 
 ## Asset delivery

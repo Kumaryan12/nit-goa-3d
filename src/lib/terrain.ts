@@ -74,8 +74,9 @@ export function generateTerrain(size: number, features: TerrainFeatures, segment
   const boundarySegments = features.boundary.slice(1).map((b, i) => ({ a: features.boundary[i], b }))
   const heights = new Float32Array((segments + 1) ** 2)
   const colors = new Float32Array(heights.length * 3)
-  const beige = new Color('#ded2b7'), grass = new Color('#81965a'), outside = new Color('#587a4e')
-  const lawnGrass = new Color('#6f9751')
+  const beige = new Color('#d1caba'), grass = new Color('#477e58'), outside = new Color('#3f6950')
+  const meadowHighlight = new Color('#638b5e'), meadowColor = new Color()
+  const lawnGrass = new Color('#559665')
   const color = new Color()
   const hasRelief = !!features.slope || !!features.slopePatches?.length
   const terraceHeights = rectangles.map(rect => terraceElevationAt(rect, features.slope, features.slopePatches))
@@ -147,13 +148,16 @@ export function generateTerrain(size: number, features: TerrainFeatures, segment
       // raised mounds would imply earth banks the owner says do not exist.
       heights[index] = hasRelief ? base : blend * (0.25 + noise * 1.5 + terrainNoise(point.x, point.z, 32) * 0.35)
       if (features.boundary.length && pointInCampus(point, features.boundary)) {
-        color.copy(beige).lerp(grass, smooth((settlementDistance - 5) / 45))
+        // A narrow stone apron gives way to planted ground. The old 45 m
+        // transition made almost every space between buildings look bare.
+        meadowColor.copy(grass).lerp(meadowHighlight, terrainNoise(point.x, point.z, 28) * .35)
+        color.copy(beige).lerp(meadowColor, smooth((settlementDistance - 2.5) / 9))
         // Paint the existing ground, preserving the exact height field and
         // road/building/plaza aprons. No floating turf or extra collision layer.
         const lawn = lawnWeightAt(point, features.lawns ?? []) * smooth(settlementDistance / 2.5)
         if (lawn > 0) color.lerp(lawnGrass, lawn)
       } else color.copy(outside)
-      color.multiplyScalar(0.92 + noise * 0.16)
+      color.multiplyScalar(0.93 + noise * 0.09 + terrainNoise(point.x, point.z, 12) * 0.08)
       color.toArray(colors, index * 3)
     }
   }
