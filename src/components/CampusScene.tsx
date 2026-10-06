@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { CameraControls, Sky, Stars } from '@react-three/drei'
+import { CameraControls, CameraControlsImpl, Sky, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
 import { sceneConfig } from '../lib/sceneConfig'
 import { campusCameraView, flyToLocation, routeCameraView } from '../lib/camera'
+import { bindCameraGestures } from '../lib/cameraGestures'
 import type { CameraRequest } from '../lib/camera'
 import { gpsToLocal } from '../lib/geo'
 import { createAdministrationFacade } from '../lib/administrationFacade'
@@ -110,7 +111,22 @@ const noop = () => {}
 
 function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; request: CameraRequest; facades: Map<string, CampusFacadePlan> }) {
   const controls = useRef<CameraControls>(null)
-  const { width, height } = useThree((state) => state.size)
+  const { width, height } = useThree((state) => state.size), gl = useThree(state => state.gl)
+  const pinchDistance = useRef<number | null>(null)
+  useEffect(() => {
+    const control = controls.current
+    if (!control) return
+    const reset = () => { pinchDistance.current = null }
+    const wheel = (event: WheelEvent) => { if (!event.ctrlKey) reset() }
+    gl.domElement.addEventListener('pointerdown', reset)
+    gl.domElement.addEventListener('wheel', wheel, { passive: true })
+    const unbind = bindCameraGestures(gl.domElement, { zoom: ratio => {
+      const next = Math.max(control.minDistance, Math.min(control.maxDistance, (pinchDistance.current ?? control.distance) * ratio))
+      pinchDistance.current = next; void control.dollyTo(next, true)
+    } })
+    control.addEventListener('rest', reset)
+    return () => { unbind(); gl.domElement.removeEventListener('pointerdown', reset); gl.domElement.removeEventListener('wheel', wheel); control.removeEventListener('rest', reset) }
+  }, [gl])
   // Road arrival, selection, grid and lighting changes never reframe the camera.
   const points = useMemo(() => twin?.buildings.flatMap((building) => building.outer.map(gpsToLocal)) ?? [], [twin])
   const framingKey = points.map((point) => `${point.x},${point.z}`).join(';')
@@ -124,7 +140,8 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
     const destination = request.view ?? (request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId ? facadeDestination() ?? flyToLocation(request.locationId, twin?.locations,
       twin?.locations.find((location) => location.id === request.locationId)?.height) : home)
     if (destination) void controls.current?.setLookAt(...destination.position, ...destination.target, !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-  }, [home])
+    // Resizing or entering fullscreen preserves the visitor's camera position.
+  }, [framingKey])
   useEffect(() => {
     const building = twin?.selections.findIndex((selection) => selection.location.id === request.locationId) ?? -1
     const destination = request.view ?? (request.routePoints ? routeCameraView(request.routePoints, width / height) : request.locationId
@@ -135,6 +152,7 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request])
   return <CameraControls ref={controls} makeDefault smoothTime={0.4} draggingSmoothTime={0.18} azimuthRotateSpeed={0.45} polarRotateSpeed={0.45} dollySpeed={0.28}
+    touches={{ one: CameraControlsImpl.ACTION.TOUCH_ROTATE, two: CameraControlsImpl.ACTION.TOUCH_DOLLY, three: CameraControlsImpl.ACTION.TOUCH_TRUCK }}
     minDistance={12} maxDistance={twin ? twin.size * 2 : 2000} maxPolarAngle={Math.PI / 2 - 0.035} />
 }
 

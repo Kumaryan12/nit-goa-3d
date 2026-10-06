@@ -529,3 +529,47 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .campus-load-failure { max-width: 620px; margin: 12vh auto; padding: 32px; color: #234638; background: #fbfaf5; border-radius: 24px; }
 .campus-load-failure h1 { font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.15; }
 .campus-load-failure p { line-height: 1.6; margin-bottom: 24px; }
+/* The view dock stays available even when the rest of the interface is hidden. */
+.explorer { overflow: hidden; }
+.explorer:fullscreen { width: 100%; height: 100%; background: #526d47; }
+.view-controls { position: absolute; z-index: 72; right: 24px; bottom: max(24px, env(safe-area-inset-bottom)); color: var(--ink); }
+.explorer .campus-minimap { bottom: 88px; }
+.view-dock { display: flex; align-items: center; padding: 4px; gap: 3px; border: 1px solid var(--border); border-radius: 14px; background: var(--glass); backdrop-filter: blur(18px); box-shadow: 0 6px 24px #132b191c; }
+.view-dock button { min-height: 40px; border: 0; border-radius: 10px; padding: 8px 12px; color: inherit; font: inherit; font-size: 11px; white-space: nowrap; background: transparent; }
+.view-dock button:hover, .view-dock button[aria-pressed="true"], .view-dock button[aria-expanded="true"] { background: var(--wash); }
+.view-dock button:last-child { font-size: 20px; min-width: 44px; }
+.view-options { position: absolute; bottom: calc(100% + 10px); left: 0; min-width: 230px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--glass); backdrop-filter: blur(18px); box-shadow: 0 8px 30px #132b191c; }
+.view-options label { display: flex; align-items: center; gap: 10px; min-height: 42px; font-size: 12px; cursor: pointer; }
+.view-options input { width: 16px; height: 16px; accent-color: var(--accent); }
+.view-options p, .view-feedback { font-size: 10px; line-height: 1.6; color: var(--muted); }
+.view-feedback { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: 250px; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--glass); }
+.panels-hidden .location-navigation, .panels-hidden .building-info-panel, .panels-hidden .campus-stats { display: none; }
+.panels-hidden .map-status-complete { display: none; }
+.minimap-hidden .campus-minimap { display: none; }
+.toolbar-hidden .scene-header { display: none; }
+.toolbar-hidden .map-status, .toolbar-hidden .resilience-notice { top: 20px; }
+.panels-hidden .scene-footer { left: 20px; right: auto; bottom: max(24px, env(safe-area-inset-bottom)); }
+.panels-hidden .scene-footer > div { padding: 6px 10px; background: var(--glass); }
+.panels-hidden .scene-footer .navigation-hint, .panels-hidden .footer-scale { display: none; }
+.panels-hidden .scene-footer .map-attribution { margin: 0 !important; font-size: 8px; }
+.walk-controls-compact { width: auto; max-width: 320px; padding: 10px; bottom: max(88px, calc(env(safe-area-inset-bottom) + 64px)); }
+.walk-controls-compact > :not(.walk-input-row):not(.walk-inspect):not(.walk-interior-actions) { display: none; }
+.walk-controls-compact .walk-input-row { margin-top: 0; gap: 10px; }
+.walk-controls-compact .walk-inspect { margin-bottom: 8px; }
+.walk-controls-compact .walk-interior-actions { margin-bottom: 8px; }
+.walk-controls-compact .walk-interior-actions p { display: none; }
+@media (max-width: 760px) {
+  .view-controls { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .view-dock button { padding: 8px 10px; }
+  .view-options { left: auto; right: 0; }
+  .explorer .campus-minimap { bottom: 76px; }
+  .walk-mode .campus-minimap { bottom: auto; }
+  .toolbar-hidden.walk-mode .campus-minimap { top: 12px; }
+  .explorer .scene-footer { bottom: 76px; }
+  .explorer .campus-stats { bottom: 136px; }
+  .explorer .location-navigation { bottom: 238px; }
+  .walk-mode .walk-controls { bottom: 76px; }
+  .panels-hidden .scene-footer { bottom: max(70px, calc(env(safe-area-inset-bottom) + 58px)); left: 12px; }
+  .toolbar-hidden .map-status { top: 12px; }
+  .walk-controls-compact { bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)); max-width: calc(100% - 24px); }
+}

@@ -59,6 +59,8 @@ import { validGraphicsMode } from './lib/graphics'
 import AtmosphereControls from './components/AtmosphereControls'
 import SocialActions from './components/SocialActions'
 import { theatreSeats } from './lib/social'
+import ViewControls, { initialViewLayout } from './components/ViewControls'
+import type { ViewLayout } from './components/ViewControls'
 
 const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
 const readState = () => {
@@ -67,6 +69,14 @@ const readState = () => {
   return parseURLState(window.location.href, [...campusLocations.map((p) => p.id), ...extra])
 }
 export default function App({accountControl,accountOpen=false,canEdit=false}:{accountControl?:ReactNode;accountOpen?:boolean;canEdit?:boolean}={}) {
+  const explorer = useRef<HTMLElement>(null), [layout, setLayout] = useState(initialViewLayout)
+  const changeLayout = (value: ViewLayout) => { setLayout(value); try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(value)) } catch { /* View changes work without storage. */ } }
+  const revealPanels = useCallback(() => setLayout(previous => {
+    if (previous.panels) return previous
+    const next = { ...previous, panels: true }
+    try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(next)) } catch { /* Inspection still opens without storage. */ }
+    return next
+  }), [])
   const initial = useRef(readState()).current
   const initialView = useRef(explorerViewFromURL(window.location.href)).current
   const [view, setView] = useState<ExplorerView>(initialView)
@@ -196,19 +206,20 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   const chooseLocation = useCallback((id: string) => {
     const next = selectionForLocation(id, catalog, twin?.selections)
     if (!next) return
+    revealPanels()
     setSelection(next)
     setNavigationOpen(false)
     if (view === 'overview') onFlyTo(id)
-  }, [catalog, twin, onFlyTo, view])
+  }, [catalog, twin, onFlyTo, view, revealPanels])
   const chooseNavigationDestination = useCallback((id: string) => { chooseLocation(id); setNavigationOpen(true) }, [chooseLocation])
   const closeNavigation = useCallback(() => setNavigationOpen(false), [])
-  const openNavigation = useCallback(() => { setOatJoined(false); setOatOpen(false); setView('overview'); setNavigationOpen(true) }, [])
+  const openNavigation = useCallback(() => { revealPanels(); setOatJoined(false); setOatOpen(false); setView('overview'); setNavigationOpen(true) }, [revealPanels])
   const clearSelection = useCallback(() => { if (!editorOpen && !slopeEditorOpen && !picking) setSelection(null) }, [editorOpen, picking, slopeEditorOpen])
   const onSelectBuilding = useCallback((next: BuildingSelection) => {
     if (slopeEditorOpen || picking?.mode === 'point') return
     if (picking?.mode === 'building' && next.buildingId) { setPicked({ locationId: picking.locationId, buildingId: next.buildingId, coordinates: next.location.coordinates }); setPicking(null); return }
-    if (!editorOpen) setSelection(next)
-  }, [editorOpen, picking, slopeEditorOpen])
+    if (!editorOpen) { revealPanels(); setSelection(next) }
+  }, [editorOpen, picking, slopeEditorOpen, revealPanels])
   const editLocation = useCallback((id: string) => { setOatJoined(false); setOatOpen(false); closeSlopeEditor(); setView('overview'); setEditorLocationId(id); setEditorOpen(true); setNavigationOpen(false); setPicking(null); setPicked(null); setSelection(selectionForLocation(id, catalog, twin?.selections)); if (['main-entrance', 'sports-ground'].includes(id)) setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null })) }, [catalog, twin, closeSlopeEditor])
   const changeView = useCallback((next: ExplorerView) => {
     setView(next); setFootballJoined(false); setOatJoined(false); setOatOpen(false); closeEditor(); closeSlopeEditor(); setNavigationOpen(false); setSelection(null); setWalkManualPause(false)
@@ -312,8 +323,9 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
   useEffect(() => { if (twin && !initialSelectionResolved.current && (initial.to ?? initial.location)) { initialSelectionResolved.current = true; const resolved = selectionForLocation(initial.to ?? initial.location!, catalog, twin.selections); if (resolved) setSelection(resolved) } }, [twin])
 
   return (
-    <main className={`explorer ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
-      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll to zoom, and right-drag to pan.'}>
+    <main ref={explorer} className={`explorer ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
+      <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} />
+      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, scroll or pinch with two fingers to zoom, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll or pinch with two fingers to zoom, and right-drag to pan.'}>
         <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
           oatConcert={oat.snapshot}
           onSocialStop={stopSocial} onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
@@ -396,7 +408,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       {uploadOpen && <PhotoUploadDialog locations={locations} locationId={uploadLocation} onClose={() => setUploadOpen(false)} onAuth={() => setAuthOpen(true)} />}
       {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
       </Suspense></ErrorBoundary>
-      {view === 'walk' && <WalkControls campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
+      {view === 'walk' && <WalkControls compact={!layout.panels} campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
       {footballJoined && <FootballControls input={footballInput} status={footballStatus} connection={football.connection} players={football.players} selfId={football.session.current.id} paused={walkPaused} onLeave={() => { setFootballJoined(false); footballInput.current.actor = null }} onRetry={() => setFootballRetry(value => value + 1)} />}
       <CampusSocial live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
       <CampusStats stats={stats} metrics={metrics} />
