@@ -39,11 +39,6 @@
   margin-top: 5px;
   color: #6f7d6d;
 }
-.brand-mark {
-  font-size: 39px;
-  line-height: 1;
-  color: #497450;
-}
 .community-header nav {
   display: flex;
   gap: 28px;
@@ -119,93 +114,11 @@
 .community-skip:focus {
   top: 10px;
 }
-.community-hero {
-  display: grid;
-  grid-template-columns: 1.08fr 1fr;
-  align-items: center;
-  gap: 28px;
-  padding-top: 60px;
-  padding-bottom: 92px;
-}
-.hero-copy {
-  position: relative;
-  z-index: 1;
-}
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  border: 1px solid #cfdbc7;
-  border-radius: 20px;
-  padding: 7px 11px;
-  color: #51724f;
-  background: #f1f4e9;
-}
-.hero-badge span {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #618e54;
-  box-shadow: 0 0 0 3px #618e5414;
-}
-.community-hero h1 {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(48px, 5.6vw, 78px);
-  font-weight: 400;
-  letter-spacing: -0.055em;
-  line-height: 1.06;
-  margin: 22px 0 23px;
-}
-.community-hero h1 em {
-  color: #6c8257;
-  font-weight: 400;
-}
-.hero-description {
-  font-size: 14px;
-  line-height: 1.85;
-  color: #697265;
-  margin: 0 0 30px;
-}
-.hero-world {
-  position: relative;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
 .campus-illustration {
   width: 112%;
   max-width: none;
   margin-left: -6%;
   overflow: visible;
-}
-.world-coordinate {
-  position: absolute;
-  top: 28px;
-  right: 0;
-  font-size: 8px;
-  letter-spacing: 0.15em;
-  color: #939f8d;
-}
-.world-caption {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  font-size: 11px;
-  color: #859078;
-  margin-top: -8px;
-}
-.world-label {
-  letter-spacing: 0.16em;
-  font-size: 8px;
-  color: #5c735a;
-}
-.hero-return p {
-  font-size: 11px;
-  color: #7a8875;
-  margin-top: 15px;
 }
 .join-form {
   max-width: 475px;
@@ -268,25 +181,11 @@
 .community-access-error button {
   margin-right: 10px;
 }
-.community-features {
-  padding-top: 44px;
-  padding-bottom: 72px;
-  border-top: 1px solid #dcded0;
-}
 .community-kicker {
   font-size: 9px;
   letter-spacing: 0.17em;
   font-weight: 650;
   color: #78866e;
-}
-.feature-heading {
-  display: grid;
-  grid-template-columns: 1fr 1.2fr;
-  align-items: end;
-  gap: 20px;
-}
-.feature-heading > .community-kicker {
-  grid-column: 1 / -1;
 }
 .community-shell h2 {
   font-family: Georgia, 'Times New Roman', serif;
@@ -294,180 +193,6 @@
   font-size: 36px;
   letter-spacing: -0.04em;
   line-height: 1.14;
-}
-.feature-heading h2 {
-  margin: 0;
-}
-.feature-heading > p {
-  font-size: 12px;
-  line-height: 1.8;
-  color: #7c8572;
-  margin: 0 0 0 auto;
-}
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  margin-top: 32px;
-}
-.feature-grid article {
-  background: #eceee2;
-  border: 1px solid #e2e5d5;
-  border-radius: 17px;
-  padding: 28px 25px;
-  position: relative;
-}
-.feature-icon {
-  width: 44px;
-  height: 44px;
-  border: 1px solid #c4cfb8;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 23px;
-  color: #6c8158;
-  margin-bottom: 37px;
-}
-.feature-number {
-  position: absolute;
-  right: 25px;
-  top: 44px;
-  font-size: 8px;
-  letter-spacing: 0.1em;
-  color: #87917b;
-}
-.feature-grid h3 {
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: -0.025em;
-  margin-bottom: 12px;
-}
-.feature-grid p {
-  font-size: 12px;
-  line-height: 1.85;
-  color: #79836d;
-  margin: 0;
-  max-width: 260px;
-}
-.feature-grid .feature-dark {
-  background: #2b4835;
-  color: #f2f1dc;
-  border-color: #2b4835;
-}
-.feature-dark .feature-icon {
-  color: #cbdbb5;
-  border-color: #ffffff30;
-}
-.feature-dark .feature-number,
-.feature-dark p {
-  color: #b5c3a8;
-}
-.community-profile-promo {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 64px;
-  align-items: center;
-  padding-block: 48px 90px;
-}
-.community-profile-promo h2 {
-  font-size: 48px;
-  margin: 20px 0;
-}
-.community-profile-promo h2 em {
-  color: #7a8a5e;
-}
-.community-profile-promo p {
-  font-size: 13px;
-  line-height: 1.85;
-  color: #7c8772;
-  margin-bottom: 24px;
-}
-.promo-art {
-  min-height: 260px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.promo-orbit {
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  border: 1px solid #d2dcc3;
-  border-radius: 50%;
-}
-.promo-orbit:after {
-  content: '';
-  position: absolute;
-  inset: 23px;
-  border: 1px dashed #d5ddca;
-  border-radius: 50%;
-}
-.promo-avatar {
-  border-radius: 33%;
-  background: #dce5c8;
-  color: #5b7451;
-  font-family: Georgia, serif;
-  font-size: 40px;
-  transform: rotate(-8deg);
-  width: 135px;
-  height: 135px;
-  display: grid;
-  place-items: center;
-  border: 8px solid #f9f8ef;
-  box-shadow: 0 14px 30px #52623a12;
-  z-index: 1;
-}
-.promo-tag {
-  position: absolute;
-  background: #fbfaf5;
-  border: 1px solid #dee3d3;
-  border-radius: 20px;
-  padding: 10px 15px;
-  font-size: 11px;
-  box-shadow: 0 8px 20px #3c512c08;
-  z-index: 2;
-}
-.tag-one {
-  top: 20px;
-  left: 30%;
-  transform: rotate(-8deg);
-}
-.tag-two {
-  bottom: 45px;
-  right: 4%;
-  transform: rotate(7deg);
-}
-.tag-three {
-  left: 6%;
-  top: 52%;
-  transform: rotate(-5deg);
-}
-.community-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 25px;
-  border-top: 1px solid #dcdfd1;
-  padding-block: 28px 40px;
-}
-.community-footer > span {
-  font-size: 16px;
-  letter-spacing: -0.03em;
-}
-.community-footer b {
-  font-weight: 400;
-}
-.community-footer p {
-  font-size: 9px;
-  line-height: 1.8;
-  color: #8c9784;
-}
-.community-footer button {
-  background: none;
-  border: 0;
-  color: #647e53;
 }
 .community-section-heading {
   padding-top: 58px;
@@ -912,21 +637,9 @@
   line-height: 1.8;
   color: #8b947e;
 }
-@media (min-width: 1600px) {
-  .community-hero {
-    padding-top: 90px;
-    padding-bottom: 100px;
-  }
-}
 @media (max-width: 1100px) {
   .community-container {
     width: calc(100% - 64px);
-  }
-  .community-hero {
-    gap: 12px;
-  }
-  .community-hero h1 {
-    font-size: 60px;
   }
   .join-input {
     flex-direction: column;
@@ -936,13 +649,6 @@
   }
   .profile-layout {
     gap: 40px;
-  }
-  .feature-grid article {
-    padding: 22px 20px;
-  }
-  .feature-number {
-    right: 20px;
-    font-size: 7px;
   }
   .people-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -962,9 +668,6 @@
   .community-brand {
     font-size: 17px;
     gap: 8px;
-  }
-  .brand-mark {
-    font-size: 31px;
   }
   .community-brand small {
     font-size: 6px;
@@ -986,34 +689,9 @@
   .community-signout {
     display: none;
   }
-  .community-hero {
-    grid-template-columns: 1fr;
-    padding-top: 35px;
-    padding-bottom: 40px;
-    gap: 0;
-  }
-  .community-hero h1 {
-    font-size: 58px;
-  }
-  .hero-description {
-    font-size: 13px;
-  }
-  .hero-world {
-    margin-top: 12px;
-    max-width: 560px;
-    width: 100%;
-    margin-inline: auto;
-  }
   .campus-illustration {
     width: 100%;
     margin-left: 0;
-  }
-  .world-coordinate {
-    top: 15px;
-    font-size: 7px;
-  }
-  .world-caption {
-    font-size: 10px;
   }
   .join-form {
     max-width: none;
@@ -1029,53 +707,8 @@
     font-size: 10px;
     padding: 12px;
   }
-  .feature-heading {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  .feature-heading > p {
-    margin-left: 0;
-  }
   .community-shell h2 {
     font-size: 32px;
-  }
-  .feature-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 22px;
-  }
-  .feature-icon {
-    margin-bottom: 20px;
-  }
-  .feature-grid p {
-    max-width: none;
-  }
-  .feature-number {
-    font-size: 8px;
-  }
-  .community-features {
-    padding-block: 35px;
-  }
-  .community-profile-promo {
-    grid-template-columns: 1fr;
-    gap: 25px;
-    padding-block: 10px 50px;
-  }
-  .community-profile-promo h2 {
-    font-size: 43px;
-  }
-  .promo-art {
-    max-width: 430px;
-    width: 100%;
-    margin-inline: auto;
-  }
-  .community-footer {
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .community-footer p {
-    order: 3;
-    width: 100%;
   }
   .community-section-heading {
     padding-top: 35px;
