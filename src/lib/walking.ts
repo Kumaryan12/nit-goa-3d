@@ -85,7 +85,12 @@ export function stepWalking(point: LocalCoordinate, direction: LocalCoordinate, 
   const steps = Math.max(1, Math.ceil(distance / 0.15)), dx = direction.x / length * distance / steps, dz = direction.z / length * distance / steps
   let current = { ...point }
   const legal = (next: LocalCoordinate) => {
-    const theatreStep = world.terrain.theatre && theatreSurfaceHeightAt(next, world.terrain.theatre) !== null && theatreSurfaceHeightAt(current, world.terrain.theatre) !== null ? .17 : .02
+    const theatre = world.terrain.theatre
+    const nextOnPlaza = !!theatre && theatreSurfaceHeightAt(next, theatre) !== null
+    const currentOnPlaza = !!theatre && theatreSurfaceHeightAt(current, theatre) !== null
+    // The 8 cm plaza lip must be traversable even during slow acceleration.
+    // Inside, allow the 15 cm stairs; the stage still requires its ramp.
+    const theatreStep = nextOnPlaza && currentOnPlaza ? .17 : nextOnPlaza || currentOnPlaza ? .1 : .02
     return isWalkable(next, world, AVATAR_RADIUS, feetY === undefined ? undefined : Math.max(feetY, walkSurfaceHeightAt(world.terrain, next.x, next.z))) && Math.abs(walkSurfaceHeightAt(world.terrain, next.x, next.z) - walkSurfaceHeightAt(world.terrain, current.x, current.z)) <= Math.hypot(next.x - current.x, next.z - current.z) * 1.2 + theatreStep
   }
   for (let i = 0; i < steps; i++) {
