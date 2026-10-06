@@ -24,9 +24,9 @@
 .welcome-shell .welcome-discover:hover { color: #fff; }
 .welcome-world { position: relative; align-self: stretch; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
 .welcome-world-label { position: absolute; top: -10px; right: 0; color: #a9c0ac; font-size: 9px; letter-spacing: .18em; }
-.welcome-map { position: relative; margin: -10px -76px 0 -30px; }
-.welcome-map::before { content: ''; position: absolute; inset: 26% 14% 9%; background: #99b876; border-radius: 50%; opacity: .12; filter: blur(45px); }
-.welcome-map .campus-illustration { position: relative; display: block; width: 100%; margin: 0; filter: drop-shadow(0 25px 12px #071e2460); animation: campus-float 8s ease-in-out infinite; }
+.welcome-photo { position: relative; width: calc(100% + 68px); margin: 10px -50px 24px -18px; aspect-ratio: 1.6; overflow: hidden; border-radius: 24px; mask-image: radial-gradient(ellipse at center, #000 48%, transparent 76%); -webkit-mask-image: radial-gradient(ellipse at center, #000 48%, transparent 76%); }
+.welcome-photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; filter: saturate(.78) sepia(.12); }
+.welcome-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #183d3224, transparent 45%, #183d3270); pointer-events: none; }
 .welcome-map-link { position: relative; align-self: center; display: flex; align-items: center; gap: 13px; min-width: 282px; margin: -4px 0 -24px 30px; padding: 13px 17px; border: 1px solid #c0d4b32b; border-radius: 13px; background: #f7faebf0; color: #224b3a; box-shadow: 0 10px 26px #09271f24; text-align: left; }
 .welcome-map-link:hover { transform: translateY(-3px); background: #fffef4; }
 .welcome-map-link > span:last-child { margin-left: auto; font-size: 17px; }
@@ -55,11 +55,9 @@
 .welcome-footer-brand small { display: block; color: #64745f; font-size: 10px; margin-top: 5px; }
 .welcome-footer > div:last-child { display: flex; gap: 28px; }
 .welcome-footer a { color: #516c54; font-size: 11px; text-decoration: none; padding-block: 10px; }
-@keyframes campus-float { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(0); } }
 @media (max-width: 1100px) {
   .welcome-hero { min-height: 570px; padding: 46px 38px; grid-template-columns: 1fr 1fr; }
   .welcome-hero h1 { font-size: 60px; }
-  .welcome-map { margin-inline: -36px -56px; }
   .welcome-map-link { min-width: 248px; margin-left: 0; padding: 11px 13px; }
   .welcome-experience { padding-inline: 20px; }
   .welcome-experience-copy strong { font-size: 21px; }
@@ -81,7 +79,7 @@
   .welcome-discover { margin-top: 16px; }
   .welcome-world { margin-top: 31px; }
   .welcome-world-label { font-size: 8px; top: -7px; }
-  .welcome-map { max-width: 540px; width: calc(100% + 28px); margin: 0 -14px; align-self: center; }
+  .welcome-photo { max-width: 540px; width: calc(100% + 28px); margin: 0 -14px 12px; align-self: center; }
   .welcome-map-link { margin: -3px 0 0; min-width: 248px; }
   .welcome-experiences { padding-block: 35px; }
   .welcome-section-heading h2 { font-size: 27px; }
@@ -97,7 +95,6 @@
   .welcome-footer > div:last-child { gap: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .welcome-map .campus-illustration { animation: none; }
   .welcome-experience, .experience-art, .welcome-map-link, .welcome-enter { transition: none; }
   .welcome-experience:hover, .welcome-experience:hover .experience-art, .welcome-map-link:hover, .welcome-enter:hover { transform: none; }
 }

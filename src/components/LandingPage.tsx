@@ -1,4 +1,3 @@
-import CampusIllustration from './CampusIllustration'
 import NitGoaLogo from './NitGoaLogo'
 import SignInForm from './SignInForm'
 import { navigate } from '../lib/community'
@@ -51,7 +50,7 @@ export default function LandingPage({ signedIn, onEnter }: { signedIn: boolean; 
       </div>
       <div className="welcome-world">
         <span className="welcome-world-label">CUNCOLIM · GOA</span>
-        <div className="welcome-map"><CampusIllustration /></div>
+        <div className="welcome-photo"><img src="/brand/nit-goa-campus.jpg" alt="NIT Goa administration building at the Cuncolim campus" width="1280" height="640" fetchPriority="high" decoding="async" /></div>
         <button className="welcome-map-link" onClick={signedIn ? onEnter : join}><span className="welcome-map-icon" aria-hidden="true">↗</span><span>Familiar places.<small>A whole new way to explore.</small></span><span aria-hidden="true">→</span></button>
       </div>
     </section>
