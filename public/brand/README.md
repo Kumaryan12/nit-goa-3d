@@ -16,3 +16,7 @@ The landing/header/footer frame the emblem through CSS. The source artwork is un
 ## Cinematic landing artwork
 
 `campus-night-concept.jpg` is original artwork generated with the built-in imagegen tool, then JPEG-encoded for delivery. It is a Goa-inspired concept scene, not a photograph or surveyed rendering of NIT Goa. Prompt: cinematic elevated tropical university at blue-hour dusk; cream buildings, terracotta roofs, palms, illuminated amphitheatre and football pitch; dark left-side space for typography; no text, badges or UI. The full production prompt is recorded in `docs/landing-page.md`.
+
+## Experience card artwork
+
+`experience-walk.jpg`, `experience-football.jpg` and `experience-oat.jpg` were generated with the built-in imagegen tool using the cinematic hero as a style reference, then resized to 1200px and JPEG-encoded for delivery. These are illustrative concept scenes. Prompts and usage details are recorded in `docs/landing-page.md`.

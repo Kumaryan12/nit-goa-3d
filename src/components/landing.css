@@ -34,15 +34,16 @@
 .welcome-shell .welcome-section-heading h2 { margin: 0; font-family: Arial, Helvetica, sans-serif; font-size: 30px; font-weight: 600; letter-spacing: -.05em; }
 .welcome-section-heading > span { font-size: 9px; letter-spacing: .1em; color: #9aa895; }
 .welcome-experience-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.welcome-experience { position: relative; display: block; min-width: 0; padding: 0 24px 26px; border: 1px solid #b9d1af26; border-radius: 12px; color: #f3f4e9; background: #16221b; overflow: hidden; text-align: left; transition: border-color .2s, transform .2s; }
+.welcome-experience { position: relative; display: flex; align-items: flex-end; min-width: 0; min-height: 340px; padding: 26px; border: 1px solid #b9d1af26; border-radius: 14px; color: #f3f4e9; background: #16221b; overflow: hidden; text-align: left; isolation: isolate; transition: border-color .25s, transform .25s; }
+.welcome-experience::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, #09181100 20%, #09181150 50%, #091811ed 100%); pointer-events: none; }
 .welcome-experience:hover { border-color: #cef087; transform: translateY(-4px); }
-.experience-art { display: block; width: 100%; height: 148px; margin: 0 auto 7px; transition: transform .3s ease; }
-.welcome-experience:hover .experience-art { transform: translateY(-4px); }
+.experience-art { position: absolute; inset: 0; z-index: -2; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transition: transform .6s ease; }
+.welcome-experience:hover .experience-art { transform: scale(1.045); }
 .welcome-experience-copy { display: block; padding-right: 26px; }
-.welcome-experience-copy strong { display: block; font-family: Arial, Helvetica, sans-serif; font-size: 21px; font-weight: 600; letter-spacing: -.035em; }
-.welcome-experience-copy > span { display: block; margin-top: 9px; color: #adbba4; font-size: 11px; font-weight: 400; line-height: 1.6; }
-.experience-arrow { position: absolute; right: 23px; bottom: 46px; font-size: 20px; color: #c9ed83; }
-.experience-oat { background: #263621; }
+.welcome-experience-copy strong { display: block; font-family: Arial, Helvetica, sans-serif; font-size: 24px; font-weight: 600; letter-spacing: -.035em; line-height: 1.1; }
+.welcome-experience-copy > span { display: block; margin-top: 10px; color: #d0dacb; font-size: 11px; font-weight: 400; line-height: 1.6; }
+.experience-arrow { position: absolute; right: 20px; top: 20px; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #d4e8bd50; border-radius: 50%; background: #0b2116b3; font-size: 20px; color: #d0f487; }
+.welcome-experience:focus-visible { outline: 2px solid #d0f487; outline-offset: 4px; }
 .welcome-footer { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-block: 24px 35px; border-top: 1px solid #bfd5ae26; }
 .welcome-footer-brand { display: flex; align-items: center; gap: 12px; font-size: 12px; }
 .welcome-footer-brand .nit-goa-emblem { width: 34px; height: 38px; }
@@ -80,11 +81,11 @@
   .welcome-shell .welcome-section-heading h2 { font-size: 26px; }
   .welcome-section-heading > span { display: none; }
   .welcome-experience-grid { grid-template-columns: 1fr; gap: 12px; }
-  .welcome-experience { padding: 20px 19px; min-height: 140px; display: flex; align-items: center; }
-  .experience-art { width: 40%; min-width: 105px; height: 110px; margin: -10px 8px -10px -15px; }
+  .welcome-experience { padding: 24px; min-height: 300px; }
+
   .welcome-experience-copy { padding-right: 14px; }
   .welcome-experience-copy strong { font-size: 20px; }
-  .experience-arrow { right: 15px; bottom: 16px; font-size: 16px; }
+  .experience-arrow { right: 18px; top: 18px; font-size: 18px; }
   .welcome-footer { flex-wrap: wrap; padding-block: 22px; gap: 15px; }
   .welcome-footer > div:last-child { gap: 22px; }
 }
