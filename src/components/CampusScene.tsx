@@ -100,7 +100,7 @@ interface CampusSceneProps {
   onRenderedCount: (count: number) => void
   onTerrainReady: () => void
   onVegetationReady: (count: number) => void
-  onMetrics: (metrics: SceneMetrics) => void
+  onMetrics?: (metrics: SceneMetrics) => void
   selectedBuildingId: string | null
   selectedLocationId: string | null
   onSelectBuilding: (selection: BuildingSelection) => void
@@ -174,7 +174,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
   const profile = useMemo(() => graphicsProfile(graphicsMode, qualityLevel), [graphicsMode, qualityLevel])
   const reportMetrics = useCallback((metrics: SceneMetrics) => {
-    onMetrics(metrics)
+    onMetrics?.(metrics)
     if (graphicsMode !== 'auto' || document.hidden || !document.hasFocus()) return
     adaptation.current = adaptGraphics(adaptation.current, metrics.fps, 2, compact)
     setQualityLevel(adaptation.current.level)
