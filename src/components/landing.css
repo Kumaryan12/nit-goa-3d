@@ -11,8 +11,6 @@
 .welcome-hero { position: relative; display: grid; grid-template-columns: 1fr 1.08fr; align-items: center; min-height: 610px; padding: 68px 60px; isolation: isolate; overflow: hidden; border-radius: 28px; background: radial-gradient(ellipse at 84% 30%, #4b776156, transparent 60%), #183d32; color: #fbfaf0; }
 .welcome-hero::after { content: ''; position: absolute; z-index: -1; right: -130px; top: -250px; width: 900px; height: 900px; border: 1px solid #dce9c010; border-radius: 50%; box-shadow: 0 0 0 85px #dce9c005, 0 0 0 86px #dce9c00b, 0 0 0 170px #dce9c005, 0 0 0 171px #dce9c008; pointer-events: none; }
 .welcome-copy { position: relative; z-index: 2; }
-.welcome-eyebrow { display: inline-flex; align-items: center; gap: 10px; color: #c5d1b9; font-size: 9px; font-weight: 500; letter-spacing: .15em; }
-.welcome-eyebrow > span { width: 6px; height: 6px; border-radius: 50%; background: #c0d993; box-shadow: 0 0 0 4px #c0d99312; }
 .welcome-hero h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(54px, 5.35vw, 78px); font-weight: 400; letter-spacing: -.055em; line-height: 1.07; margin: 28px 0 24px; }
 .welcome-hero h1 em { font-weight: 400; color: #c8dca7; }
 .welcome-description { color: #c3d2c6; font-size: 15px; line-height: 1.75; margin: 0 0 29px; }
@@ -78,7 +76,6 @@
   .nit-goa-emblem { width: 39px; height: 45px; }.nit-goa-emblem img { height: 45px; }
   .welcome-hero { grid-template-columns: 1fr; border-radius: 22px; padding: 37px 28px 30px; min-height: 0; }
   .welcome-hero h1 { font-size: clamp(38px, 9vw, 64px); margin-block: 25px 19px; }
-  .welcome-eyebrow { font-size: 8px; letter-spacing: .11em; }
   .welcome-description { font-size: 13px; margin-bottom: 23px; }
   .welcome-join { max-width: 360px; }
   .welcome-discover { margin-top: 16px; }

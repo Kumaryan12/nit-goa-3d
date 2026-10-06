@@ -41,7 +41,6 @@ export default function LandingPage({ signedIn, onEnter }: { signedIn: boolean; 
   return <main className="landing-page">
     <section className="welcome-hero community-container" aria-labelledby="welcome-title">
       <div className="welcome-copy">
-        <span className="welcome-eyebrow"><span aria-hidden="true" /> NIT GOA, IN A NEW DIMENSION</span>
         <h1 id="welcome-title">Your campus.<br /><em>Your people.</em></h1>
         <p className="welcome-description">Explore NIT Goa in 3D.<br />Meet, play and take the stage.</p>
         <div id="join" className="welcome-join">
