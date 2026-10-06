@@ -558,6 +558,15 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .walk-controls-compact .walk-inspect { margin-bottom: 8px; }
 .walk-controls-compact .walk-interior-actions { margin-bottom: 8px; }
 .walk-controls-compact .walk-interior-actions p { display: none; }
+@media (min-width: 761px) {
+  .explorer .building-info-panel { max-height: calc(100dvh - 438px); }
+}
+@media (max-height: 650px) and (min-width: 761px) {
+  .explorer .building-info-panel { max-height: calc(100dvh - 358px); }
+}
+@media (max-width: 1000px) and (min-width: 761px) {
+  .explorer .building-info-panel { max-height: calc(100dvh - 472px); }
+}
 @media (max-width: 760px) {
   .view-controls { right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
   .view-dock button { padding: 8px 10px; }
