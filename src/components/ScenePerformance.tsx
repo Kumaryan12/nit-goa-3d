@@ -40,8 +40,10 @@ export default function ScenePerformance({ dynamicShadows, revision }: { dynamic
   }, [gl, dynamicShadows, revision, profile])
   useEffect(() => {
     const visible = () => { setFrameloop(document.hidden ? 'never' : 'always'); if (!document.hidden) invalidate() }
+    const restored = () => { gl.shadowMap.needsUpdate = true; visible() }
     document.addEventListener('visibilitychange', visible); visible()
-    return () => { document.removeEventListener('visibilitychange', visible); setFrameloop('always'); gl.shadowMap.autoUpdate = true }
+    gl.domElement.addEventListener('webglcontextrestored', restored)
+    return () => { document.removeEventListener('visibilitychange', visible); gl.domElement.removeEventListener('webglcontextrestored', restored); setFrameloop('always'); gl.shadowMap.autoUpdate = true }
   }, [gl, setFrameloop, invalidate])
   return null
 }

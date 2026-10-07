@@ -2,6 +2,8 @@ import { authenticateLiveSocket } from '../lib/liveAuth'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { oatAudioURL, oatPlaybackURL, oatMusicPosition, OAT_UPLOAD_LIMIT, parseOatSignal, parseOatSnapshot } from '../lib/oatProtocol'
 import type { OatSignal, OatSnapshot } from '../lib/oatProtocol'
+import { liveRetryDelay } from '../lib/liveRecovery'
+import { watchLiveConnection } from '../lib/liveWatchdog'
 
 interface VoicePeer { pc: RTCPeerConnection; candidates: RTCIceCandidateInit[]; chain: Promise<void> }
 interface ConcertMixer { context: AudioContext; music: MediaElementAudioSourceNode; monitor: GainNode; backing: GainNode; microphone: MediaStreamAudioSourceNode | null; output: MediaStreamAudioDestinationNode | null }
@@ -18,6 +20,8 @@ function serverURL() {
 }
 export function useOatSession(joined: boolean, name: string, retry: number) {
   const [connection, setConnection] = useState<OatConnection>('idle'), [snapshot, setSnapshot] = useState<OatSnapshot | null>(null)
+  const recoveryAttempt = useRef(0), [automaticRetry, setAutomaticRetry] = useState(0)
+  useEffect(() => { recoveryAttempt.current = 0 }, [joined, retry])
   const [queuePosition, setQueuePosition] = useState(0)
   const [selfId, setSelfId] = useState<string | null>(null), [error, setError] = useState(''), [mic, setMic] = useState<OatMic>('off')
   const [listening, setListening] = useState(false), [soundBlocked, setSoundBlocked] = useState(false), [volume, setVolume] = useState(.7)
@@ -170,7 +174,7 @@ export function useOatSession(joined: boolean, name: string, retry: number) {
   }, [send, stopMic, syncMusic])
   useEffect(() => {
     if (!joined) { setConnection('idle'); return }
-    let active = true, initialized = false
+    let active = true, initialized = false, recoveryTimer: number | undefined
     setConnection('connecting'); setError(''); setVoiceStatus(''); setSnapshot(null); state.current = null
     const music = new Audio(), voice = new Audio(); music.crossOrigin = 'anonymous'; music.preload = 'metadata'; musicAudio.current = music; voiceAudio.current = voice
     music.onloadedmetadata = () => {
@@ -181,7 +185,8 @@ export function useOatSession(joined: boolean, name: string, retry: number) {
     music.onerror = () => { if (state.current?.music.url) setError('This track could not be played. Try another audio file or a direct audio link.') }
     let ws: WebSocket
     try { ws = new WebSocket(serverURL()); socket.current = ws } catch { setConnection('offline'); return () => { music.pause(); voice.pause() } }
-    const timeout = window.setTimeout(() => { if (!initialized) ws.close() }, 20000)
+    const watchdog = watchLiveConnection(ws)
+    const timeout = window.setTimeout(() => { if (!initialized) ws.close(4000, 'Connection timeout') }, 45000)
     let stopAuth = () => {}
     ws.onopen = () => { stopAuth = authenticateLiveSocket(ws) }
     ws.onmessage = event => {
@@ -190,7 +195,7 @@ export function useOatSession(joined: boolean, name: string, retry: number) {
       try { value = JSON.parse(event.data); if (!value || typeof value !== 'object') return } catch { return }
       if (value.type === 'waiting' && typeof value.position === 'number') { clearTimeout(timeout); setConnection('waiting'); setQueuePosition(value.position); return }
       if (value.type === 'welcome' && typeof value.id === 'string' && typeof value.uploadToken === 'string') {
-        id.current = value.id; token.current = value.uploadToken; setSelfId(value.id); initialized = true; clearTimeout(timeout); setConnection('live')
+        id.current = value.id; token.current = value.uploadToken; setSelfId(value.id); initialized = true; recoveryAttempt.current = 0; clearTimeout(timeout); setConnection('live'); watchdog.received()
         send({ type: 'name', name }); send({ type: 'clock', clientTime: Date.now() }); return
       }
       if (value.type === 'clock' && typeof value.serverTime === 'number' && typeof value.clientTime === 'number') { clockOffset.current = value.serverTime - (Date.now() + value.clientTime) / 2; return }
@@ -199,6 +204,7 @@ export function useOatSession(joined: boolean, name: string, retry: number) {
       if (value.type === 'voice-ready' && typeof value.from === 'string' && state.current?.performerId === id.current) { closePeer(value.from); offerTo(value.from); return }
       const next = parseOatSnapshot(value)
       if (!next || !id.current || (state.current && next.sequence < state.current.sequence)) return
+      watchdog.received()
       const previous = state.current; state.current = next; setSnapshot(next)
       if (previous?.performerId === id.current && next.performerId !== id.current) stopMic()
       voiceReconcile.current(); syncMusic()
@@ -208,15 +214,23 @@ export function useOatSession(joined: boolean, name: string, retry: number) {
       clearTimeout(timeout); setConnection('offline'); stopMic(); muteSound(); setVoiceStatus(''); state.current = null; setSnapshot(null); setSelfId(null); id.current = null
       voice.pause(); voice.srcObject = null; voiceConnected.current = false; music.pause(); upload.current?.abort()
     }
-    ws.onerror = disconnect; ws.onclose = disconnect
+    ws.onerror = () => { if (active) setError('The concert connection was interrupted. Checking connection…') }
+    ws.onclose = event => {
+      stopAuth(); watchdog.stop(); disconnect()
+      if (!active) return
+      const delay = liveRetryDelay(event.code, recoveryAttempt.current)
+      if (delay === null) return
+      recoveryAttempt.current++; setConnection('connecting'); setError('Reconnecting to the concert. Your microphone is off.')
+      recoveryTimer = window.setTimeout(() => { if (active) setAutomaticRetry(value => value + 1) }, delay)
+    }
     const timer = window.setInterval(syncMusic, 500), clock = window.setInterval(() => send({ type: 'clock', clientTime: Date.now() }), 10000)
     return () => {
-      active = false; stopAuth(); clearTimeout(timeout); clearInterval(timer); clearInterval(clock); stopMic(); muteSound(); upload.current?.abort(); earlyCandidates.current.clear()
+      active = false; stopAuth(); watchdog.stop(); clearTimeout(timeout); clearTimeout(recoveryTimer); clearInterval(timer); clearInterval(clock); stopMic(); muteSound(); upload.current?.abort(); earlyCandidates.current.clear()
       ws.close(); socket.current = null; id.current = null; token.current = ''; state.current = null; setSnapshot(null); setSelfId(null); setVoiceStatus('')
       voiceConnected.current = false; if (mixer.current) { void mixer.current.context.close(); mixer.current = null }
       music.onloadedmetadata = null; music.onerror = null; music.pause(); music.removeAttribute('src'); voice.pause(); voice.srcObject = null; musicAudio.current = null; voiceAudio.current = null
     }
-  }, [joined, retry, name, send, syncMusic, stopMic, muteSound, closePeer, offerTo])
+  }, [joined, retry, automaticRetry, name, send, syncMusic, stopMic, muteSound, closePeer, offerTo])
   const action = useCallback((message: unknown) => { setError(''); send(message) }, [send])
   const loadTrack = useCallback((url: string, title: string, playing = false) => {
     const valid = oatAudioURL(url)

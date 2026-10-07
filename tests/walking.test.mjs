@@ -7,7 +7,7 @@ import { extractBuildingFootprints } from '../src/lib/buildings.ts'
 import { extractCampusRoads } from '../src/lib/roads.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
-import { createWalkWorld, isWalkable, stepWalking, treeCeilingAt, findWalkSpawn, nearestWalkLocation, placeDistance, cameraBoomFraction, explorerViewFromURL, withExplorerView, emptyWalkInput } from '../src/lib/walking.ts'
+import { createWalkWorld, isWalkable, stepWalking, treeCeilingAt, findWalkSpawn, findSharedSpawn, nearestWalkLocation, placeDistance, cameraBoomFraction, explorerViewFromURL, withExplorerView, emptyWalkInput } from '../src/lib/walking.ts'
 const ring = (x1,z1,x2,z2) => [{x:x1,z:z1},{x:x2,z:z1},{x:x2,z:z2},{x:x1,z:z2},{x:x1,z:z1}]
 const flat = { size:400, segments:40, heights:new Float32Array(41**2), colors:new Float32Array(41**2*3) }
 const building = (outer, holes=[]) => ({id:'way/1',osmType:'way',osmId:1,tags:{},outer:outer.map(localToGps),holes:holes.map(h=>h.map(localToGps)),height:10})
@@ -96,6 +96,20 @@ test('all corrected campus landmarks have safe spawn positions on the real OSM c
   const lower=findWalkSpawn(sports.coordinates,actual), upper=findWalkSpawn(cafe.coordinates,actual)
   close(terrainHeightAt(actual.terrain,lower.x,lower.z),0)
   assert.ok(terrainHeightAt(actual.terrain,upper.x,upper.z)>7)
+})
+
+test('simultaneous visitors get distinct, legal spawn spots at the real Main Entrance', () => {
+  const entrance = twin.locations.find(location => location.id === 'main-entrance')
+  const anchor = findWalkSpawn(entrance.coordinates, actual), occupied = []
+  assert.ok(anchor)
+  for (let slot = 0; slot < 32; slot++) {
+    const next = findSharedSpawn(anchor, actual, slot, occupied)
+    assert.ok(isWalkable(next, actual), `visitor ${slot} stays outside solids and the canal`)
+    assert.ok(occupied.every(other => Math.hypot(next.x - other.x, next.z - other.z) >= 1.5), `visitor ${slot} remains visible beside earlier arrivals`)
+    assert.ok(Math.hypot(next.x - anchor.x, next.z - anchor.z) <= 36)
+    assert.deepEqual(findSharedSpawn(anchor, actual, slot, []), next, 'reservation also works before other visitors publish their first pose')
+    occupied.push(next)
+  }
 })
 
 const tree=(extra={})=>({x:0,y:0,z:0,scale:1,rotation:0,palm:false,shade:0,...extra})

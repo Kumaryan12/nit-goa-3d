@@ -33,6 +33,8 @@ Chat uses plain text, a 280-character limit, one-second spacing and at most five
 
 Interrupted campus connections retry automatically with bounded backoff. Rejected movement can recover to the server's accepted position. Nearby visitors retain articulated avatars; distant visitors use a single merged mesh, with a graphics-dependent detail budget and nearby name labels. Map requests retry transient failures, and both map responses settle before the worker builds the campus. See [multiplayer reliability verification](docs/multiplayer-reliability.md) for the 32-client check, browser rendering check and remaining hosting limits.
 
+Simultaneous arrivals receive separate safe spawn spots. Remote campus/football movement uses a 100 ms snapshot buffer with bounded prediction; campus, football and concert rooms recover stalled foreground connections. Phones have compact tools, retained transport controls and a lower automatic graphics budget. See [mobile verification](docs/mobile.md) for phone viewport checks and physical-device rehearsal.
+
 Implementation: `lib/campusProtocol.ts`, `hooks/useCampusSession.ts`, `CampusPeopleScene.tsx`, `CampusSocial.tsx`, `server/campusRoom.ts` and `server/campusServer.ts`. `tests/campusPresence.test.mjs` checks public/private identity metadata, position validation, nearby delivery, shared movement/chat, anonymous and duplicate rejection, capacity/queue promotion and audited moderation.
 
 ## Shared football on Sports Ground

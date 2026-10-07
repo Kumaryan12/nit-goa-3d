@@ -64,8 +64,9 @@ const readState = () => {
   const extra = ['location','from','to'].map((key) => params.get(key)).filter((id): id is string => !!id && /^(osm-(way|relation)-[0-9]+(-[0-9]+)?|way\/[0-9]+|relation\/[0-9]+\/[0-9]+)$/.test(id))
   return parseURLState(window.location.href, [...campusLocations.map((p) => p.id), ...extra])
 }
-export default function App({accountControl,accountOpen=false,canEdit=false}:{accountControl?:ReactNode;accountOpen?:boolean;canEdit?:boolean}={}) {
+export default function App({accountControl,accountOpen=false,canEdit=false,publishedMap=import.meta.env.PROD}:{accountControl?:ReactNode;accountOpen?:boolean;canEdit?:boolean;publishedMap?:boolean}={}) {
   const explorer = useRef<HTMLElement>(null), [layout, setLayout] = useState(initialViewLayout)
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false)
   const changeLayout = (value: ViewLayout) => { setLayout(value); try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(value)) } catch { /* View changes work without storage. */ } }
   const revealPanels = useCallback(() => setLayout(previous => {
     if (previous.panels) return previous
@@ -246,7 +247,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
 
   useEffect(() => {
     const controller = new AbortController()
-    loadMapWithCache('roads', () => import.meta.env.PROD ? fetchPublishedCampusRoads(controller.signal) : fetchCampusRoads(controller.signal, true), browserStorage, controller.signal, !online)
+    loadMapWithCache('roads', () => publishedMap ? fetchPublishedCampusRoads(controller.signal) : fetchCampusRoads(controller.signal, true), browserStorage, controller.signal, !online)
       .then(({ data, cache }) => {
         if (controller.signal.aborted) return
         if (import.meta.env.DEV) {
@@ -261,12 +262,12 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
         setRoadState({ status: 'error' })
       })
     return () => controller.abort()
-  }, [roadAttempt, online])
+  }, [roadAttempt, online, publishedMap])
 
   useEffect(() => {
     const controller = new AbortController()
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Campus coordinate origin:', { lat: LAT0, lon: LON0, x: 0, z: 0 })
-    loadMapWithCache('buildings', () => import.meta.env.PROD ? fetchPublishedCampusData(controller.signal) : fetchCampusData(controller.signal, true), browserStorage, controller.signal, !online)
+    loadMapWithCache('buildings', () => publishedMap ? fetchPublishedCampusData(controller.signal) : fetchCampusData(controller.signal, true), browserStorage, controller.signal, !online)
       .then(({ data, cache }) => {
         if (controller.signal.aborted) return
         if (import.meta.env.DEV) {
@@ -281,7 +282,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
         setMapState({ status: 'error' })
       })
     return () => controller.abort()
-  }, [mapAttempt, online])
+  }, [mapAttempt, online, publishedMap])
 
   useEffect(() => {
     const changed = () => setOnline(navigator.onLine)
@@ -354,7 +355,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
       {(!online || Object.keys(cacheNotices).length > 0 || mapState.status === 'error') && <div className="resilience-notice" role="status">
         {!online && 'Offline · '}{Object.keys(cacheNotices).length > 0 ? `Using cached map data · ${Object.keys(cacheNotices).join(' and ')} · Updated ${cacheAge(Math.min(...Object.values(cacheNotices).map((c) => c.timestamp)))}${Object.values(cacheNotices).some((c) => c.stale) ? ' (older than 24 hours)' : ''}` : mapState.status === 'error' ? 'Map unavailable. Reconnect or retry; no usable building cache is available.' : 'Live map loading paused.'}
         <button className="text-button" onClick={() => { setMapState({status:'loading'}); setMapAttempt((p) => p+1); retryRoads() }}>Retry map</button></div>}
-      <header className="scene-header">
+      <header className={`scene-header ${mobileToolsOpen ? 'mobile-tools-open' : ''}`}>
         <div className="title-block">
           <span className="eyebrow"><span className="live-dot" /> NIT GOA · CUNCOLIM</span>
           <h1>NIT Goa <span>3D Explorer</span></h1>
@@ -363,6 +364,7 @@ export default function App({accountControl,accountOpen=false,canEdit=false}:{ac
             <button aria-pressed={view === 'walk'} onClick={() => changeView('walk')} disabled={!twin || twin.boundary.length < 3}>Walk with avatar</button>
           </div>
         </div>
+        <button className="mobile-tools-toggle" aria-expanded={mobileToolsOpen} aria-label={mobileToolsOpen ? 'Hide campus tools' : 'Show campus tools'} onClick={() => setMobileToolsOpen(value => !value)}>{mobileToolsOpen ? 'Close ×' : 'Tools ☷'}</button>
         <SearchBar locations={catalog} onSelect={chooseLocation} />
         <div className="scene-toolbar">
           <button className="toolbar-button" disabled={!twin || twin.boundary.length < 3} onClick={joinFootball}>⚽ Play football</button>

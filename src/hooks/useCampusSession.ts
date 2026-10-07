@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { authenticateLiveSocket } from '../lib/liveAuth'
 import { campusId, chatText, parseCampusChat, parseCampusSnapshot, parseCampusPose, publishedCampusPose } from '../lib/campusProtocol'
 import { liveRetryDelay } from '../lib/liveRecovery'
+import { watchLiveConnection } from '../lib/liveWatchdog'
+import { RemoteMotionBuffer } from '../lib/remoteMotion'
 import type { CampusActivity, CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib/campusProtocol'
 import { isSocialAction, nearbySeat, SOCIAL_DURATION } from '../lib/social'
 import type { SocialAction, SocialSeat } from '../lib/social'
@@ -52,6 +54,8 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     setRideError(''); setSocialError(''); setSocialPending(false); setConnection('connecting'); setPeople([]); setMessages([]); setError(''); setQueue(0); session.current = { id: null, snapshot: null }
     const url = new URL('/presence', window.location.href); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
     const ws = new WebSocket(url); socket.current = ws
+    const watchdog = watchLiveConnection(ws)
+    session.current.motion = new RemoteMotionBuffer()
     const timeout = window.setTimeout(() => { if (!initialized) { setError('The campus is taking longer to respond. Retrying the live connection…'); ws.close(4000, 'Connection timeout') } }, 45000)
     ws.onopen = () => { stopAuth = authenticateLiveSocket(ws) }
     const addMessage = (message: CampusChat) => setMessages(previous => previous.some(m => m.id === message.id) ? previous : [...previous.filter(m => Date.now() - m.time < 15 * 60000), message].slice(-80))
@@ -65,6 +69,8 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (value.type === 'social-result') { setSocialPending(false); setSocialError(typeof value.error === 'string' ? value.error.slice(0, 240) : ''); return }
       if (value.type === 'error' || value.type === 'notice') { if (typeof value.message === 'string') setError(value.message.slice(0, 240)); return }
       if (value.type === 'campus-welcome' && campusId(value.id) && Array.isArray(value.history) && value.history.length <= 50) {
+        watchdog.received()
+        if (Number.isInteger(value.spawnSlot) && value.spawnSlot >= 0 && value.spawnSlot < 32) { session.current.spawnSlot = value.spawnSlot; session.current.spawnPending = true }
         session.current.id = value.id; initialized = true; recoveryAttempt.current = 0; clearTimeout(timeout); setConnection('live'); setQueue(0); setError('')
         setMessages(value.history.map(parseCampusChat).filter((m: CampusChat | null): m is CampusChat => !!m && m.scope === 'campus'))
         return
@@ -81,13 +87,15 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       const snapshot = parseCampusSnapshot(value)
       if (!snapshot || (session.current.snapshot && snapshot.sequence <= session.current.snapshot.sequence)) return
       session.current.snapshot = snapshot
+      watchdog.received(); session.current.motion?.push(snapshot, performance.now())
+      session.current.peopleById = new Map(snapshot.people.map(person => [person.id, person]))
       // Per-frame poses stay in a ref; names/activity update React only as needed.
       const key = JSON.stringify(snapshot.people.map(p => [p.id, p.name, p.handle, p.color, p.activity, p.pose?.space, p.pose?.visible, p.pose?.vehicle, p.ride?.driverId, p.ride?.seat, p.social?.action, p.social?.startedAt, p.social?.seatId]))
       if (key !== rosterKey) { rosterKey = key; setPeople(snapshot.people) }
     }
     ws.onerror = () => { if (active) setError('The live connection was interrupted. Checking connection…') }
     ws.onclose = event => {
-      clearTimeout(timeout); stopAuth()
+      clearTimeout(timeout); stopAuth(); watchdog.stop()
       if (!active) return
       setPeople([]); setSocialPending(false); session.current = { id: null, snapshot: null }
       const delay = liveRetryDelay(event.code, recoveryAttempt.current)
@@ -97,14 +105,15 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }
     const publish = () => {
       if (!initialized || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) return
+      if (mode.current.walking && session.current.spawnPending) return
       const current = pose.current
       if (!current) return
       const focused = !document.hidden && document.hasFocus()
       ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(current, mode.current.walking, mode.current.activity, focused) }))
     }
     const timer = window.setInterval(publish, 100)
-    window.addEventListener('blur', publish); document.addEventListener('visibilitychange', publish)
-    return () => { active = false; stopAuth(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
+    window.addEventListener('blur', publish); window.addEventListener('focus', publish); window.addEventListener('pageshow', publish); document.addEventListener('visibilitychange', publish)
+    return () => { active = false; stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
   }, [enabled, retry, pose, preview])
   const sendChat = useCallback((text: string, scope: 'campus' | 'nearby') => {
     const clean = chatText(text), ws = socket.current

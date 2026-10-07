@@ -33,6 +33,7 @@ test('full campus can join simultaneously, share movement, queue and promote wit
   const {campus,peer}=await fixture(t)
   const peers=Array.from({length:CAMPUS_CAPACITY},(_,i)=>peer(`visitor_${i}`))
   await waitFor(()=>peers.every(p=>p.messages.some(m=>m.type==='campus-welcome')))
+  assert.deepEqual(peers.map(p=>p.messages.find(m=>m.type==='campus-welcome').spawnSlot).sort((a,b)=>a-b),Array.from({length:32},(_,i)=>i))
   for(let i=0;i<peers.length;i++)peers[i].ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({x:i*2})}))
   await waitFor(()=>peers.every(p=>p.messages.some(m=>m.type==='campus-state'&&m.people.length===32&&m.people.every(p=>p.pose?.visible))))
   let tick=0
@@ -45,6 +46,7 @@ test('full campus can join simultaneously, share movement, queue and promote wit
   assert.ok(peers.every(p=>!p.messages.some(m=>m.type==='error'||m.type==='pose-correction')))
   const queued=peer('queued');await waitFor(()=>queued.messages.some(m=>m.type==='waiting'))
   peers[0].ws.close();await waitFor(()=>queued.messages.some(m=>m.type==='campus-welcome'))
+  assert.equal(queued.messages.find(m=>m.type==='campus-welcome').spawnSlot,0,'departed visitors release their spawn reservation')
   assert.equal(campus.access.snapshot().occupancy,32)
   const intervals=peers.slice(1).flatMap(p=>p.arrival.slice(1).map((time,i)=>time-p.arrival[i])).sort((a,b)=>a-b)
   t.diagnostic(`32 simultaneous authenticated test clients; snapshot interval p95 ${intervals[Math.floor(intervals.length*.95)]} ms`)

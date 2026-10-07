@@ -2,6 +2,7 @@ import { PROFILE_COLORS, PROFILE_COLOR_HEX } from './profile.ts'
 import type { CampusProfile } from './profile.ts'
 import { parseSocialState } from './social.ts'
 import type { SocialState } from './social.ts'
+import type { RemoteMotionBuffer } from './remoteMotion.ts'
 export const CAMPUS_CAPACITY = 32
 export const NEARBY_CHAT_RADIUS = 35
 export const CAMPUS_COLORS = PROFILE_COLOR_HEX
@@ -11,7 +12,7 @@ export interface BuggyRide { driverId: string; seat: 1 | 2 | 3 }
 export interface CampusPerson { social?: SocialState; ride?: BuggyRide; id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
 export interface CampusSnapshot { type: 'campus-state'; sequence: number; serverTime: number; people: CampusPerson[] }
 export interface CampusChat { type: 'chat'; id: string; sender: string; name: string; scope: 'campus' | 'nearby'; text: string; time: number }
-export interface CampusSession { id: string | null; snapshot: CampusSnapshot | null; correction?: CampusPose }
+export interface CampusSession { id: string | null; snapshot: CampusSnapshot | null; correction?: CampusPose; motion?: RemoteMotionBuffer; peopleById?: Map<string, CampusPerson>; spawnSlot?: number; spawnPending?: boolean }
 export function publishedCampusPose(current: CampusPose, walking: boolean, activity: CampusActivity, focused: boolean): CampusPose {
   const visible = walking && current.visible
   return { ...current, yaw: Math.atan2(Math.sin(current.yaw), Math.cos(current.yaw)), visible, active: focused && current.active && (visible || activity === 'concert'), moving: visible && focused && current.moving }
