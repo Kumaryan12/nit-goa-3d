@@ -4,7 +4,7 @@ import { Vector3 } from 'three'
 import type { Group } from 'three'
 import type { DigitalTwin } from '../lib/digitalTwin'
 import type { LocalCoordinate } from '../lib/geo'
-import { cameraBoomFraction, createWalkWorld, emptyWalkInput, findWalkSpawn, isWalkable, nearestWalkLocation, stepWalking, treeCeilingAt, walkSurfaceHeightAt } from '../lib/walking'
+import { cameraBoomFraction, createWalkWorld, emptyWalkInput, findWalkSpawn, findSharedSpawn, isWalkable, nearestWalkLocation, stepWalking, treeCeilingAt, walkSurfaceHeightAt } from '../lib/walking'
 import type { WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
 import { footballToLocal, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch } from '../lib/football'
@@ -44,6 +44,7 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
   const jump = useRef(freshJump())
   const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
   const campusEpoch = useRef((campusPose.current?.epoch ?? 0) + 1)
+  const joinedId = useRef<string | null>(null)
   const { gl, camera } = useThree(), avatar = useRef<Group>(null), yaw = useRef(0), pitch = useRef(0.28), cameraDistance = useRef(7)
   const lookTarget = useRef({ yaw: 0, pitch: .28, distance: 7 })
   const keys = useRef(new Set<string>()), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false }), locomotion = useRef(freshLocomotion()), elapsed = useRef(0), nearest = useRef<string | null>(null)
@@ -182,6 +183,15 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
   useFrame((_, delta) => {
     if (!avatar.current || !position.current) return
     delta = motionDelta(delta)
+    const live = campusSession.current
+    if (live.id && live.spawnPending) {
+      if (joinedId.current !== live.id && !interiorPose.current && !footballPitch && ride.current === 'walk' && !seated.current && !ridingPassenger.current) {
+        const occupied = live.snapshot?.people.filter(person => person.id !== live.id && person.pose?.visible && person.pose.space === 'outdoors').map(person => person.pose!) ?? []
+        position.current = findSharedSpawn(position.current, world, live.spawnSlot ?? 0, occupied)
+        campusEpoch.current++; snapped.current = false; locomotion.current = freshLocomotion()
+      }
+      joinedId.current = live.id; live.spawnPending = false
+    }
     const correction = campusSession.current.correction
     if (correction) {
       delete campusSession.current.correction

@@ -6,7 +6,7 @@ export function initialViewLayout(): ViewLayout {
     const value = JSON.parse(localStorage.getItem('nit-goa:view-layout') || 'null')
     if (value && ['panels', 'minimap', 'toolbar'].every(key => typeof value[key] === 'boolean')) return value
   } catch { /* Private browsing may disable saved preferences. */ }
-  return { ...defaults }
+  return window.matchMedia('(max-width: 760px), (pointer: coarse)').matches ? { panels: false, minimap: false, toolbar: true } : { ...defaults }
 }
 export default function ViewControls({ explorer, layout, onChange }: { explorer: React.RefObject<HTMLElement | null>; layout: ViewLayout; onChange: (layout: ViewLayout) => void }) {
   const root = useRef<HTMLDivElement>(null), previous = useRef(defaults)

@@ -9,14 +9,17 @@ import { publishedSocialSeats } from './socialSeats.ts'
 import type { SocialSeat } from '../src/lib/social.ts'
 
 export function attachCampusServer(server: EventEmitter, origin?: string, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats()) {
-  const room = createCampusRoom(boundary, seats), sockets = new Map<string, WebSocket>()
+  const room = createCampusRoom(boundary, seats), sockets = new Map<string, WebSocket>(), spawnSlots = new Map<string, number>()
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384, perMessageDeflate: false })
   const access = attachLiveAccess(server, wss, '/presence', origin, CAMPUS_CAPACITY, verify)
   const send = (ws: WebSocket, value: unknown) => { if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(JSON.stringify(value)) }
   access.onAdmit((ws, identity) => {
     if (!room.add(identity)) { ws.close(1013, 'Campus full'); return }
     sockets.set(identity.id, ws)
-    send(ws, { type: 'campus-welcome', id: identity.id, history: room.history() })
+    let spawnSlot = 0
+    while ([...spawnSlots.values()].includes(spawnSlot)) spawnSlot++
+    spawnSlots.set(identity.id, spawnSlot)
+    send(ws, { type: 'campus-welcome', id: identity.id, spawnSlot, history: room.history() })
     send(ws, room.snapshot())
     let correctedAt = 0
     ws.on('message', (bytes, binary) => {
@@ -43,10 +46,10 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
         else for (const id of result.recipients) { const target = sockets.get(id); if (target) send(target, result.message) }
       }
     })
-    ws.on('close', () => { if (sockets.get(identity.id) !== ws) return; sockets.delete(identity.id); room.remove(identity.id); if (!sockets.size) for (const m of room.history()) room.removeMessages(m.sender) })
+    ws.on('close', () => { if (sockets.get(identity.id) !== ws) return; sockets.delete(identity.id); spawnSlots.delete(identity.id); room.remove(identity.id); if (!sockets.size) for (const m of room.history()) room.removeMessages(m.sender) })
   })
   const timer = setInterval(() => {
-    for (const [id, ws] of sockets) { const identity = access.identity(ws); if (identity) room.updateIdentity(identity); else { room.remove(id); sockets.delete(id) } }
+    for (const [id, ws] of sockets) { const identity = access.identity(ws); if (identity) room.updateIdentity(identity); else { room.remove(id); sockets.delete(id); spawnSlots.delete(id) } }
     if (!sockets.size) return
     const snapshot = JSON.stringify(room.snapshot())
     for (const ws of sockets.values()) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(snapshot)

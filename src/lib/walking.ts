@@ -121,6 +121,22 @@ export function findWalkSpawn(anchor: LocalCoordinate, world: WalkWorld): LocalC
   }
   return null
 }
+// Distinct admission slots prevent simultaneous arrivals from occupying the
+// exact same point and covering each other's avatars. Check the actual world,
+// including walls, trees, canals and the boundary, before choosing a spot.
+export function findSharedSpawn(anchor: LocalCoordinate, world: WalkWorld, slot: number, occupied: LocalCoordinate[]): LocalCoordinate {
+  const candidates: LocalCoordinate[] = []
+  for (let index = 0; index < 256 && candidates.length < 32; index++) {
+    const radius = index ? 2.2 * Math.sqrt(index) : 0, angle = index * 2.399963229728653
+    const candidate = { x: anchor.x + Math.cos(angle) * radius, z: anchor.z + Math.sin(angle) * radius }
+    if (isWalkable(candidate, world) && candidates.every(other => Math.hypot(candidate.x - other.x, candidate.z - other.z) >= 1.5)) candidates.push(candidate)
+  }
+  for (let attempt = 0; attempt < candidates.length; attempt++) {
+    const candidate = candidates[(Math.max(0, Math.min(31, slot)) + attempt) % candidates.length]
+    if (occupied.every(other => Math.hypot(candidate.x - other.x, candidate.z - other.z) >= 1.5)) return candidate
+  }
+  return anchor
+}
 export function placeDistance(point: LocalCoordinate, location: CampusLocation, world: WalkWorld): number {
   const building = world.buildings.find(building => building.id === (location.osmBuildingId ?? location.id))
   return building ? ringDistance(point, building.outer) : Math.hypot(point.x - location.coordinates.x, point.z - location.coordinates.z)

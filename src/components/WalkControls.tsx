@@ -61,13 +61,14 @@ export default function WalkControls({ compact = false, campusLive, input, statu
       {riding && <span className="walk-speed">{Math.round((status?.speed ?? 0) * 3.6)} / {Math.round((status?.vehicle === 'bicycle' && !passenger ? MOVEMENT_SPEEDS.bicycle : MOVEMENT_SPEEDS.buggy) * 3.6)} km/h</span>}
     </div>
     {(passenger || status?.vehicle === 'buggy') && <p className="walk-note" role="status">{occupants}/4 seats occupied{passenger ? ` · Passenger seat ${passenger.seat}` : ' · You are driving'}</p>}
-    {passenger && <button className="navigate-button" disabled={paused || !!driver?.pose?.moving} onClick={() => campusLive.rideBuggy(null)}>{driver?.pose?.moving ? 'Get out when stopped' : 'Get out of buggy · F'}</button>}
+    {passenger && <button className="navigate-button walk-board" disabled={paused || !!driver?.pose?.moving} onClick={() => campusLive.rideBuggy(null)}>{driver?.pose?.moving ? 'Get out when stopped' : 'Get out of buggy · F'}</button>}
     {!passenger && status?.canRide && (status.vehicle ?? 'walk') === 'walk' && nearbyBuggies.map(buggy => {
       const count = 1 + (snapshot?.people.filter(p => p.ride?.driverId === buggy.id).length ?? 0)
       return <button key={buggy.id} className="fly-button walk-board" disabled={paused || count >= 4 || !!buggy.pose?.moving} onClick={() => campusLive.rideBuggy(buggy.id)}>Hop into {buggy.name}’s buggy · {count}/4{buggy.pose?.moving ? ' · wait for stop' : ''}</button>
     })}
-    {campusLive.rideError && <p className="walk-note" role="status">{campusLive.rideError}</p>}
-    {status?.rideMessage && <p className="walk-note" role="status">{status.rideMessage}</p>}
+    {campusLive.rideError && <p className="walk-note walk-notice" role="status">{campusLive.rideError}</p>}
+    {status?.rideMessage && <p className="walk-note walk-notice" role="status">{status.rideMessage}</p>}
+    {compact && (status?.error || paused || !ready) && <p className="walk-notice" role="status">{status?.error ?? (paused ? 'Walk paused' : 'Preparing campus…')}</p>}
     {status?.canEnterHostel && <button className="navigate-button walk-inspect" disabled={paused} onClick={() => action('enter-hostel')}>Enter Boys Hostel · approximate →</button>}
     {status?.canEnterGyan && <button className="navigate-button walk-inspect" disabled={paused} onClick={()=>action('enter-gyan')}>Enter Gyan Mandir →</button>}
     {inside && <div className="walk-interior-actions">

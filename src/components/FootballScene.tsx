@@ -21,18 +21,19 @@ function RemotePlayer({ player, session, campusSession, pitch }: { player: Footb
     if (!current || !group.current) return
     delta = motionDelta(delta)
     const beforeX = group.current.position.x, beforeZ = group.current.position.z
-    const point = footballToWorld(current, pitch), blend = 1 - Math.exp(-delta * 15)
-    group.current.position.x += (point.x - group.current.position.x) * blend
-    group.current.position.z += (point.z - group.current.position.z) * blend
+    const sampled = session.current.motion?.sample(player.id, performance.now())
+    const point = sampled ?? footballToWorld(current, pitch), blend = 1 - Math.exp(-delta * 15)
+    if (sampled) { group.current.position.x = point.x; group.current.position.z = point.z }
+    else { group.current.position.x += (point.x - group.current.position.x) * blend; group.current.position.z += (point.z - group.current.position.z) * blend }
     // Shared campus presence carries verified world-space jump height. Keep
     // football's authoritative X/Z and ignore unrelated indoor/teleport poses.
-    const pose = campusSession.current.snapshot?.people.find(person => person.id === player.id)?.pose
+    const pose = campusSession.current.motion?.sample(player.id, performance.now()) ?? campusSession.current.snapshot?.people.find(person => person.id === player.id)?.pose
     const ground = pitch.elevation + .11
     const y = pose?.space === 'outdoors' && Math.hypot(pose.x - point.x, pose.z - point.z) < 3 ? Math.max(ground, Math.min(ground + .8, pose.y)) : ground
     group.current.position.y += (y - group.current.position.y) * blend
     motion.current.airborne = group.current.position.y > ground + .08
     const direction = footballToWorld({ x:current.dx,z:current.dz }, { ...pitch, center:{x:0,z:0} })
-    const yaw = Math.atan2(-direction.x, -direction.z)
+    const yaw = sampled?.yaw ?? Math.atan2(-direction.x, -direction.z)
     group.current.rotation.y += Math.atan2(Math.sin(yaw-group.current.rotation.y),Math.cos(yaw-group.current.rotation.y)) * blend
     const distance = Math.hypot(group.current.position.x - beforeX, group.current.position.z - beforeZ)
     motion.current.moving = current.active && distance > .001

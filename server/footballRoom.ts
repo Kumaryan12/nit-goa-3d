@@ -41,6 +41,6 @@ export function createFootballRoom() {
       }
       stepFootball(ball, delta)
     },
-    snapshot(): FootballSnapshot { return { type: 'state', sequence: ++sequence, ball: { ...ball }, players: [...players.values()].map(player => ({ ...player })) } },
+    snapshot(): FootballSnapshot { return { type: 'state', sequence: ++sequence, serverTime: Date.now(), ball: { ...ball }, players: [...players.values()].map(player => ({ ...player })) } },
   }
 }

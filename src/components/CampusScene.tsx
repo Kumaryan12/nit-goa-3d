@@ -200,10 +200,10 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
   const selectGyan = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === gyanPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, gyanPlan, onSelectBuilding])
   const selectTheatre = useCallback(() => { const location = twin?.locations.find(item => item.id === 'open-air-theatre'); if (location) onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location }) }, [twin, onSelectBuilding])
   const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== administration?.buildingId && !facades.has(building.id) && !(view === 'walk' && hostelFloor !== null && activeInterior?.buildingId === building.id)) ?? [], [twin, administration, facades, view, hostelFloor, activeInterior])
-  return <GraphicsContext.Provider value={profile}><Canvas shadows={{ type: PCFShadowMap }} dpr={[.75, profile.dpr]}
+  return <GraphicsContext.Provider value={profile}><Canvas shadows={{ type: PCFShadowMap }} dpr={[.65, profile.dpr]}
     onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
     camera={{ position: sceneConfig.cameraPosition, fov: 45, near: 1, far: 10000 }}
-    gl={{ antialias: true, toneMapping: ACESFilmicToneMapping }}
+    gl={{ antialias: !compact, toneMapping: ACESFilmicToneMapping }}
     fallback={<p className="webgl-fallback">Your browser needs WebGL to display the campus scene.</p>}>
     <color attach="background" args={[background]} />
     <fog attach="fog" args={[background, size * 1.1, size * 3]} />

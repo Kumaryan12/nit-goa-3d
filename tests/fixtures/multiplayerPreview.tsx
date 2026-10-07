@@ -8,13 +8,20 @@ import { GraphicsContext } from '../../src/components/ScenePerformance'
 import { GRAPHICS_PROFILES } from '../../src/lib/graphics'
 import { PROFILE_COLORS } from '../../src/lib/profile'
 import type { CampusPerson, CampusSession } from '../../src/lib/campusProtocol'
+import { RemoteMotionBuffer } from '../../src/lib/remoteMotion'
 import '../../src/components/SocialActions.css'
 function Check({ people, wide, report }: { people: CampusPerson[]; wide: boolean; report: (text:string)=>void }) {
-  const session = useRef<CampusSession>({id:'host',snapshot:null}), elapsed=useRef(0),frames=useRef(0)
+  const session = useRef<CampusSession>({id:'host',snapshot:null,motion:new RemoteMotionBuffer()}), elapsed=useRef(0),frames=useRef(0), tick=useRef(0), sequence=useRef(0)
   const camera=useThree(s=>s.camera), prior=useRef<boolean|null>(null)
   useFrame((_,delta)=>{
     if(prior.current!==wide){prior.current=wide;camera.position.set(0,wide?180:12,wide?280:36);camera.lookAt(0,0,0)}
-    session.current.snapshot={type:'campus-state',sequence:1,serverTime:Date.now(),people}
+    tick.current += delta
+    if (tick.current >= .1 || !session.current.snapshot || session.current.snapshot.people.length !== people.length) {
+      tick.current %= .1
+      const time = _.clock.elapsedTime, movingPeople = people.map(person => ({ ...person, pose: person.pose ? { ...person.pose, x: person.pose.x + Math.sin(time) * 2, yaw: Math.cos(time) > 0 ? -Math.PI / 2 : Math.PI / 2, moving: true } : null }))
+      const snapshot = {type:'campus-state' as const,sequence:++sequence.current,serverTime:Date.now(),people:movingPeople}
+      session.current.snapshot=snapshot; session.current.peopleById=new Map(movingPeople.map(person=>[person.id,person])); session.current.motion?.push(snapshot,performance.now())
+    }
     elapsed.current+=delta;frames.current++
     if(elapsed.current>=1){report(`${people.length} simulated visitors · ${Math.round(frames.current/elapsed.current)} fps · ${_.gl.info.render.calls} draw calls`);elapsed.current=0;frames.current=0}
   })

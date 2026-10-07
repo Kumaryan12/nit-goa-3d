@@ -4,15 +4,16 @@ import { campusDestination, navigate } from '../lib/community'
 import type { Auth } from 'firebase/auth'
 export default function SignInForm({ destination }: { destination?: '/student' | '/admin' } = {}) {
   const [auth, setAuth] = useState<Auth | null>(null),
+    [sdk, setSdk] = useState<typeof import('firebase/auth') | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [redirect, setRedirect] = useState(false)
   useEffect(() => {
     if (!firebasePublicConfig) return
     let active = true
-    void getFirebaseAuth()
-      .then((auth) => {
-        if (active) setAuth(auth)
+    void Promise.all([getFirebaseAuth(), import('firebase/auth')])
+      .then(([auth, sdk]) => {
+        if (active) { setAuth(auth); setSdk(sdk) }
       })
       .catch(() => {
         if (active) setError('Google sign-in is temporarily unavailable.')
@@ -22,12 +23,13 @@ export default function SignInForm({ destination }: { destination?: '/student' |
     }
   }, [])
   const signIn = async () => {
-    if (!auth || busy) return
+    if (!auth || !sdk || busy) return
     setBusy(true)
     setError('')
     try {
-      const sdk = await import('firebase/auth'),
-        provider = new sdk.GoogleAuthProvider()
+      // Keep popup creation in the tap handler. Awaiting a module load here
+      // can lose the user gesture on mobile browsers and block Google sign-in.
+      const provider = new sdk.GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
       if (redirect) {
         sessionStorage.setItem('campus-return', destination || campusDestination())
@@ -62,7 +64,7 @@ export default function SignInForm({ destination }: { destination?: '/student' |
         type="button"
         className="google-signin"
         onClick={() => void signIn()}
-        disabled={!auth || busy}
+        disabled={!auth || !sdk || busy}
       >
         <img src="/brand/google-signin.png" alt="" aria-hidden="true" />
         <span>
