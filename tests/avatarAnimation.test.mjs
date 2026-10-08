@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { advanceAvatarAnimation, freshAvatarAnimation } from '../src/lib/avatarAnimation.ts'
 import { avatarPose } from '../src/lib/avatarMotion.ts'
-import { createAvatarGeometry } from '../src/lib/avatarGeometry.ts'
+import { avatarFacePoint, createAvatarGeometry } from '../src/lib/avatarGeometry.ts'
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-8)
 test('visual speed, run and jump blends are consistent across screen refresh rates', () => {
@@ -73,9 +73,25 @@ test('mixed rounded clothing and indexed face geometry merges into a valid colou
   geometry.dispose()
 })
 
+test('facial feature projection follows the shaped cheeks and shortened jaw', () => {
+  const geometry = createAvatarGeometry([{ shape: 'head', size: [.215, 0, 0], at: [0, .84, -.01], scale: [.98, .95, .88] }])
+  const positions = geometry.getAttribute('position')
+  let checked = 0
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i)
+    if (z >= -.07 || y < .71 || y > .97) continue
+    const surface = avatarFacePoint(x, y)
+    assert.ok(Math.abs(surface[2] - z) < 1e-6, 'eye/lip anchors stay on the continuous skin surface')
+    assert.ok(avatarFacePoint(x, y, .004)[2] < z, 'feature offset points out of the face')
+    checked++
+  }
+  assert.ok(checked > 25)
+  geometry.dispose()
+})
+
 test('sculpted hair covers the nape, leaves the face open and has outward finite normals', () => {
-  for (const back of [2.65, 2.7]) {
-    const geometry = createAvatarGeometry([{ shape: 'scalp', size: [.224, 1.1, back], sweep: back === 2.65 ? 1 : 0, at: [0, 0, 0] }])
+  for (const back of [2.45, 2.5]) {
+    const geometry = createAvatarGeometry([{ shape: 'scalp', size: [.224, 1.1, back], sweep: back === 2.45 ? 1 : 0, at: [0, 0, 0] }])
     assert.equal(geometry.index.count / 3, 20 * (2 * 10 - 1), 'open cap retains both triangles along each hairline segment')
     const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal')
     const front = [], rear = []
@@ -88,7 +104,7 @@ test('sculpted hair covers the nape, leaves the face open and has outward finite
     }
     assert.ok(front.length && rear.length)
     assert.ok(Math.min(...front) > .09, 'forehead and eyes remain visible')
-    assert.ok(Math.min(...rear) < -.19, 'rear hair reaches down to the nape')
+    assert.ok(Math.min(...rear) < -.17, 'rear hair reaches down to the nape')
     geometry.computeBoundingBox()
     assert.ok(.88 + .845 + geometry.boundingBox.max.y * 1.03 < 2.1, 'crown remains inside the standing collision height')
     geometry.dispose()

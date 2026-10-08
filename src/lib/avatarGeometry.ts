@@ -37,12 +37,21 @@ function headGeometry(radius: number) {
   const geometry = new SphereGeometry(radius, 20, 14), positions = geometry.getAttribute('position')
   for (let i = 0; i < positions.count; i++) {
     const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i)
-    const jaw = Math.max(0, -y / radius), taper = 1 - .24 * jaw
+    const jaw = Math.max(0, -y / radius), taper = 1 - .12 * jaw
     const front = Math.max(0, -z / radius)
-    positions.setXYZ(i, x * taper, y, z * (1 - .18 * jaw) - .022 * jaw * (1 - jaw) - .012 * front * front)
+    positions.setXYZ(i, x * taper, y < 0 ? y * .82 : y, z * (1 - .10 * jaw) - .012 * jaw * (1 - jaw) + .012 * front ** 4)
   }
   geometry.computeVertexNormals()
   return geometry
+}
+
+// Place facial features on the shaped surface, including the shortened jaw.
+// Keeping this projection shared avoids floating eyes or a smile buried in skin.
+export function avatarFacePoint(x: number, y: number, offset = 0): AvatarTriple {
+  const radius = .215, rawY = (y - .84) / (.95 * (y < .84 ? .82 : 1))
+  const jaw = Math.max(0, -rawY / radius), rawX = x / (.98 * (1 - .12 * jaw))
+  const rawZ = -Math.sqrt(Math.max(0, radius * radius - rawX * rawX - rawY * rawY)), front = -rawZ / radius
+  return [x, y, -.01 + .88 * (rawZ * (1 - .10 * jaw) - .012 * jaw * (1 - jaw) + .012 * front ** 4) - offset]
 }
 
 // Hair wraps down to the nape at the rear while leaving the forehead and eyes

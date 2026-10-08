@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { avatarScalpPoint, createAvatarGeometry } from '../lib/avatarGeometry'
+import { avatarFacePoint, avatarScalpPoint, createAvatarGeometry } from '../lib/avatarGeometry'
 import type { BufferGeometry } from 'three'
 import type { Group } from 'three'
 import { advanceAvatarAnimation, freshAvatarAnimation } from '../lib/avatarAnimation'
@@ -35,25 +35,33 @@ function Parts({ parts, color = '#ffffff', roughness = .85 }: { parts: Part[]; c
 // A compact student silhouette: rounded jacket, connected sleeves, tailored
 // trousers and chunky sneakers. Fixed details are merged into their joint mesh.
 const torsoParts = [rounded([.47, .49, .31], [0, .31, 0])]
-const skinParts: Part[] = [capsule(.075, .07, [0, .65, 0]), { shape: 'head', size: [.215, 0, 0], at: [0, .84, -.01], scale: [.94, 1.02, .88] }, sphere(.035, [-.19, .842, .012], [.65, 1, .72]), sphere(.035, [.19, .842, .012], [.65, 1, .72]), sphere(.024, [0, .831, -.212], [.7, .95, .8])]
+const skinParts: Part[] = [capsule(.075, .07, [0, .65, 0]), { shape: 'head', size: [.215, 0, 0], at: [0, .84, -.01], scale: [.98, .95, .88] }, sphere(.035, [-.20, .835, .005], [.62, .9, .72]), sphere(.035, [.20, .835, .005], [.62, .9, .72]), sphere(.021, avatarFacePoint(0, .829, .004), [.65, 1, .65])]
 // Front is -Z. Swept locks frame the forehead; the shell extends lower at
 // +Z so the rear reads as styled hair rather than a second skin-coloured face.
 const scalp = (front: number, back: number): Part => ({ shape: 'scalp', size: [.224, front, back], at: [0, .845, -.008], scale: [.95, 1.03, .90] })
-const boyHairParts = [{ ...scalp(1.08, 2.65), sweep: 1 }]
-const girlHairParts = [scalp(1.10, 2.70)]
+const boyHairParts = [{ ...scalp(1.08, 2.45), sweep: 1 }]
+const girlHairParts = [scalp(1.10, 2.50)]
 const faceParts: Part[] = [
-  { shape: 'strand', size: [.0045, 0, 0], at: [0, 0, 0], curve: [[-.092, .909, -.184], [-.07, .915, -.190], [-.045, .910, -.196]] },
-  { shape: 'strand', size: [.0045, 0, 0], at: [0, 0, 0], curve: [[.045, .910, -.196], [.07, .915, -.190], [.092, .909, -.184]] },
-  { shape: 'strand', size: [.0035, 0, 0], at: [0, 0, 0], curve: [[-.024, .779, -.195], [0, .772, -.203], [.024, .779, -.195]] },
+  ...[-1, 1].map(side => ({ shape: 'strand' as const, size: [.005, 0, 0] as Triple, at: [0, 0, 0] as Triple, curve: [[side * .103, .901], [side * .078, .909], [side * .044, .901]].map(([x, y]) => avatarFacePoint(x, y, .003)) })),
+]
+const smile: Part[] = [
+  { shape: 'strand', size: [.0045, 0, 0], at: [0, 0, 0], curve: [[-.035, .772], [-.020, .763], [0, .760], [.020, .763], [.035, .772]].map(([x, y]) => avatarFacePoint(x, y, .003)) },
 ]
 function hairStrands(style: AvatarStyle): Part[] {
   const paths = style === 'girl' ? [-.38, -.2, .2, .38] : [-.65, -.25, .15]
   return paths.map(offset => ({ shape: 'strand', size: [.0025, 0, 0], at: [0, .845, -.008], scale: [.95, 1.03, .90], curve: Array.from({ length: 8 }, (_, i) => avatarScalpPoint(.227, .32 + i * .105, offset + (style === 'girl' ? Math.sign(offset) * i * .065 : i * .07), style === 'boy' ? 1 : 0)) }))
 }
 const boyHairHighlights = hairStrands('boy'), girlHairHighlights = hairStrands('girl')
-const earDetail = [-.208, .208].map(x => sphere(.018, [x, .842, .003], [.25, 1, .65]))
-const heads = Object.fromEntries((['girl', 'boy'] as const).map(style => [style, [...painted(skinParts, '#cf9871'), ...painted(earDetail, '#bb8060'), ...painted(style === 'girl' ? girlHairParts : boyHairParts, '#242529'), ...painted(style === 'girl' ? girlHairHighlights : boyHairHighlights, '#3c3732'), ...painted(faceParts, '#684538')]])) as Record<AvatarStyle, Part[]>
-const eyesParts = [...painted([-.065, .065].map(x => sphere(.024, [x, 0, -.199], [1, .8, .24])), '#fff9ec'), ...painted([-.065, .065].map(x => sphere(.012, [x, 0, -.205], [.85, 1, .22])), '#302a28'), ...painted([-.065, .065].map(x => sphere(.0035, [x + .003, .004, -.208], [1, 1, .3])), '#ffffff')]
+const earDetail = [-.218, .218].map(x => sphere(.018, [x, .835, -.003], [.25, .9, .65]))
+const heads = Object.fromEntries((['girl', 'boy'] as const).map(style => [style, [...painted(skinParts, '#d4a17c'), ...painted(earDetail, '#bd8668'), ...painted(style === 'girl' ? girlHairParts : boyHairParts, '#242529'), ...painted(style === 'girl' ? girlHairHighlights : boyHairHighlights, '#3c3732'), ...painted(faceParts, '#49352e'), ...painted(smile, '#935d50')]])) as Record<AvatarStyle, Part[]>
+const eyeAt = (x: number, y: number, offset: number): Triple => { const point = avatarFacePoint(x, y, offset); return [point[0], point[1] - .865, point[2]] }
+const eyesParts: Part[] = [
+  ...painted([-.068, .068].map(x => ({ ...sphere(.032, eyeAt(x, .865, .003), [1, .64, .20]), rotation: [0, -Math.sign(x) * .22, 0] as Triple })), '#fff6e7'),
+  ...painted([-.068, .068].map(x => sphere(.015, eyeAt(x, .864, .010), [.88, 1, .22])), '#77513a'),
+  ...painted([-.068, .068].map(x => sphere(.0085, eyeAt(x, .864, .014), [.88, 1, .20])), '#242523'),
+  ...painted([-.068, .068].map(x => sphere(.004, eyeAt(x - .004, .869, .016), [1, 1, .18])), '#ffffff'),
+  ...painted([-1, 1].map(side => ({ shape: 'strand' as const, size: [.003, 0, 0] as Triple, at: [0, -.865, 0] as Triple, curve: [[side * .099, .865], [side * .085, .881], [side * .065, .885], [side * .037, .870]].map(([x, y]) => avatarFacePoint(x, y, .007)) })), '#61443a'),
+]
 const ponytail = [...painted([sphere(.068, [0, 0, 0], [1, .8, 1]), { ...capsule(.068, .165, [.012, -.14, .075], [1, 1, .75]), rotation: [-.28, 0, -.12] as Triple }, sphere(.055, [.028, -.265, .112], [1, .72, .7])], '#242529'), ...painted([rounded([.064, .018, .016], [0, -.022, .071])], '#bf9861'), ...painted([{ ...capsule(.003, .145, [-.024, -.14, .128], [1, 1, .7]), rotation: [-.28, 0, -.12] as Triple }], '#3c3732')]
 // Varsity bomber: ivory sleeves, ribbed edges and a small chest monogram.
 // The rear stays clean, with just a yoke seam below the styled hair.
@@ -173,10 +181,10 @@ export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77
   return <group ref={root} name={`campus-student-avatar-${style}`}>
     <group ref={torso} position={[0, .88, 0]}>
       <Parts parts={outfit.body} />
-      <group ref={head} position={[0, .65, 0]}><group position={[0, -.65, 0]}>
+      <group ref={head} position={[0, .62, 0]}><group position={[0, -.65, 0]}>
         <Parts parts={heads[style]} roughness={.68} />
         {style === 'girl' && <group ref={tail} position={[0, .93, .185]}><Parts parts={ponytail} roughness={.7} /></group>}
-        <group ref={eyes} position={[0, .875, 0]}>
+        <group ref={eyes} position={[0, .865, 0]}>
           <Parts parts={eyesParts} roughness={.4} />
         </group>
       </group></group>
