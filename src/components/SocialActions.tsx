@@ -12,6 +12,7 @@ export default function SocialActions({ live, pose, seats, walking, concert, dis
   const riding = !!self?.ride || (pose.current?.vehicle ?? 'walk') !== 'walk'
   const available = connected && (walking || concert) && !disabled && !seated && (concert || !riding && !pose.current?.moving && !pose.current?.airborne)
   const seat = walking && !riding && pose.current?.space === 'outdoors' ? nearbySeat(seats, pose.current, live.people.flatMap(p => p.social?.seatId ? [p.social.seatId] : [])) : null
+  const reason = !connected ? 'Connect through People & chat to share an action.' : disabled ? 'Finish the current activity to use an action.' : !walking && !concert ? 'Start walking or join an OAT concert to use actions.' : riding ? 'Dismount before using an action.' : pose.current?.airborne ? 'Land before using an action.' : pose.current?.moving && !concert ? 'Stand still to use an action.' : concert ? 'Audience reactions keep you in your seat.' : !seat ? 'Walk beside the central aisle or outer edge of the rear OAT benches to sit.' : 'An open bench seat is within reach.'
   useEffect(() => {
     if (!open) return
     const outside = (event: PointerEvent) => { if (event.target instanceof Node && !container.current?.contains(event.target)) setOpen(false) }
@@ -21,16 +22,16 @@ export default function SocialActions({ live, pose, seats, walking, concert, dis
   }, [open])
   return <div className="social-actions" ref={container}>
     <button ref={toggle} className="toolbar-button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(v => !v)}><span aria-hidden="true">{social ? SOCIAL_SYMBOLS[social.action] : '👋'}</span> {seated ? 'Seated' : 'Actions'}</button>
-    {open && <section id={id} className="social-action-panel" aria-labelledby={`${id}-title`}>
+    {open && <section id={id} aria-busy={live.socialPending} className="social-action-panel" aria-labelledby={`${id}-title`}>
       <div className="social-action-heading"><div><span className="eyebrow">A campus, together</span><h2 id={`${id}-title`}>Say it with a gesture</h2></div><button className="panel-close" aria-label="Close social actions" onClick={() => { setOpen(false); toggle.current?.focus() }}>×</button></div>
       <p>{live.socialPreview ? 'Try a gesture in your local preview.' : concert ? 'Cheer on the stage. Everyone at the OAT can see your reaction.' : 'Wave to a friend, celebrate, or take a seat at the OAT.'}</p>
       <div className="social-action-grid">
-        {(['wave', 'dance', 'applause', 'heart', 'cheer'] as SocialAction[]).map(action => <button key={action} className="social-action-tile" aria-label={SOCIAL_LABELS[action]} aria-pressed={social?.action === action} disabled={!available || live.socialPending} onClick={() => live.socialAction(action)}><span aria-hidden="true">{SOCIAL_SYMBOLS[action]}</span>{SOCIAL_LABELS[action]}</button>)}
+        {(['wave', 'dance', 'applause', 'heart', 'cheer'] as SocialAction[]).map(action => <button key={action} className="social-action-tile" aria-label={SOCIAL_LABELS[action]} aria-pressed={social?.action === action} aria-describedby={`${id}-note`} title={!available ? reason : undefined} disabled={!available || live.socialPending} onClick={() => live.socialAction(action)}><span aria-hidden="true">{SOCIAL_SYMBOLS[action]}</span>{SOCIAL_LABELS[action]}</button>)}
       </div>
       {seated ? <button className="navigate-button" disabled={live.socialPending} onClick={() => live.socialAction('stop')}>Stand up</button>
-        : <button className="fly-button social-seat-button" disabled={!available || !seat || concert || live.socialPending} onClick={() => seat && live.socialAction('sit', seat.id)}>Sit on nearby OAT bench</button>}
+        : <button className="fly-button social-seat-button" aria-describedby={`${id}-note`} aria-busy={live.socialPending} title={!available || !seat || concert ? reason : undefined} disabled={!available || !seat || concert || live.socialPending} onClick={() => seat && live.socialAction('sit', seat.id)}>{live.socialPending ? 'Confirming action…' : 'Sit on nearby OAT bench'}</button>}
       {social && !seated && <button className="text-button social-stop" onClick={() => live.socialAction('stop')}>Stop action</button>}
-      <p className="social-action-note" role="status">{live.socialError || (!connected ? 'Connect through People & chat to share an action.' : disabled ? 'Finish the current activity to use an action.' : seated ? 'Move to stand, or choose Stand up. Your place stays reserved while you sit.' : !walking && !concert ? 'Start walking or join an OAT concert to use actions.' : riding ? 'Dismount before choosing a gesture.' : pose.current?.moving && !concert ? 'Stand still to start a gesture.' : concert ? 'Audience reactions keep you in your seat.' : seat ? 'An open bench seat is within reach.' : 'Find a seat beside the central aisle or outer edge of the rear OAT benches.')}</p>
+      <p id={`${id}-note`} className="social-action-note" role="status">{live.socialError || (live.socialPending ? 'Waiting for the campus to confirm your action…' : seated ? 'Move to stand, or choose Stand up. Your place stays reserved while you sit.' : reason)}</p>
     </section>}
   </div>
 }

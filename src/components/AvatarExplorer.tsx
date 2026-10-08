@@ -91,6 +91,8 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
         }
       }
     } else if (pose && !validInside) interiorPose.current = null
+    // Geometry/metadata refreshes must not reset a moving vehicle or held keys.
+    if (!relocating && oriented.current) return
     // Switching modes during a stair walk returns to a safe same-floor landing.
     if (validInside && position.current && plan && pointDistance(position.current, plan.stairs.start) + pointDistance(position.current, plan.stairs.end) < plan.stairs.length + .3) position.current = stairLanding(plan, pose!.floor < plan.levels - 1)
     ride.current = 'walk'; setRideMode('walk'); vehicle.current = freshVehicle(); rideMessage.current = undefined
@@ -110,7 +112,7 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
       }
       publish()
     }
-    if (spawn.football && relocating) { gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }) }
+    if (relocating) { gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }) }
     lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current }
     snapped.current = false; keys.current.clear(); input.current = emptyWalkInput()
   }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, gyanPlan, activePlan, onStatus, publish, footballPitch, gl, arrival])
@@ -136,13 +138,14 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
     if (avatar.current) avatar.current.rotation.y = yaw.current
     lookTarget.current.yaw = yaw.current
     campusEpoch.current++
-    keys.current.clear(); input.current = emptyWalkInput(); jump.current = freshJump(); locomotion.current = freshLocomotion(); snapped.current = false; publish()
-  }, [hostelPlan, gyanPlan, activePlan, position, interiorPose, input, publish])
+    keys.current.clear(); input.current = emptyWalkInput(); jump.current = freshJump(); locomotion.current = freshLocomotion(); snapped.current = false; gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }); publish()
+  }, [gl, hostelPlan, gyanPlan, activePlan, position, interiorPose, input, publish])
   useEffect(() => {
     const fov = camera instanceof Object && 'fov' in camera ? camera.fov : null, near = camera.near
     camera.near = 0.1; if ('fov' in camera) camera.fov = 60; camera.updateProjectionMatrix()
     return () => { camera.near = near; if ('fov' in camera && typeof fov === 'number') camera.fov = fov; camera.updateProjectionMatrix() }
   }, [camera])
+  useEffect(() => () => { keys.current.clear(); input.current = emptyWalkInput(); vehicle.current.speed = 0; locomotion.current = freshLocomotion() }, [input])
   useEffect(() => {
     const clear = () => { keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); vehicle.current.speed = 0; lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current } }
     if (paused) clear()
@@ -176,7 +179,7 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
     const up = (event: KeyboardEvent) => { keys.current.delete(event.code) }
     const hidden = () => { if (document.hidden) clear() }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear); document.addEventListener('visibilitychange', hidden)
-    return () => { clear(); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
   }, [paused, input, onInspect, act, activePlan, interiorPose, position, footballPitch, footballLive, footballControls, onBuggyRide])
   useEffect(() => {
     if (paused) return
@@ -276,7 +279,7 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
         rideMessage.current = undefined
         if (requested === 'walk' && ride.current !== 'walk') {
           const dismount = findVehicleDismount(position.current, vehicle.current.yaw, ride.current, world)
-          if (dismount) { position.current = dismount; ride.current = 'walk'; setRideMode('walk'); vehicle.current.speed = 0; locomotion.current = freshLocomotion(); jump.current = freshJump() }
+          if (dismount) { position.current = dismount; ride.current = 'walk'; setRideMode('walk'); vehicle.current.speed = 0; locomotion.current = freshLocomotion(); jump.current = freshJump(); campusEpoch.current++ }
           else rideMessage.current = 'Move to open space before dismounting.'
         } else if (requested !== 'walk' && !activityBlocked && !interiorPose.current && !footballPitch && jump.current.grounded) {
           const mount = findVehicleMount(position.current, avatar.current.rotation.y, requested, world, twin.roads)
@@ -338,7 +341,7 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
     if (!sitting && !journey.current && !passengerPose && ride.current === 'walk') advanceJump(jump.current, surfaceY, delta, requestedJump, allowed, pose && plan ? interiorJumpCeiling(plan, next, pose.floor) : treeCeilingAt(next, world))
     const feetY = sitting || passengerPose || journey.current || ride.current !== 'walk' ? surfaceY : jump.current.y ?? surfaceY
     reconcileLocomotion(locomotion.current, before, next, travel)
-    const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = !passengerPose && (vehicleBlocked || Math.hypot(direction.x, direction.z) > 0 && moved < .001 && !journey.current)
+    const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = !passengerPose && (vehicleBlocked || ride.current === 'walk' && allowed && !sitting && travel.speed * travel.delta > .00001 && moved < travel.speed * travel.delta * .05 && !journey.current)
     footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running, active:allowed && footballLive && !pose } : null
     position.current = next
     motion.current.moving = moved > .001

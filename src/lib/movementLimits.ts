@@ -10,3 +10,10 @@ export function presenceSpeedLimit(pose: { vehicle?: string; space: string }, ac
   if (pose.space === 'outdoors' && activity === 'walk' && (pose.vehicle === 'bicycle' || pose.vehicle === 'buggy')) return PRESENCE_SPEED_LIMITS[pose.vehicle]
   return PRESENCE_SPEED_LIMITS.walk
 }
+
+// A short transport delay must not turn valid travel into a position correction.
+// Keep a bounded catch-up window and the same speed caps used by the controls.
+export const PRESENCE_CATCHUP_SECONDS = 2
+export function presenceVerticalSpeedLimit(pose: { vehicle?: string; space: string }, activity: unknown) {
+  return Math.max(6, presenceSpeedLimit(pose, activity) * .85 + 1)
+}

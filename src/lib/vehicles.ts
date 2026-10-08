@@ -6,6 +6,7 @@ import { bridgeSurfaceHeightAt } from './canalGeometry.ts'
 import { roadRibbon, ROAD_ELEVATION, FOOTPATH_ELEVATION } from './roadRibbon.ts'
 import { isWalkable, stepWalking, walkSurfaceHeightAt } from './walking.ts'
 import type { WalkWorld } from './walking.ts'
+import { theatreSurfaceHeightAt } from './theatre.ts'
 import { MOVEMENT_SPEEDS } from './movementLimits.ts'
 
 export type TransportMode = 'walk' | 'bicycle' | 'buggy'
@@ -124,11 +125,22 @@ export function advanceVehicle(state: VehicleState, point: LocalCoordinate, kind
     state.speed = approach(state.speed, braking || opposing ? 0 : target, rate * sub)
     state.steering = approach(state.steering, clamp(steering) * .48 / (1 + (Math.abs(state.speed) / 5) ** 2), sub * 2.4)
     const speed = (previous + state.speed) / 2
-    const heading = state.yaw - speed / spec.wheelbase * Math.tan(state.steering) * sub
-    const next = { x: current.x - Math.sin(heading) * speed * sub, z: current.z - Math.cos(heading) * speed * sub }
-    const rise = Math.abs(walkSurfaceHeightAt(world.terrain, next.x, next.z) - walkSurfaceHeightAt(world.terrain, current.x, current.z))
-    if (!canRideAt(next, heading, kind, world, roads) || rise > Math.abs(speed * sub) * .85 + .005) { state.speed = 0; blocked = true; break }
-    distance += Math.hypot(next.x - current.x, next.z - current.z); current = next; state.yaw = heading
+    const rotation = -speed / spec.wheelbase * Math.tan(state.steering) * sub
+    // Clamp a turn against an obstacle before stopping forward travel. Every
+    // candidate still checks the full body, so corners cannot clip through walls.
+    let accepted: { point: LocalCoordinate; yaw: number } | undefined
+    for (const fraction of [1, .5, .25, 0]) {
+      const heading = state.yaw + rotation * fraction
+      const next = { x: current.x - Math.sin(heading) * speed * sub, z: current.z - Math.cos(heading) * speed * sub }
+      const rise = Math.abs(walkSurfaceHeightAt(world.terrain, next.x, next.z) - walkSurfaceHeightAt(world.terrain, current.x, current.z))
+      // The OAT plaza has an 8 cm lip. Clear small surface joins without allowing
+      // vehicles to climb its stairs, stage or genuinely steep terrain.
+      const theatre = world.terrain.theatre
+      const crossesPlaza = theatre && (theatreSurfaceHeightAt(current, theatre) === null) !== (theatreSurfaceHeightAt(next, theatre) === null)
+      if (rise <= Math.abs(speed * sub) * .85 + (crossesPlaza ? .1 : .005) && canRideAt(next, heading, kind, world, roads)) { accepted = { point: next, yaw: heading }; break }
+    }
+    if (!accepted) { state.speed = 0; blocked = true; break }
+    distance += Math.hypot(accepted.point.x - current.x, accepted.point.z - current.z); current = accepted.point; state.yaw = accepted.yaw
   }
   return { point: current, distance, blocked }
 }

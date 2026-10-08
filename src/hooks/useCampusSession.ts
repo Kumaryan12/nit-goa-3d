@@ -17,6 +17,8 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
   const [rideError, setRideError] = useState('')
   const recoveryAttempt = useRef(0)
   const [socialError, setSocialError] = useState(''), [socialPending, setSocialPending] = useState(false)
+  const socialTimer = useRef<number | undefined>(undefined), socialSendTimer = useRef<number | undefined>(undefined), socialWaiting = useRef(false), lastPublishedAt = useRef(-Infinity)
+  const clearSocialPending = useCallback(() => { clearTimeout(socialTimer.current); clearTimeout(socialSendTimer.current); socialWaiting.current = false; setSocialPending(false) }, [])
   const previewAction = useRef<((action: SocialAction | 'stop', seatId?: string) => boolean) | null>(null), seatsRef = useRef(seats); seatsRef.current = seats
   const [muted, setMuted] = useState<Set<string>>(() => new Set())
   const visibleMessages = useMemo(() => messages.filter(m => !muted.has(m.sender)), [messages, muted])
@@ -41,7 +43,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         person.social = { action, startedAt: now, until: now + SOCIAL_DURATION[action], ...(seat ? { seatId: seat.id } : {}) }
         lastAction = now; publish(true); return true
       }
-      setConnection('idle'); setPeople([]); setSocialError(''); setSocialPending(false); publish(true)
+      setConnection('idle'); setPeople([]); setSocialError(''); clearSocialPending(); publish(true)
       const timer = window.setInterval(() => {
         if (person.social && (Date.now() >= person.social.until || !mode.current.walking || document.hidden || person.social.action !== 'sit' && (pose.current?.moving || pose.current?.airborne))) stop()
         if (person.social?.action !== 'sit') person.pose = pose.current ? { ...pose.current, visible: mode.current.walking } : null
@@ -51,7 +53,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }
     if (!enabled) { recoveryAttempt.current = 0; setConnection('idle'); setPeople([]); setMessages([]); session.current = { id: null, snapshot: null }; return }
     let active = true, initialized = false, rosterKey = '', stopAuth = () => {}, recoveryTimer: number | undefined
-    setRideError(''); setSocialError(''); setSocialPending(false); setConnection('connecting'); setPeople([]); setMessages([]); setError(''); setQueue(0); session.current = { id: null, snapshot: null }
+    setRideError(''); setSocialError(''); clearSocialPending(); setConnection('connecting'); setPeople([]); setMessages([]); setError(''); setQueue(0); session.current = { id: null, snapshot: null }
     const url = new URL('/presence', window.location.href); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
     const ws = new WebSocket(url); socket.current = ws
     const watchdog = watchLiveConnection(ws)
@@ -66,7 +68,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (!value || typeof value !== 'object') return
       if (value.type === 'waiting' && Number.isInteger(value.position) && value.position > 0 && value.position <= 100) { clearTimeout(timeout); setQueue(value.position); setConnection('waiting'); return }
       if (value.type === 'buggy-result') { setRideError(typeof value.error === 'string' ? value.error.slice(0, 240) : ''); return }
-      if (value.type === 'social-result') { setSocialPending(false); setSocialError(typeof value.error === 'string' ? value.error.slice(0, 240) : ''); return }
+      if (value.type === 'social-result') { clearSocialPending(); setSocialError(typeof value.error === 'string' ? value.error.slice(0, 240) : ''); return }
       if (value.type === 'error' || value.type === 'notice') { if (typeof value.message === 'string') setError(value.message.slice(0, 240)); return }
       if (value.type === 'campus-welcome' && campusId(value.id) && Array.isArray(value.history) && value.history.length <= 50) {
         watchdog.received()
@@ -97,24 +99,24 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     ws.onclose = event => {
       clearTimeout(timeout); stopAuth(); watchdog.stop()
       if (!active) return
-      setPeople([]); setSocialPending(false); session.current = { id: null, snapshot: null }
+      setPeople([]); clearSocialPending(); session.current = { id: null, snapshot: null }
       const delay = liveRetryDelay(event.code, recoveryAttempt.current)
       if (delay === null) { setConnection('offline'); return }
       recoveryAttempt.current++; setConnection('reconnecting'); setError('The connection was interrupted. Reconnecting automatically…')
       recoveryTimer = window.setTimeout(() => { if (active) setRetry(value => value + 1) }, delay)
     }
     const publish = () => {
-      if (!initialized || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) return
+      if (socialWaiting.current || !initialized || ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) return
       if (mode.current.walking && session.current.spawnPending) return
       const current = pose.current
       if (!current) return
       const focused = !document.hidden && document.hasFocus()
-      ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(current, mode.current.walking, mode.current.activity, focused) }))
+      ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(current, mode.current.walking, mode.current.activity, focused) })); lastPublishedAt.current = performance.now()
     }
     const timer = window.setInterval(publish, 100)
     window.addEventListener('blur', publish); window.addEventListener('focus', publish); window.addEventListener('pageshow', publish); document.addEventListener('visibilitychange', publish)
-    return () => { active = false; stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
-  }, [enabled, retry, pose, preview])
+    return () => { active = false; clearSocialPending(); stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
+  }, [enabled, retry, pose, preview, clearSocialPending])
   const sendChat = useCallback((text: string, scope: 'campus' | 'nearby') => {
     const clean = chatText(text), ws = socket.current
     if (!clean || !session.current.id || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) { setError('Connect to the live campus and write a message to send.'); return false }
@@ -130,8 +132,27 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     if (previewAction.current) return previewAction.current(action, seatId)
     const ws = socket.current
     if (!session.current.id || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) { setSocialError('Connect to the live campus to share an action.'); return false }
-    setSocialError(''); setSocialPending(true); ws.send(JSON.stringify({ type: 'social-action', action, ...(seatId ? { seatId } : {}) })); return true
-  }, [])
+    if (socialWaiting.current) return false
+    setSocialError(''); socialWaiting.current = true; setSocialPending(true)
+    // Publish the stopped pose before the action, respecting the server's pose
+    // rate limit. Otherwise a recent moving snapshot can reject a valid seat.
+    socialSendTimer.current = window.setTimeout(() => {
+      if (ws !== socket.current || ws.readyState !== WebSocket.OPEN) { clearSocialPending(); return }
+      const current = pose.current
+      if (current && !session.current.spawnPending) {
+        ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(current, mode.current.walking, mode.current.activity, !document.hidden && document.hasFocus()) }))
+        lastPublishedAt.current = performance.now()
+      }
+      ws.send(JSON.stringify({ type: 'social-action', action, ...(seatId ? { seatId } : {}) }))
+    }, Math.max(0, 75 - (performance.now() - lastPublishedAt.current)))
+    socialTimer.current = window.setTimeout(() => {
+      clearSocialPending(); setSocialError('The action was not confirmed. Reconnecting to refresh your seat…')
+      // Reconnect before another attempt so a delayed acknowledgement cannot
+      // be mistaken for the next action's result.
+      ws.close(4000, 'Social action acknowledgement timeout')
+    }, 5000)
+    return true
+  }, [pose, clearSocialPending])
   return { socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
 }
 export type CampusLiveSession = ReturnType<typeof useCampusSession>
