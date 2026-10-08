@@ -24,11 +24,11 @@ export function AvatarPortrait({ style, color = '#277c77' }: { style: AvatarStyl
     <path d="M70 83c0-27 15-44 40-44s40 17 40 44c0 24-17 43-40 43S70 107 70 83" fill="#d4a17c" />
     <ellipse cx="70" cy="89" rx="6" ry="9" fill="#d4a17c" /><ellipse cx="150" cy="89" rx="6" ry="9" fill="#d4a17c" />
     {style === 'girl' ? <g>
-      <path d="M72 95c-10-36 1-65 38-65 36 0 46 29 38 65l-8-31c-15-2-24-14-30-21-6 10-19 20-31 21z" fill="#242529" />
-      <path d="M104 40q-12 16-27 20M116 40q12 16 27 20" fill="none" stroke="#443c35" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M72 96c-10-36 1-66 38-66 36 0 47 29 38 66l-8-19c-13-1-24-7-30-12-7 8-20 14-31 16z" fill="#242529" />
+      <path d="M104 40q-12 22-27 33M116 40q12 22 27 33M99 43q-8 22-18 31M121 43q8 22 18 31" fill="none" stroke="#443c35" strokeWidth="1.6" strokeLinecap="round" />
     </g> : <g>
-      <path d="M72 88c-9-30 4-56 34-59 23-9 47 5 48 26 1 13-2 24-6 34l-7-28c-10-2-20-7-27-14-10 10-22 13-34 14z" fill="#242529" />
-      <path d="M83 43q15-15 30-8M92 49q15-14 28-8M102 53q12-9 22-6" fill="none" stroke="#443c35" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M72 90c-10-32 1-59 32-61 23-9 49 4 50 27 1 16-3 29-7 39l-7-21c-8 5-17 2-25-9-12 10-24 14-37 15z" fill="#242529" />
+      <path d="M86 41q34-6 49 29M94 38q31 1 43 29M80 49q29-7 47 24M79 58q22-3 34 9" fill="none" stroke="#443c35" strokeWidth="1.6" strokeLinecap="round" />
     </g>}
     <path d="M83 79q8-6 16-1M121 78q8-5 16 1" fill="none" stroke="#49352e" strokeWidth="3" strokeLinecap="round" />
     {[91,129].map(x => <g key={x}>

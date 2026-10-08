@@ -4,13 +4,13 @@ import type { BufferGeometry } from 'three'
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js'
 
 export type AvatarTriple = [number, number, number]
-export interface AvatarPart { shape: 'box' | 'sphere' | 'head' | 'face' | 'capsule' | 'rounded' | 'scalp' | 'strand'; sweep?: number; curve?: AvatarTriple[]; color?: string; size: AvatarTriple; at: AvatarTriple; scale?: AvatarTriple; rotation?: AvatarTriple }
+export interface AvatarPart { shape: 'box' | 'sphere' | 'head' | 'face' | 'capsule' | 'rounded' | 'scalp' | 'strand'; sweep?: number; fringe?: 'swept' | 'curtain'; curve?: AvatarTriple[]; color?: string; size: AvatarTriple; at: AvatarTriple; scale?: AvatarTriple; rotation?: AvatarTriple }
 
 // One vertex-coloured mesh per rigid joint, rather than a draw call for every
 // cuff, lace, hair lock and facial feature. Callers own the merged geometry.
 export function createAvatarGeometry(parts: AvatarPart[]) {
   const pieces = parts.map(part => {
-    let geometry: BufferGeometry = part.shape === 'face' ? faceGeometry(part.curve!, part.size[0]) : part.shape === 'strand' ? new TubeGeometry(new CatmullRomCurve3(part.curve!.map(point => new Vector3(...point))), 10, part.size[0], 4, false) : part.shape === 'head' ? headGeometry(part.size[0]) : part.shape === 'scalp' ? scalpGeometry(part.size, part.sweep) : part.shape === 'capsule' ? new CapsuleGeometry(part.size[0], part.size[1], 4, 10)
+    let geometry: BufferGeometry = part.shape === 'face' ? faceGeometry(part.curve!, part.size[0]) : part.shape === 'strand' ? new TubeGeometry(new CatmullRomCurve3(part.curve!.map(point => new Vector3(...point))), 10, part.size[0], 4, false) : part.shape === 'head' ? headGeometry(part.size[0]) : part.shape === 'scalp' ? scalpGeometry(part.size, part.sweep, part.fringe) : part.shape === 'capsule' ? new CapsuleGeometry(part.size[0], part.size[1], 4, 10)
       : part.shape === 'sphere' ? new SphereGeometry(part.size[0], 12, 8)
       : part.shape === 'rounded' ? new RoundedBoxGeometry(...part.size, 2, Math.min(...part.size) * .2) : new BoxGeometry(...part.size)
     // Rounded boxes are non-indexed; normalize topology before merging them
@@ -93,7 +93,13 @@ function faceGeometry(outline: AvatarTriple[], offset: number) {
 
 // Hair wraps down to the nape at the rear while leaving the forehead and eyes
 // open at the front. A complete sphere cap otherwise leaves a bald-looking back.
-function scalpGeometry([radius, frontAngle, backAngle]: AvatarTriple, sweep = 0) {
+export function avatarHairEdge(frontAngle: number, backAngle: number, theta: number, sweep = 0, fringe?: AvatarPart['fringe']) {
+  const cosine = Math.cos(theta), front = Math.max(0, cosine), rear = Math.max(0, -cosine), temple = 1.78
+  const layers = fringe === 'swept' ? .085 * Math.sin(theta * 3 + .35) * front * front : fringe === 'curtain' ? .09 * (1 - Math.exp(-(Math.sin(theta) ** 2) / .055)) * front : 0
+  return frontAngle + (temple - frontAngle) * (1 - front) + (backAngle - temple) * rear * rear * (3 - 2 * rear) + sweep * .16 * Math.sin(theta + .35) * front + layers
+}
+
+function scalpGeometry([radius, frontAngle, backAngle]: AvatarTriple, sweep = 0, fringe?: AvatarPart['fringe']) {
   const width = 20, height = 10, geometry = new SphereGeometry(radius, width, height, 0, Math.PI * 2, 0, backAngle)
   // Construct an open cap: a full sphere omits alternating bottom-row
   // triangles for its south pole, which would leave gaps along this hairline.
@@ -102,8 +108,7 @@ function scalpGeometry([radius, frontAngle, backAngle]: AvatarTriple, sweep = 0)
     const theta = column / width * Math.PI * 2
     // Keep the temples above the ears, then curve down behind them to the
     // nape. A single forehead-to-nape slope cuts diagonally across the cheeks.
-    const cosine = Math.cos(theta), rear = Math.max(0, -cosine), temple = 1.78
-    const edge = frontAngle + (temple - frontAngle) * (1 - Math.max(0, cosine)) + (backAngle - temple) * rear * rear * (3 - 2 * rear) + sweep * .16 * Math.sin(theta + .35) * Math.max(0, cosine)
+    const edge = avatarHairEdge(frontAngle, backAngle, theta, sweep, fringe)
     const phi = row / height * edge, i = row * (width + 1) + column
     positions.setXYZ(i, ...avatarScalpPoint(radius, phi, theta, sweep))
   }

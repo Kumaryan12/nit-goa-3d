@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { avatarPortraitPoint, avatarScalpPoint, createAvatarGeometry } from '../lib/avatarGeometry'
+import { avatarHairEdge, avatarPortraitPoint, avatarScalpPoint, createAvatarGeometry } from '../lib/avatarGeometry'
 import type { BufferGeometry } from 'three'
 import type { Group } from 'three'
 import { advanceAvatarAnimation, freshAvatarAnimation } from '../lib/avatarAnimation'
@@ -41,11 +41,11 @@ const skinParts: Part[] = [
   sphere(.033, [-.193, .811, .005], [.62, 1, .72]), sphere(.033, [.193, .811, .005], [.62, 1, .72]),
   sphere(.013, avatarPortraitPoint(110, 99, .003), [.85, 1.05, .65]),
 ]
-// Match the portrait's high centre part and swept sides, rather than a straight
-// helmet edge. The cap remains continuous around the crown and the nape.
+// Full, sculpted fringes sweep over the forehead and blend into the crown.
+// Their curved edge and fine strands stay part of the same shared head mesh.
 const scalp = (front: number, back: number): Part => ({ shape: 'scalp', size: [.236, front, back], at: [0, .845, -.008], scale: [.88, 1.08, .88] })
-const boyHairParts = [{ ...scalp(.78, 2.50), sweep: 1 }]
-const girlHairParts = [scalp(.70, 2.55)]
+const boyHairParts: Part[] = [{ ...scalp(1.30, 2.50), sweep: 1, fringe: 'swept' }]
+const girlHairParts: Part[] = [{ ...scalp(1.30, 2.55), fringe: 'curtain' }]
 type PortraitPoint = [number, number]
 function quadratic(from: PortraitPoint, control: PortraitPoint, to: PortraitPoint): PortraitPoint[] {
   return Array.from({ length: 13 }, (_, i) => { const t = i / 12, u = 1 - t; return [u * u * from[0] + 2 * u * t * control[0] + t * t * to[0], u * u * from[1] + 2 * u * t * control[1] + t * t * to[1]] })
@@ -57,8 +57,14 @@ const faceParts = [portraitStroke(quadratic([83, 79], [91, 73], [99, 78]), .0072
 const smile = [portraitStroke(quadratic([98, 109], [110, 119], [122, 109]), .006)]
 const noseLine = [portraitStroke(quadratic([108, 96], [105, 103], [111, 103]), .0035, .006)]
 function hairStrands(style: AvatarStyle): Part[] {
-  const paths = style === 'girl' ? [-.38, -.2, .2, .38] : [-.65, -.25, .15]
-  return paths.map(offset => ({ shape: 'strand', size: [.0025, 0, 0], at: [0, .845, -.008], scale: [.88, 1.08, .88], curve: Array.from({ length: 8 }, (_, i) => avatarScalpPoint(.239, .25 + i * .065, offset + (style === 'girl' ? Math.sign(offset) * i * .065 : i * .07), style === 'boy' ? 1 : 0)) }))
+  const paths = style === 'girl' ? [-.66, -.42, -.18, .18, .42, .66] : [-.95, -.65, -.35, -.05, .25, .55]
+  const sweep = style === 'boy' ? 1 : 0, fringe = style === 'boy' ? 'swept' : 'curtain'
+  return paths.map(offset => ({ shape: 'strand', size: [.0018, 0, 0], at: [0, .845, -.008], scale: [.88, 1.08, .88], curve: Array.from({ length: 12 }, (_, i) => {
+    const t = i / 11, start = style === 'girl' ? offset * .22 : offset - .7, end = style === 'girl' ? offset + Math.sign(offset) * .30 : offset + .50
+    const theta = start + (end - start) * Math.sin(t * Math.PI / 2)
+    const edge = avatarHairEdge(1.30, style === 'girl' ? 2.55 : 2.50, theta, sweep, fringe)
+    return avatarScalpPoint(.238, .22 + (edge - .27) * t, theta, sweep)
+  }) }))
 }
 const boyHairHighlights = hairStrands('boy'), girlHairHighlights = hairStrands('girl')
 const earDetail = [-.210, .210].map(x => sphere(.016, [x, .811, -.003], [.25, 1, .65]))

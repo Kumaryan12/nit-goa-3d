@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { advanceAvatarAnimation, freshAvatarAnimation } from '../src/lib/avatarAnimation.ts'
 import { avatarPose } from '../src/lib/avatarMotion.ts'
-import { avatarFacePoint, avatarPortraitPoint, createAvatarGeometry } from '../src/lib/avatarGeometry.ts'
+import { avatarFacePoint, avatarHairEdge, avatarPortraitPoint, avatarScalpPoint, createAvatarGeometry } from '../src/lib/avatarGeometry.ts'
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-8)
 test('visual speed, run and jump blends are consistent across screen refresh rates', () => {
@@ -108,7 +108,7 @@ test('portrait eye patches follow curved cheeks and face outward without adding 
 
 test('sculpted hair covers the nape, leaves the face open and has outward finite normals', () => {
   for (const back of [2.50, 2.55]) {
-    const geometry = createAvatarGeometry([{ shape: 'scalp', size: [.236, back === 2.50 ? .78 : .70, back], sweep: back === 2.50 ? 1 : 0, at: [0, 0, 0] }])
+    const geometry = createAvatarGeometry([{ shape: 'scalp', size: [.236, 1.30, back], sweep: back === 2.50 ? 1 : 0, fringe: back === 2.50 ? 'swept' : 'curtain', at: [0, 0, 0] }])
     assert.equal(geometry.index.count / 3, 20 * (2 * 10 + 1), 'continuous hairline has a closed inward rim beneath the fringe')
     const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal')
     const front = [], rear = []
@@ -122,10 +122,23 @@ test('sculpted hair covers the nape, leaves the face open and has outward finite
       if (Math.abs(x) < .015 && z > .04) rear.push(y)
     }
     assert.ok(front.length && rear.length)
-    assert.ok(Math.min(...front) > .09, 'forehead and eyes remain visible')
+    assert.ok(Math.min(...front) > .04, 'fringe stays above the eyes')
     assert.ok(Math.min(...rear) < -.17, 'rear hair reaches down to the nape')
     geometry.computeBoundingBox()
     assert.ok(.88 + .845 + geometry.boundingBox.max.y * 1.08 < 2.1, 'crown remains inside the standing collision height')
     geometry.dispose()
+  }
+})
+
+test('full fringes cover the forehead without hiding the eyes and join continuously at the scalp seam', () => {
+  for (const [sweep, fringe, back] of [[1, 'swept', 2.50], [0, 'curtain', 2.55]]) {
+    for (let theta = -.55; theta <= .55; theta += .05) {
+      const edge = avatarHairEdge(1.30, back, theta, sweep, fringe)
+      const point = avatarScalpPoint(.236, edge, theta, sweep)
+      const y = .845 + point[1] * 1.08
+      assert.ok(y > avatarPortraitPoint(110, 84)[1] + .005, 'long bangs leave the eyelids clear')
+      assert.ok(y < .97, 'fringe covers the previously exposed upper forehead')
+    }
+    assert.ok(Math.abs(avatarHairEdge(1.30, back, 0, sweep, fringe) - avatarHairEdge(1.30, back, Math.PI * 2, sweep, fringe)) < 1e-8)
   }
 })
