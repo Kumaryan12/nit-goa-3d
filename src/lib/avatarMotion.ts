@@ -37,8 +37,8 @@ export function advanceLocomotion(state: Locomotion, direction: LocalCoordinate,
 export function reconcileLocomotion(state: Locomotion, before: LocalCoordinate, after: LocalCoordinate, requested: { direction: LocalCoordinate; speed: number; delta: number }) {
   // Throw away momentum into blocked axes; releasing a key cannot push a
   // stationary avatar into a wall or accumulate a delayed burst at a corner.
-  if (Math.abs(after.x - before.x) < .0001 && Math.abs(requested.direction.x) > .001) state.velocity.x = 0
-  if (Math.abs(after.z - before.z) < .0001 && Math.abs(requested.direction.z) > .001) state.velocity.z = 0
+  if (Math.abs(requested.direction.x) * requested.delta > 1e-10 && Math.abs(after.x - before.x) < Math.abs(requested.direction.x) * requested.delta * .05) state.velocity.x = 0
+  if (Math.abs(requested.direction.z) * requested.delta > 1e-10 && Math.abs(after.z - before.z) < Math.abs(requested.direction.z) * requested.delta * .05) state.velocity.z = 0
 }
 
 export function stridePhase(phase: number, distance: number, running: boolean) {

@@ -3,12 +3,12 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { gpsToLocal, localToGps, pointInRing, validClosedRing } from '../src/lib/geo.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
-import { allocateAvatarColor, defaultAvatarColor, isAvatarColor } from '../src/lib/profile.ts'
+import { allocateAvatarColor, defaultAvatarColor, isAvatarColor, isAvatarStyle } from '../src/lib/profile.ts'
 import type { AvatarColor } from '../src/lib/profile.ts'
 import { CAMPUS_CAPACITY, campusName, campusHandle, chatText, canHearNearby, parseCampusPose, buggySeatPose, campusId } from '../src/lib/campusProtocol.ts'
 import type { CampusPerson, CampusSnapshot, CampusChat, CampusActivity, CampusPose, BuggyRide } from '../src/lib/campusProtocol.ts'
 import type { CampusIdentity } from './access.ts'
-import { presenceSpeedLimit } from '../src/lib/movementLimits.ts'
+import { PRESENCE_CATCHUP_SECONDS, presenceSpeedLimit, presenceVerticalSpeedLimit } from '../src/lib/movementLimits.ts'
 import { isSocialAction, SOCIAL_DURATION } from '../src/lib/social.ts'
 import type { SocialSeat } from '../src/lib/social.ts'
 
@@ -30,7 +30,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
   const chatLimits = new Map<string, number[]>(), history: CampusChat[] = []
   let sequence = 0
   const preferredColor = (identity: CampusIdentity) => isAvatarColor(identity.avatarColor) ? identity.avatarColor : defaultAvatarColor(identity.id)
-  const metadata = (identity: CampusIdentity) => ({ name: campusName(identity.name), handle: campusHandle(identity.publicHandle) ? identity.publicHandle : null })
+  const metadata = (identity: CampusIdentity) => ({ avatarStyle: isAvatarStyle(identity.avatarStyle) ? identity.avatarStyle : 'boy' as const, name: campusName(identity.name), handle: campusHandle(identity.publicHandle) ? identity.publicHandle : null })
   const assignColor = (identity: CampusIdentity) => allocateAvatarColor(identity.id, preferredColor(identity), [...members.values()].filter(member => member.person.id !== identity.id).map(member => member.person.color))
   const prune = (now: number) => {
     while (history.length && (history.length > 50 || now - history[0].time > 15 * 60000)) history.shift()
@@ -116,9 +116,9 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       const relocated = !previous || previous.epoch !== pose.epoch
       if (relocated && now - member.spawnAt < 1000) return false
       if (previous && !relocated) {
-        const elapsed = Math.min(.5, Math.max(0, (now - member.poseAt) / 1000))
+        const elapsed = Math.min(PRESENCE_CATCHUP_SECONDS, Math.max(0, (now - member.poseAt) / 1000))
         const maximumSpeed = presenceSpeedLimit(pose, activity)
-        if (Math.hypot(pose.x - previous.x, pose.z - previous.z) > maximumSpeed * elapsed + .4 || Math.abs(pose.y - previous.y) > 6 * elapsed + .5) return false
+        if (Math.hypot(pose.x - previous.x, pose.z - previous.z) > maximumSpeed * elapsed + .4 || Math.abs(pose.y - previous.y) > presenceVerticalSpeedLimit(pose, activity) * elapsed + .5) return false
       }
       if (previous?.vehicle === 'buggy' && (relocated || pose.vehicle !== 'buggy' || pose.space !== 'outdoors' || !pose.visible || activity !== 'walk')) releasePassengers(id, now)
       if (relocated) member.spawnAt = now

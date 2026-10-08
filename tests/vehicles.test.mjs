@@ -139,3 +139,46 @@ test('real campus has legal bicycle and buggy routes and safe movement',()=>{
   assert.ok(canRideAt(p,state.yaw,kind,w,twin.roads))
  }
 })
+
+test('brief delayed updates and full-speed slope travel do not roll a valid driver back',()=>{
+ for(const kind of ['bicycle','buggy']) {
+  const room=createCampusRoom(boundary);room.add({id:'driver',name:'Driver',role:'member',expiresAt:Date.now()+60000})
+  assert.ok(room.pose('driver',pose({vehicle:kind}),'walk',1000))
+  const speed=VEHICLES[kind].speed
+  // A delayed batch covers 1.2 seconds, including an 80% uphill grade.
+  assert.ok(room.pose('driver',pose({vehicle:kind,z:-speed*1.2,y:speed*1.2*.8}),'walk',2200),kind+' catches up without losing position')
+  assert.equal(room.pose('driver',pose({vehicle:kind,z:-90,y:0}),'walk',2300),false,'speed enforcement remains')
+  assert.equal(room.pose('driver',pose({vehicle:kind,z:-90,y:0}),'walk',9000),false,'long stalls cannot grant unlimited travel')
+ }
+ const room=createCampusRoom(boundary);room.add({id:'walker',name:'Walker',role:'member',expiresAt:Date.now()+60000})
+ room.pose('walker',pose(),'walk',1000)
+ assert.equal(room.pose('walker',pose({z:-10}),'walk',2200),false,'walking retains its lower cap')
+})
+
+test('a turn constrained by a parallel wall preserves safe forward momentum',()=>{
+ const wall={id:'wall',outer:ring(1,-50,1.1,50).map(localToGps),holes:[],height:10}
+ const w=createWalkWorld([wall],boundary,flat),state=freshVehicle();state.speed=9;state.steering=.3
+ let p={x:.079999,z:20}
+ assert.ok(canRideAt(p,state.yaw,'buggy',w,[]))
+ for(let i=0;i<60;i++){
+  const result=advanceVehicle(state,p,'buggy',1,1,false,1/60,w,[]);p=result.point
+  assert.equal(result.blocked,false,'clamp the unsafe rotation instead of stopping safe travel')
+  assert.ok(canRideAt(p,state.yaw,'buggy',w,[]))
+ }
+ assert.ok(p.z<12);assert.equal(state.speed,9)
+})
+
+test('slow vehicles traverse the small plaza lip without climbing OAT stairs',()=>{
+ const theatre={center:{x:0,z:0},rotation:0,widthScale:1,depthScale:1,elevation:0}
+ const w=createWalkWorld([],boundary,{...flat,theatre})
+ for(const kind of ['bicycle','buggy']) {
+  const state=freshVehicle(Math.PI/2);let p={x:11.6,z:-4.5}
+  for(let i=0;i<60;i++){
+   const result=advanceVehicle(state,p,kind,1,0,false,1/60,w,[]);p=result.point
+   assert.equal(result.blocked,false,'8 cm lip stays traversable during acceleration')
+  }
+  assert.ok(p.x<11.5)
+  const steps=freshVehicle();steps.speed=.5
+  assert.ok(advanceVehicle(steps,{x:0,z:10.95},kind,1,0,false,.1,w,[]).blocked,'15 cm stairs remain blocked')
+ }
+})

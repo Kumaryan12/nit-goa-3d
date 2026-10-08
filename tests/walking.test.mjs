@@ -7,7 +7,12 @@ import { extractBuildingFootprints } from '../src/lib/buildings.ts'
 import { extractCampusRoads } from '../src/lib/roads.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
-import { createWalkWorld, isWalkable, stepWalking, treeCeilingAt, findWalkSpawn, findSharedSpawn, nearestWalkLocation, placeDistance, cameraBoomFraction, explorerViewFromURL, withExplorerView, emptyWalkInput } from '../src/lib/walking.ts'
+import { createWalkWorld, isWalkable, stepWalking, treeCeilingAt, findWalkSpawn, findEntranceSpawn, findSharedSpawn, nearestWalkLocation, placeDistance, cameraBoomFraction, explorerViewFromURL, withExplorerView, emptyWalkInput } from '../src/lib/walking.ts'
+import { findLocationArrival } from '../src/lib/walkArrival.ts'
+import { campusFacadeApproach, campusFacadeFront, createCampusFacade } from '../src/lib/campusFacade.ts'
+import { createHostelPlan, createGyanMandirPlan, GYAN_MANDIR_ID } from '../src/lib/hostelInterior.ts'
+import { gpsToLocal } from '../src/lib/geo.ts'
+import { pointInCampus } from '../src/lib/roads.ts'
 const ring = (x1,z1,x2,z2) => [{x:x1,z:z1},{x:x2,z:z1},{x:x2,z:z2},{x:x1,z:z2},{x:x1,z:z1}]
 const flat = { size:400, segments:40, heights:new Float32Array(41**2), colors:new Float32Array(41**2*3) }
 const building = (outer, holes=[]) => ({id:'way/1',osmType:'way',osmId:1,tags:{},outer:outer.map(localToGps),holes:holes.map(h=>h.map(localToGps)),height:10})
@@ -84,7 +89,79 @@ const boundary=roads.find(e=>e.id===1259742369).geometry
 const map={buildings:extractBuildingFootprints(elements),boundary,source:'campus-area',returnedBuildingCount:22}
 const roadData={roads:extractCampusRoads(roads,boundary),boundary,source:'campus-area',returnedRoadCount:20}
 const twin=createDigitalTwin(map,roadData,true,savedCampusOverrides)
-const actual=createWalkWorld(twin.buildings,twin.boundary,twin.terrain,twin.trees)
+const actual=createWalkWorld(twin.buildings,twin.boundary,twin.terrain,twin.trees,twin.lamps)
+const assignedBuilding = id => twin.buildings[twin.selections.findIndex(s=>s.location.id===id)]
+twin.interiors = {
+  hostel: createHostelPlan(assignedBuilding('boys-hostel'),twin.roads,p=>isWalkable(p,actual)),
+  gyan: createGyanMandirPlan(assignedBuilding(GYAN_MANDIR_ID),twin.roads,p=>isWalkable(p,actual),twin.selections.find(s=>s.location.id==='way/1423803680').location.coordinates),
+}
+test('selected buildings arrive in front of their doorway, face it, and never land in a courtyard', () => {
+  for (const selection of twin.selections.filter(s=>s.location.name!=='Unnamed campus building')) {
+    const arrival = findLocationArrival(selection.location,twin,actual)
+    assert.ok(arrival,selection.location.name)
+    assert.ok(arrival.entrance,selection.location.name)
+    assert.ok(isWalkable(arrival.position,actual),selection.location.name)
+    const footprint=assignedBuilding(selection.location.id).outer.map(gpsToLocal)
+    assert.equal(pointInCampus(arrival.position,footprint),false,`${selection.location.name}: outside the outer footprint`)
+    const vector={x:arrival.entrance.point.x-arrival.position.x,z:arrival.entrance.point.z-arrival.position.z}
+    const length=Math.hypot(vector.x,vector.z)
+    assert.ok(length<=9.5,`${selection.location.name}: stays at the doorway`)
+    close(-Math.sin(arrival.yaw),vector.x/length);close(-Math.cos(arrival.yaw),vector.z/length)
+    const plan=Object.values(twin.interiors).find(p=>p?.buildingId===selection.buildingId)
+    if(plan) {assert.deepEqual(arrival.position,plan.entrance.outside);assert.deepEqual(arrival.entrance.point,plan.entrance.point)}
+    else if(selection.location.id!=='administration-block') assert.deepEqual(arrival.entrance.point,campusFacadeFront(assignedBuilding(selection.location.id),twin.roads,undefined,campusFacadeApproach(selection.location.id,twin.locations)).entrance)
+    assert.deepEqual(findLocationArrival({...selection.location,name:'Renamed by owner'},twin,actual),arrival)
+  }
+})
+test('a blocked doorway adjusts on its front approach, without falling back to another side', () => {
+  const entrance={point:{x:0,z:0},outward:{x:-1,z:0}}
+  const spawn=findEntranceSpawn(entrance,world)
+  assert.ok(spawn);assert.ok(spawn.x<0);assert.ok(isWalkable(spawn,world))
+  const blocked=createWalkWorld([building(ring(-20,-20,20,20))],world.boundary,flat)
+  assert.equal(findEntranceSpawn(entrance,blocked),null)
+})
+test('shared CSE and ECE arrivals stay outside all four walls, including their courtyards', () => {
+  for (const id of ['relation/19505814/0','relation/19505815/0']) {
+    const location=twin.selections.find(s=>s.location.id===id).location
+    const arrival=findLocationArrival(location,twin,actual), occupied=[]
+    assert.ok(arrival,location.name)
+    for(let slot=0;slot<32;slot++) {
+      const next=findSharedSpawn(arrival.position,actual,slot,occupied,arrival.entrance)
+      assert.ok(isWalkable(next,actual),`${location.name} visitor ${slot}`)
+      assert.equal(pointInCampus(next,assignedBuilding(id).outer.map(gpsToLocal)),false,`${location.name}: no courtyard spawn`)
+      assert.ok(occupied.every(p=>Math.hypot(p.x-next.x,p.z-next.z)>=1.5),`${location.name}: separate visible arrivals`)
+      occupied.push(next)
+    }
+  }
+})
+test('owner-confirmed CSE and ECE doors and arrivals face OAT, not the opposite road', () => {
+  const oat=twin.theatre.center
+  for(const id of ['relation/19505814/0','relation/19505815/0']) {
+    const selection=twin.selections.find(s=>s.location.id===id), building=assignedBuilding(id)
+    const target=campusFacadeApproach(id,twin.locations)
+    assert.deepEqual(target,oat)
+    const facade=createCampusFacade(building,selection,twin.roads,undefined,target)
+    const arrival=findLocationArrival(selection.location,twin,actual)
+    assert.ok(facade && arrival)
+    assert.ok(facade.front.outward.z<-.99,`${selection.location.name}: OAT-facing exterior side`)
+    assert.ok((oat.x-facade.entrance.x)*facade.front.outward.x+(oat.z-facade.entrance.z)*facade.front.outward.z>0)
+    assert.deepEqual(arrival.entrance.point,facade.entrance,'avatar and visible doorway agree')
+    const reversed=createCampusFacade({...building,outer:[...building.outer].reverse()},selection,twin.roads,undefined,target)
+    close(reversed.entrance.x,facade.entrance.x);close(reversed.entrance.z,facade.entrance.z)
+    const moved={...twin,locations:twin.locations.map(l=>l.id==='open-air-theatre'?{...l,coordinates:{x:oat.x+5,z:oat.z-5}}:l)}
+    assert.deepEqual(campusFacadeApproach(id,moved.locations),{x:oat.x+5,z:oat.z-5},'follows owner OAT corrections')
+  }
+  assert.equal(campusFacadeApproach('girls-hostel',twin.locations),undefined)
+})
+test('open-air theatre arrival keeps its entrance and faces the theatre; gate arrival faces into campus', () => {
+  const theatre=findLocationArrival(twin.locations.find(l=>l.id==='open-air-theatre'),twin,actual)
+  assert.ok(theatre);assert.deepEqual(theatre.position,twin.theatre.entrance)
+  const target=twin.theatre.center, distance=Math.hypot(target.x-theatre.position.x,target.z-theatre.position.z)
+  close(-Math.sin(theatre.yaw),(target.x-theatre.position.x)/distance)
+  close(-Math.cos(theatre.yaw),(target.z-theatre.position.z)/distance)
+  const gate=findLocationArrival(twin.locations.find(l=>l.id==='main-entrance'),twin,actual)
+  close(-Math.sin(gate.yaw),gate.entrance.outward.x);close(-Math.cos(gate.yaw),gate.entrance.outward.z)
+})
 test('all corrected campus landmarks have safe spawn positions on the real OSM campus', () => {
   const locations=[...twin.locations,...twin.selections.filter(s=>s.matchMethod==='unmatched').map(s=>s.location)]
   for(const location of locations.filter(l=>l.name!=='Unnamed campus building')) {
@@ -100,14 +177,16 @@ test('all corrected campus landmarks have safe spawn positions on the real OSM c
 
 test('simultaneous visitors get distinct, legal spawn spots at the real Main Entrance', () => {
   const entrance = twin.locations.find(location => location.id === 'main-entrance')
-  const anchor = findWalkSpawn(entrance.coordinates, actual), occupied = []
-  assert.ok(anchor)
+  const arrival = findLocationArrival(entrance,twin,actual), occupied = []
+  assert.ok(arrival)
+  const anchor=arrival.position
   for (let slot = 0; slot < 32; slot++) {
-    const next = findSharedSpawn(anchor, actual, slot, occupied)
+    const next = findSharedSpawn(anchor, actual, slot, occupied,arrival.entrance)
     assert.ok(isWalkable(next, actual), `visitor ${slot} stays outside solids and the canal`)
     assert.ok(occupied.every(other => Math.hypot(next.x - other.x, next.z - other.z) >= 1.5), `visitor ${slot} remains visible beside earlier arrivals`)
-    assert.ok(Math.hypot(next.x - anchor.x, next.z - anchor.z) <= 36)
-    assert.deepEqual(findSharedSpawn(anchor, actual, slot, []), next, 'reservation also works before other visitors publish their first pose')
+    assert.ok(Math.hypot(next.x - anchor.x, next.z - anchor.z) <= 16,'arrivals stay together at the gate')
+    assert.ok((next.x-arrival.entrance.point.x)*arrival.entrance.outward.x+(next.z-arrival.entrance.point.z)*arrival.entrance.outward.z>=1.5,'inside the gate approach')
+    assert.deepEqual(findSharedSpawn(anchor, actual, slot, [],arrival.entrance), next, 'reservation also works before other visitors publish their first pose')
     occupied.push(next)
   }
 })

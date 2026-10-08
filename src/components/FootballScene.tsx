@@ -44,7 +44,7 @@ function RemotePlayer({ player, session, campusSession, pitch }: { player: Footb
   const initial = footballToWorld(player, pitch)
   const color = campusSession.current.snapshot?.people.find(person => person.id === player.id)?.color ?? defaultAvatarColor(player.id)
   return <group ref={group} position={[initial.x,pitch.elevation+.11,initial.z]} name={`football-player-${player.number}`}>
-    <StudentAvatar motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={CAMPUS_COLORS[color]} />
+    <StudentAvatar style={campusSession.current.snapshot?.people.find(person => person.id === player.id)?.avatarStyle} motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={CAMPUS_COLORS[color]} />
     <Html portal={portal} position={[0,2.2,0]} center pointerEvents="none" zIndexRange={[15,0]}><span className={`football-player-label ${player.team}`}>Player {player.number}</span></Html>
   </group>
 }

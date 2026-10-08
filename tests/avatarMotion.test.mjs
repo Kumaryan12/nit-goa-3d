@@ -105,3 +105,20 @@ test('frame stalls and invalid inputs cannot produce a burst or NaN motion', () 
   for (const delta of [NaN, Infinity, -.1]) assert.equal(advanceLocomotion(freshLocomotion(), { x: 1, z: 0 }, 5.5, delta).speed, 0)
   assert.equal(advanceLocomotion(freshLocomotion(), { x: Infinity, z: 0 }, 5.5, .1).speed, 0)
 })
+
+test('collision reconciliation preserves tiny first steps on high refresh screens and analog input',()=>{
+ const terrain={size:400,segments:40,heights:new Float32Array(41**2),colors:new Float32Array(41**2*3)}
+ const world=createWalkWorld([],[],terrain)
+ for(const amount of [1,.15]) {
+  const results=[30,60,144,240].map(fps=>{
+   const state=freshLocomotion();let p={x:10,z:10}
+   for(let i=0;i<fps*2;i++){
+    const frame=advanceLocomotion(state,{x:0,z:-amount},2.5,1/fps)
+    const next=stepWalking(p,frame.direction,frame.speed,frame.delta,world)
+    reconcileLocomotion(state,p,next,frame);p=next
+   }
+   return 10-p.z
+  })
+  for(const result of results){assert.ok(result>2*amount);assert.ok(Math.abs(result-results[0])<1e-7,'actual swept movement remains independent of screen refresh')}
+ }
+})

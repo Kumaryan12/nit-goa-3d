@@ -1,5 +1,7 @@
 import { initials } from '../lib/community'
 import { profileColorStyle } from '../lib/profile'
+import { AvatarPortrait } from './AvatarStylePicker'
+import { PROFILE_COLOR_HEX } from '../lib/profile'
 import type { CampusProfile } from '../lib/community'
 export default function ProfileCard({
   profile,
@@ -24,7 +26,7 @@ export default function ProfileCard({
           />
         </svg>
       </div>
-      <div className="profile-avatar">{initials(profile.display_name)}</div>
+      <div className={`profile-avatar ${profile.avatar_style ? 'profile-avatar-portrait' : ''}`}>{profile.avatar_style ? <AvatarPortrait style={profile.avatar_style} color={PROFILE_COLOR_HEX[profile.avatar_color]} /> : initials(profile.display_name)}</div>
       <div className="profile-card-body">
         <h2>{profile.display_name}</h2>
         <p className="profile-handle">

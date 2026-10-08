@@ -261,6 +261,7 @@ export function createModerationStore(db: Firestore) {
               course: profile.course,
               interests: profile.interests,
               avatar_color: profile.avatar_color,
+              avatar_style: profile.avatar_style ?? null,
               is_public: true,
               created_at: profile.created_at,
             })

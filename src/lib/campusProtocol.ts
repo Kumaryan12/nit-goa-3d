@@ -1,5 +1,5 @@
-import { PROFILE_COLORS, PROFILE_COLOR_HEX } from './profile.ts'
-import type { CampusProfile } from './profile.ts'
+import { PROFILE_COLORS, PROFILE_COLOR_HEX, isAvatarStyle } from './profile.ts'
+import type { AvatarStyle, CampusProfile } from './profile.ts'
 import { parseSocialState } from './social.ts'
 import type { SocialState } from './social.ts'
 import type { RemoteMotionBuffer } from './remoteMotion.ts'
@@ -9,7 +9,7 @@ export const CAMPUS_COLORS = PROFILE_COLOR_HEX
 export type CampusActivity = 'walk' | 'overview' | 'football' | 'concert'
 export interface CampusPose { airborne?: boolean; pitch?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; x: number; y: number; z: number; yaw: number; moving: boolean; running: boolean; active: boolean; visible: boolean; space: string; epoch: number }
 export interface BuggyRide { driverId: string; seat: 1 | 2 | 3 }
-export interface CampusPerson { social?: SocialState; ride?: BuggyRide; id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
+export interface CampusPerson { avatarStyle?: AvatarStyle; social?: SocialState; ride?: BuggyRide; id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
 export interface CampusSnapshot { type: 'campus-state'; sequence: number; serverTime: number; people: CampusPerson[] }
 export interface CampusChat { type: 'chat'; id: string; sender: string; name: string; scope: 'campus' | 'nearby'; text: string; time: number }
 export interface CampusSession { id: string | null; snapshot: CampusSnapshot | null; correction?: CampusPose; motion?: RemoteMotionBuffer; peopleById?: Map<string, CampusPerson>; spawnSlot?: number; spawnPending?: boolean }
@@ -42,12 +42,13 @@ export function parseCampusSnapshot(value: unknown): CampusSnapshot | null {
   const ids = new Set<string>(), people: CampusPerson[] = []
   for (const p of s.people) {
     if (!p || !campusId(p.id) || ids.has(p.id) || p.name !== campusName(p.name) || !(p.handle === null || campusHandle(p.handle)) || !PROFILE_COLORS.includes(p.color) || !['walk', 'overview', 'football', 'concert'].includes(p.activity)) return null
+    if (p.avatarStyle !== undefined && !isAvatarStyle(p.avatarStyle)) return null
     const pose = p.pose === null ? null : parseCampusPose(p.pose)
     if (p.pose !== null && !pose) return null
     if (p.ride !== undefined && (!p.ride || !campusId(p.ride.driverId) || p.ride.driverId === p.id || ![1, 2, 3].includes(p.ride.seat) || !pose || pose.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk')) return null
     const social = p.social === undefined ? undefined : parseSocialState(p.social)
     if (p.social !== undefined && (!social || p.ride || !pose || pose.airborne || (pose.vehicle ?? 'walk') !== 'walk' || p.activity === 'football' || social.action === 'sit' && (p.activity !== 'walk' || pose.space !== 'outdoors'))) return null
-    ids.add(p.id); people.push({ ...(social ? { social } : {}), ...(p.ride ? { ride: { driverId: p.ride.driverId, seat: p.ride.seat } } : {}), id: p.id, name: p.name, handle: p.handle, color: p.color, activity: p.activity, pose })
+    ids.add(p.id); people.push({ ...(social ? { social } : {}), ...(p.ride ? { ride: { driverId: p.ride.driverId, seat: p.ride.seat } } : {}), ...(p.avatarStyle ? { avatarStyle: p.avatarStyle } : {}), id: p.id, name: p.name, handle: p.handle, color: p.color, activity: p.activity, pose })
   }
   const seats = new Set<string>()
   const socialSeats = new Set<string>()

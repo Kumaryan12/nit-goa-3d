@@ -5,6 +5,7 @@ import type { BufferGeometry } from 'three'
 import type { Group } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { avatarPose, motionDelta, ridingPose, socialPoseForMotion } from '../lib/avatarMotion'
+import type { AvatarStyle } from '../lib/profile'
 import type { AvatarMotion } from '../lib/avatarMotion'
 
 type Triple = [number, number, number]
@@ -37,21 +38,26 @@ function Parts({ parts, color, roughness = .85 }: { parts: Part[]; color: string
   return <mesh geometry={shared.geometry} castShadow receiveShadow><meshStandardMaterial color={color} roughness={roughness} /></mesh>
 }
 
-const torsoParts = [capsule(.23, .22, [0, .31, 0], [1, 1, .66])]
+const torsoParts = [capsule(.23, .22, [0, .31, 0], [1, 1, .66]), sphere(.12, [0, .56, .11], [1.35, .8, .85])]
 const skinParts = [capsule(.07, .07, [0, .65, 0]), sphere(.20, [0, .84, -.01], [.91, 1.06, .88]), sphere(.043, [-.18, .84, 0]), sphere(.043, [.18, .84, 0]), sphere(.035, [0, .825, -.183], [.65, .75, 1])]
-const hairParts = [sphere(.195, [0, .955, .015], [1, .63, .85]), sphere(.11, [-.10, .945, -.09], [1, .7, .8]), sphere(.115, [.075, .973, -.065], [1, .6, 1]), capsule(.028, .09, [-.175, .87, .025]), capsule(.028, .09, [.175, .87, .025])]
-const faceParts = [sphere(.017, [-.065, .875, -.177], [1, 1.2, .5]), sphere(.017, [.065, .875, -.177], [1, 1.2, .5]), box([.045, .011, .013], [0, .767, -.178]), box([.05, .011, .013], [-.065, .911, -.168]), box([.05, .011, .013], [.065, .911, -.168])]
+const boyHairParts = [sphere(.195, [0, .955, .015], [1, .63, .85]), sphere(.11, [-.10, .945, -.09], [1, .7, .8]), sphere(.115, [.075, .973, -.065], [1, .6, 1]), capsule(.028, .09, [-.175, .87, .025]), capsule(.028, .09, [.175, .87, .025])]
+const girlHairParts = [sphere(.195, [0, .955, .02], [1, .68, .88]), sphere(.11, [-.1, .94, -.08], [1, .65, .78]), sphere(.09, [.12, .93, -.03], [.65, 1, .8]), capsule(.048, .22, [-.17, .82, .065]), capsule(.048, .22, [.17, .82, .065]), sphere(.075, [0, .93, .185]), { ...capsule(.078, .17, [.025, .78, .235], [1, 1, .7]), rotation: [-.2, 0, -.12] as Triple }]
+const faceParts = [box([.05, .011, .013], [-.065, .911, -.168]), box([.05, .011, .013], [.065, .911, -.168]), { ...capsule(.005, .032, [-.016, .77, -.179]), rotation: [0, 0, 1.25] as Triple }, { ...capsule(.005, .032, [.016, .77, -.179]), rotation: [0, 0, -1.25] as Triple }]
+const eyeWhites = [-.065, .065].map(x => sphere(.026, [x, 0, -.177], [.9, 1, .34]))
+const eyePupils = [-.065, .065].map(x => sphere(.012, [x, 0, -.187], [.85, 1.1, .3]))
+const eyeLight = [-.065, .065].map(x => sphere(.004, [x + .003, .005, -.191], [1, 1, .4]))
+
 const bagParts = [capsule(.18, .16, [0, .31, .245], [1, 1, .53]), box([.27, .18, .065], [0, .23, .34])]
 const straps = [capsule(.022, .47, [-.16, .32, -.157], [1, 1, .6]), capsule(.022, .47, [.16, .32, -.157], [1, 1, .6]), box([.23, .017, .015], [0, .31, .38])]
-const shirtDetail = [box([.105, .033, .015], [-.073, .46, -.156]), box([.07, .026, .016], [.072, .46, -.156]), box([.36, .025, .018], [0, .08, -.145])]
+const shirtDetail = [capsule(.008, .11, [-.038, .42, -.164]), capsule(.008, .11, [.038, .42, -.164]), { ...capsule(.008, .09, [-.03, .55, -.164]), rotation: [0, 0, .6] as Triple }, { ...capsule(.008, .09, [.03, .55, -.164]), rotation: [0, 0, -.6] as Triple }]
 const upperLeg = [capsule(.083, .22, [0, -.185, 0])], lowerLeg = [capsule(.075, .225, [0, -.185, 0])]
 const shoe = [{ ...capsule(.075, .15, [0, -.045, -.07], [1.13, 1, .78]), rotation: [Math.PI / 2, 0, 0] as Triple }]
 const soles = [box([.18, .042, .29], [0, -.108, -.07]), box([.12, .018, .045], [0, .016, -.08]), box([.12, .018, .045], [0, .011, -.13])]
 const sleeve = [capsule(.083, .12, [0, -.11, 0])]
 const forearm = [capsule(.06, .16, [0, -.105, 0]), sphere(.067, [0, -.24, -.007], [.85, 1.1, .85])]
 
-export default function StudentAvatar({ motion, jersey = '#277c77', accent = '#cf9254' }: { motion: React.RefObject<AvatarMotion>; jersey?: string; accent?: string }) {
-  const root = useRef<Group>(null), torso = useRef<Group>(null)
+export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77', accent = '#cf9254' }: { style?: AvatarStyle; motion: React.RefObject<AvatarMotion>; jersey?: string; accent?: string }) {
+  const root = useRef<Group>(null), torso = useRef<Group>(null), head = useRef<Group>(null), eyes = useRef<Group>(null)
   const leftHip = useRef<Group>(null), rightHip = useRef<Group>(null), leftKnee = useRef<Group>(null), rightKnee = useRef<Group>(null), leftFoot = useRef<Group>(null), rightFoot = useRef<Group>(null)
   const leftArm = useRef<Group>(null), rightArm = useRef<Group>(null), leftElbow = useRef<Group>(null), rightElbow = useRef<Group>(null)
   const speed = useRef(0), clock = useRef(0), kickTime = useRef(0), lastKick = useRef(motion.current.kick ?? 0)
@@ -96,17 +102,32 @@ export default function StudentAvatar({ motion, jersey = '#277c77', accent = '#c
         root.current.position.y = .011 - Math.min(...soles)
       } else root.current.position.y = approach(root.current.position.y, pose.rootY)
     }
+    if (head.current) {
+      const target = Math.max(-.15, Math.min(.15, (state.turn ?? 0) * .035))
+      head.current.rotation.y += (target - head.current.rotation.y) * (1 - Math.exp(-dt * 8))
+      head.current.rotation.z = reducedMotion.current ? 0 : Math.sin(clock.current * 1.35) * .008
+    }
+    if (eyes.current) {
+      const cycle = clock.current % 4.8
+      const blink = reducedMotion.current ? 0 : Math.max(0, 1 - Math.abs(cycle - 4.5) / .09)
+      eyes.current.scale.y = 1 - blink * .94
+    }
     if (torso.current) {
       torso.current.rotation.x = approach(torso.current.rotation.x, mix(pose.lean, social?.lean))
       torso.current.rotation.z = approach(torso.current.rotation.z, mix(pose.sway + pose.bank, social ? social.sway + social.bank : undefined))
     }
   })
-  return <group ref={root} name="campus-student-avatar">
+  return <group ref={root} name={`campus-student-avatar-${style}`}>
     <group ref={torso} position={[0, .88, 0]}>
       <Parts parts={torsoParts} color={jersey} />
-      <Parts parts={skinParts} color="#c99066" />
-      <Parts parts={hairParts} color="#302a28" />
-      <Parts parts={faceParts} color="#302a28" />
+      <group ref={head} position={[0, .65, 0]}><group position={[0, -.65, 0]}>
+        <Parts parts={skinParts} color="#cf9871" />
+        <Parts parts={style === 'girl' ? girlHairParts : boyHairParts} color="#302a28" roughness={.72} />
+        <Parts parts={faceParts} color="#644639" />
+        <group ref={eyes} position={[0, .875, 0]}>
+          <Parts parts={eyeWhites} color="#fff9ec" /><Parts parts={eyePupils} color="#302a28" roughness={.35} /><Parts parts={eyeLight} color="#ffffff" roughness={.25} />
+        </group>
+      </group></group>
       <Parts parts={shirtDetail} color="#e9e9ce" />
       <Parts parts={bagParts} color={accent} />
       <Parts parts={straps} color="#333b3b" />
@@ -120,7 +141,7 @@ export default function StudentAvatar({ motion, jersey = '#277c77', accent = '#c
     </group>)}
     {[[leftArm, leftElbow], [rightArm, rightElbow]].map(([arm, elbow], i) => <group key={`arm-${i}`} ref={arm} position={[i ? .29 : -.29, 1.40, 0]}>
       <Parts parts={sleeve} color={jersey} />
-      <group ref={elbow} position={[0, -.235, 0]}><Parts parts={forearm} color="#c99066" /></group>
+      <group ref={elbow} position={[0, -.235, 0]}><Parts parts={forearm} color="#cf9871" /></group>
     </group>)}
   </group>
 }

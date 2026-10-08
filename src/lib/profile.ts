@@ -1,3 +1,6 @@
+export const AVATAR_STYLES = ['girl', 'boy'] as const
+export type AvatarStyle = typeof AVATAR_STYLES[number]
+export const isAvatarStyle = (value: unknown): value is AvatarStyle => value === 'girl' || value === 'boy'
 export const PROFILE_COLOR_HEX = {
   forest: '#277c77', clay: '#ad684c', ocean: '#388fc1', plum: '#866086',
   sunflower: '#e4b83d', coral: '#e87168', indigo: '#5966bf', mint: '#65bd98',
@@ -47,12 +50,13 @@ export interface CampusProfile {
   bio: string
   course: string
   interests: string[]
+  avatar_style?: AvatarStyle | null
   avatar_color: (typeof PROFILE_COLORS)[number]
   is_public: boolean
   created_at: string
 }
 export const PROFILE_FIELDS =
-  'id,display_name,handle,bio,course,interests,avatar_color,is_public,created_at'
+  'id,display_name,handle,bio,course,interests,avatar_color,avatar_style,is_public,created_at'
 export function profileError(profile: Partial<CampusProfile>): string | null {
   if (!profile.display_name?.trim() || profile.display_name.trim().length > 80)
     return 'Choose a display name, up to 80 characters.'
@@ -80,6 +84,8 @@ export function profileError(profile: Partial<CampusProfile>): string | null {
     (profile.interests?.join(',').length || 0) > 160
   )
     return 'Add up to five interests, each a few words.'
+  if (profile.avatar_style !== undefined && profile.avatar_style !== null && !isAvatarStyle(profile.avatar_style))
+    return 'Choose a girl or boy avatar.'
   if (profile.avatar_color !== undefined && !isAvatarColor(profile.avatar_color))
     return 'Choose an available profile color.'
   return null

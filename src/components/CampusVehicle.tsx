@@ -1,3 +1,4 @@
+import type { AvatarStyle } from '../lib/profile'
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Quaternion, Vector3 } from 'three'
@@ -25,7 +26,7 @@ function Wheel({ radius, width, car = false }: { radius: number; width: number; 
     {car && <mesh position={[0, 0, width / 2 + .012]}><boxGeometry args={[radius * 1.1, .04, .02]} /><meshStandardMaterial color="#748b91" /></mesh>}
   </group>
 }
-export default function CampusVehicle({ mode, motion, jersey, accent }: { mode: TransportMode; motion: React.RefObject<AvatarMotion>; jersey?: string; accent?: string }) {
+export default function CampusVehicle({ style, mode, motion, jersey, accent }: { style?: AvatarStyle; mode: TransportMode; motion: React.RefObject<AvatarMotion>; jersey?: string; accent?: string }) {
   const wheels = useRef<(Group | null)[]>([]), front = useRef<Group>(null), spin = useRef(0)
   useFrame((_, delta) => {
     motion.current.vehicle = mode
@@ -34,9 +35,9 @@ export default function CampusVehicle({ mode, motion, jersey, accent }: { mode: 
     wheels.current.forEach(wheel => { if (wheel) wheel.rotation.x = spin.current })
     if (front.current) front.current.rotation.y = Math.max(-.38, Math.min(.38, motion.current.turn ?? 0))
   })
-  if (mode === 'walk') return <StudentAvatar motion={motion} jersey={jersey} accent={accent} />
+  if (mode === 'walk') return <StudentAvatar style={style} motion={motion} jersey={jersey} accent={accent} />
   if (mode === 'bicycle') return <group name="campus-bicycle">
-    <StudentAvatar motion={motion} jersey={jersey} accent={accent} />
+    <StudentAvatar style={style} motion={motion} jersey={jersey} accent={accent} />
     <group position={[0, 0, -.04]}>
       <group ref={node => { wheels.current[0] = node }} position={[0, .37, .7]}><Wheel radius={.37} width={.055} /></group>
       <group ref={front} position={[0, .37, -.7]}><group ref={node => { wheels.current[1] = node }}><Wheel radius={.37} width={.055} /></group></group>
@@ -52,7 +53,7 @@ export default function CampusVehicle({ mode, motion, jersey, accent }: { mode: 
     <mesh position={[0, .35, 0]} castShadow receiveShadow><boxGeometry args={[1.66, .18, 3.5]} /><meshStandardMaterial color="#31554f" roughness={.7} /></mesh>
     <mesh position={[0, .64, -1.23]} castShadow><boxGeometry args={[1.6, .42, .9]} /><meshStandardMaterial color="#72b4a1" roughness={.55} /></mesh>
     <mesh position={[0, .66, 1.43]} castShadow><boxGeometry args={[1.6, .38, .45]} /><meshStandardMaterial color="#72b4a1" /></mesh>
-    <group position={[BUGGY_SEATS[0].x, .23, BUGGY_SEATS[0].z]}><StudentAvatar motion={motion} jersey={jersey} accent={accent} /></group>
+    <group position={[BUGGY_SEATS[0].x, .23, BUGGY_SEATS[0].z]}><StudentAvatar style={style} motion={motion} jersey={jersey} accent={accent} /></group>
     {[-.46, .62].map(z => <group key={z}>
       <mesh position={[0, .74, z + .07]} castShadow><boxGeometry args={[1.4, .15, .53]} /><meshStandardMaterial color="#e5c899" roughness={.9} /></mesh>
       <mesh position={[0, 1.02, z + .28]} castShadow><boxGeometry args={[1.4, .5, .13]} /><meshStandardMaterial color="#e5c899" roughness={.9} /></mesh>

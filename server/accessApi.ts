@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { isAvatarStyle } from '../src/lib/profile.ts'
 import { bearer, createAccessVerifier } from './access.ts'
 import type { VerifyAccess } from './access.ts'
 export function createAccessAPI(verify: VerifyAccess = createAccessVerifier()) {
@@ -34,6 +35,7 @@ export function createAccessAPI(verify: VerifyAccess = createAccessVerifier()) {
           name: identity.name,
           role: identity.role,
           status: 'active',
+          avatarStyle: isAvatarStyle(identity.avatarStyle) ? identity.avatarStyle : null,
         }),
       )
       .catch((error) =>
