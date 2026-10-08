@@ -13,8 +13,8 @@ export default function CrowdAvatar({ style = 'boy', motion, color, seated = fal
   const geometry = useMemo(() => {
     const pieces: { geometry: BufferGeometry; x: number; y: number; z: number; color: string }[] = [
       { geometry: new BoxGeometry(.47, .49, .31), x: 0, y: 1.19, z: 0, color },
-      { geometry: new SphereGeometry(.215, 8, 6), x: 0, y: 1.72, z: 0, color: '#cf9871' },
-      { geometry: createAvatarGeometry([{ shape: 'scalp', sweep: style === 'boy' ? 1 : 0, size: [.224, 1.12, style === 'girl' ? 2.3 : 2.15], at: [0, 0, 0], scale: [.95, 1.03, .9] }]), x: 0, y: 1.725, z: -.008, color: '#242529' },
+      { geometry: createAvatarGeometry([{ shape: 'head', size: [.215, 0, 0], at: [0, 0, 0], scale: [.94, 1.02, .88] }]), x: 0, y: 1.72, z: -.01, color: '#cf9871' },
+      { geometry: createAvatarGeometry([{ shape: 'scalp', sweep: style === 'boy' ? 1 : 0, size: [.224, style === 'girl' ? 1.1 : 1.08, style === 'girl' ? 2.7 : 2.65], at: [0, 0, 0], scale: [.95, 1.03, .9] }]), x: 0, y: 1.725, z: -.008, color: '#242529' },
       { geometry: new BoxGeometry(.01, .38, .015), x: 0, y: 1.19, z: -.162, color: '#f1ead4' },
       { geometry: new BoxGeometry(.46, .065, .322), x: 0, y: .96, z: 0, color: '#253735' },
       { geometry: new BoxGeometry(.34, .009, .012), x: 0, y: 1.32, z: .157, color: '#f1ead4' },

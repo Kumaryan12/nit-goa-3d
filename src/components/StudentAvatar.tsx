@@ -35,22 +35,26 @@ function Parts({ parts, color = '#ffffff', roughness = .85 }: { parts: Part[]; c
 // A compact student silhouette: rounded jacket, connected sleeves, tailored
 // trousers and chunky sneakers. Fixed details are merged into their joint mesh.
 const torsoParts = [rounded([.47, .49, .31], [0, .31, 0])]
-const skinParts = [capsule(.075, .07, [0, .65, 0]), sphere(.215, [0, .84, -.01], [.94, 1.02, .88]), sphere(.043, [-.195, .84, 0]), sphere(.043, [.195, .84, 0]), sphere(.036, [0, .825, -.198], [.65, .75, 1])]
+const skinParts: Part[] = [capsule(.075, .07, [0, .65, 0]), { shape: 'head', size: [.215, 0, 0], at: [0, .84, -.01], scale: [.94, 1.02, .88] }, sphere(.035, [-.19, .842, .012], [.65, 1, .72]), sphere(.035, [.19, .842, .012], [.65, 1, .72]), sphere(.024, [0, .831, -.212], [.7, .95, .8])]
 // Front is -Z. Swept locks frame the forehead; the shell extends lower at
 // +Z so the rear reads as styled hair rather than a second skin-coloured face.
 const scalp = (front: number, back: number): Part => ({ shape: 'scalp', size: [.224, front, back], at: [0, .845, -.008], scale: [.95, 1.03, .90] })
-const boyHairParts = [{ ...scalp(1.12, 2.15), sweep: 1 }, capsule(.025, .065, [-.187, .872, .025]), capsule(.025, .065, [.187, .872, .025])]
-const girlHairParts = [scalp(1.13, 2.30), { ...capsule(.031, .125, [-.185, .879, -.047], [1, 1, .62]), rotation: [0, 0, -.20] as Triple }, { ...capsule(.031, .125, [.185, .879, -.047], [1, 1, .62]), rotation: [0, 0, .20] as Triple }]
-const faceParts = [{ ...capsule(.0055, .041, [-.071, .918, -.184], [1, 1, .7]), rotation: [0, 0, 1.43] as Triple }, { ...capsule(.0055, .041, [.071, .918, -.184], [1, 1, .7]), rotation: [0, 0, -1.43] as Triple }, { ...capsule(.005, .032, [-.016, .773, -.193]), rotation: [0, 0, 1.22] as Triple }, { ...capsule(.005, .032, [.016, .773, -.193]), rotation: [0, 0, -1.22] as Triple }]
+const boyHairParts = [{ ...scalp(1.08, 2.65), sweep: 1 }]
+const girlHairParts = [scalp(1.10, 2.70)]
+const faceParts: Part[] = [
+  { shape: 'strand', size: [.0045, 0, 0], at: [0, 0, 0], curve: [[-.092, .909, -.184], [-.07, .915, -.190], [-.045, .910, -.196]] },
+  { shape: 'strand', size: [.0045, 0, 0], at: [0, 0, 0], curve: [[.045, .910, -.196], [.07, .915, -.190], [.092, .909, -.184]] },
+  { shape: 'strand', size: [.0035, 0, 0], at: [0, 0, 0], curve: [[-.024, .779, -.195], [0, .772, -.203], [.024, .779, -.195]] },
+]
 function hairStrands(style: AvatarStyle): Part[] {
   const paths = style === 'girl' ? [-.38, -.2, .2, .38] : [-.65, -.25, .15]
   return paths.map(offset => ({ shape: 'strand', size: [.0025, 0, 0], at: [0, .845, -.008], scale: [.95, 1.03, .90], curve: Array.from({ length: 8 }, (_, i) => avatarScalpPoint(.227, .32 + i * .105, offset + (style === 'girl' ? Math.sign(offset) * i * .065 : i * .07), style === 'boy' ? 1 : 0)) }))
 }
 const boyHairHighlights = hairStrands('boy'), girlHairHighlights = hairStrands('girl')
-const earDetail = [-.211, .211].map(x => sphere(.023, [x, .841, -.014], [.35, 1, .65]))
+const earDetail = [-.208, .208].map(x => sphere(.018, [x, .842, .003], [.25, 1, .65]))
 const heads = Object.fromEntries((['girl', 'boy'] as const).map(style => [style, [...painted(skinParts, '#cf9871'), ...painted(earDetail, '#bb8060'), ...painted(style === 'girl' ? girlHairParts : boyHairParts, '#242529'), ...painted(style === 'girl' ? girlHairHighlights : boyHairHighlights, '#3c3732'), ...painted(faceParts, '#684538')]])) as Record<AvatarStyle, Part[]>
-const eyesParts = [...painted([-.07, .07].map(x => sphere(.029, [x, 0, -.189], [.9, 1, .34])), '#fff9ec'), ...painted([-.07, .07].map(x => sphere(.015, [x, 0, -.200], [.85, 1.1, .3])), '#302a28'), ...painted([-.07, .07].map(x => sphere(.005, [x + .003, .006, -.205], [1, 1, .4])), '#ffffff')]
-const ponytail = [...painted([sphere(.068, [0, 0, 0], [1, .8, 1]), { ...capsule(.068, .165, [.012, -.14, .075], [1, 1, .75]), rotation: [-.28, 0, -.12] as Triple }, sphere(.055, [.028, -.265, .112], [1, .72, .7])], '#242529'), ...painted([rounded([.064, .023, .020], [.008, -.048, .143])], '#bf9861'), ...painted([{ ...capsule(.003, .145, [-.024, -.14, .128], [1, 1, .7]), rotation: [-.28, 0, -.12] as Triple }], '#3c3732')]
+const eyesParts = [...painted([-.065, .065].map(x => sphere(.024, [x, 0, -.199], [1, .8, .24])), '#fff9ec'), ...painted([-.065, .065].map(x => sphere(.012, [x, 0, -.205], [.85, 1, .22])), '#302a28'), ...painted([-.065, .065].map(x => sphere(.0035, [x + .003, .004, -.208], [1, 1, .3])), '#ffffff')]
+const ponytail = [...painted([sphere(.068, [0, 0, 0], [1, .8, 1]), { ...capsule(.068, .165, [.012, -.14, .075], [1, 1, .75]), rotation: [-.28, 0, -.12] as Triple }, sphere(.055, [.028, -.265, .112], [1, .72, .7])], '#242529'), ...painted([rounded([.064, .018, .016], [0, -.022, .071])], '#bf9861'), ...painted([{ ...capsule(.003, .145, [-.024, -.14, .128], [1, 1, .7]), rotation: [-.28, 0, -.12] as Triple }], '#3c3732')]
 // Varsity bomber: ivory sleeves, ribbed edges and a small chest monogram.
 // The rear stays clean, with just a yoke seam below the styled hair.
 const jacketDetails = [

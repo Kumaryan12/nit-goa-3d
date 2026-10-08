@@ -21,7 +21,7 @@ export function AvatarPortrait({ style, color = '#277c77' }: { style: AvatarStyl
     <path d="M76 185h68" stroke="#253735" strokeWidth="7" />
     <path d="M76 185h68" stroke="#f1ead4" strokeWidth="1" />
     <rect x="97" y="110" width="26" height="27" rx="9" fill="#bd805b" />
-    <ellipse cx="110" cy="85" rx="39" ry="46" fill="#cf9871" />
+    <path d="M71 83c0-27 14-44 39-44s39 17 39 44c0 25-19 48-39 48S71 108 71 83" fill="#cf9871" />
     <ellipse cx="70" cy="89" rx="7" ry="11" fill="#cf9871" /><ellipse cx="150" cy="89" rx="7" ry="11" fill="#cf9871" />
     {style === 'girl' ? <g>
       <path d="M72 95c-10-36 1-65 38-65 36 0 46 29 38 65l-8-31c-15-2-24-14-30-21-6 10-19 20-31 21z" fill="#242529" />
@@ -31,7 +31,7 @@ export function AvatarPortrait({ style, color = '#277c77' }: { style: AvatarStyl
       <path d="M83 43q15-15 30-8M92 49q15-14 28-8M102 53q12-9 22-6" fill="none" stroke="#443c35" strokeWidth="2.5" strokeLinecap="round" />
     </g>}
     <path d="M85 80l12-2M123 78l12 2" stroke="#302a28" strokeWidth="3" strokeLinecap="round" />
-    {[91,129].map(x => <g key={x}><ellipse cx={x} cy="89" rx="7" ry="8" fill="#fff9ec" /><ellipse cx={x} cy="90" rx="3.5" ry="5" fill="#302a28" /><circle cx={x+1} cy="87" r="1.4" fill="#fff" /></g>)}
+    {[91,129].map(x => <g key={x}><ellipse cx={x} cy="89" rx="5.5" ry="4.5" fill="#fff9ec" /><ellipse cx={x} cy="89" rx="2.8" ry="3.4" fill="#302a28" /><circle cx={x+1} cy="87" r="1" fill="#fff" /></g>)}
     <path d="M109 93l-3 9h6" fill="none" stroke="#b97d57" strokeWidth="2" strokeLinecap="round" />
     <path d="M99 111q11 8 22 0" fill="none" stroke="#775043" strokeWidth="2.5" strokeLinecap="round" />
   </svg>

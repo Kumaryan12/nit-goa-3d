@@ -58,7 +58,7 @@ test('run blending avoids a posture pop and jump ascent/descent remain inside co
 test('mixed rounded clothing and indexed face geometry merges into a valid coloured mesh', () => {
   const parts = [
     { shape: 'rounded', size: [.47, .49, .31], at: [0, 1.2, 0], color: '#277c77' },
-    { shape: 'sphere', size: [.2, 0, 0], at: [0, 1.7, 0], scale: [1, .8, .9], color: '#cf9871' },
+    { shape: 'head', size: [.2, 0, 0], at: [0, 1.7, 0], scale: [1, .8, .9], color: '#cf9871' },
     { shape: 'capsule', size: [.1, .2, 0], at: [.3, 1.2, 0], rotation: [0, 0, .2] },
     { shape: 'box', size: [.1, .02, .03], at: [0, 1.5, -.2], color: '#ffffff' },
   ]
@@ -74,8 +74,8 @@ test('mixed rounded clothing and indexed face geometry merges into a valid colou
 })
 
 test('sculpted hair covers the nape, leaves the face open and has outward finite normals', () => {
-  for (const back of [2.15, 2.3]) {
-    const geometry = createAvatarGeometry([{ shape: 'scalp', size: [.224, 1.12, back], sweep: back === 2.15 ? 1 : 0, at: [0, 0, 0] }])
+  for (const back of [2.65, 2.7]) {
+    const geometry = createAvatarGeometry([{ shape: 'scalp', size: [.224, 1.1, back], sweep: back === 2.65 ? 1 : 0, at: [0, 0, 0] }])
     assert.equal(geometry.index.count / 3, 20 * (2 * 10 - 1), 'open cap retains both triangles along each hairline segment')
     const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal')
     const front = [], rear = []
@@ -88,7 +88,7 @@ test('sculpted hair covers the nape, leaves the face open and has outward finite
     }
     assert.ok(front.length && rear.length)
     assert.ok(Math.min(...front) > .09, 'forehead and eyes remain visible')
-    assert.ok(Math.min(...rear) < -.12, 'rear hair reaches down to the nape')
+    assert.ok(Math.min(...rear) < -.19, 'rear hair reaches down to the nape')
     geometry.computeBoundingBox()
     assert.ok(.88 + .845 + geometry.boundingBox.max.y * 1.03 < 2.1, 'crown remains inside the standing collision height')
     geometry.dispose()
