@@ -16,15 +16,19 @@ export default function CrowdAvatar({ style = 'boy', motion, color, seated = fal
       { geometry: new SphereGeometry(.215, 8, 6), x: 0, y: 1.72, z: 0, color: '#cf9871' },
       { geometry: createAvatarGeometry([{ shape: 'scalp', sweep: style === 'boy' ? 1 : 0, size: [.224, 1.12, style === 'girl' ? 2.3 : 2.15], at: [0, 0, 0], scale: [.95, 1.03, .9] }]), x: 0, y: 1.725, z: -.008, color: '#242529' },
       { geometry: new BoxGeometry(.01, .38, .015), x: 0, y: 1.19, z: -.162, color: '#f1ead4' },
-      { geometry: new BoxGeometry(.33, .4, .16), x: 0, y: 1.19, z: .25, color: '#263843' },
-      { geometry: new BoxGeometry(.30, .13, .05), x: 0, y: 1.085, z: .356, color: '#cf9254' },
+      { geometry: new BoxGeometry(.46, .065, .322), x: 0, y: .96, z: 0, color: '#253735' },
+      { geometry: new BoxGeometry(.34, .009, .012), x: 0, y: 1.32, z: .157, color: '#f1ead4' },
       ...(style === 'girl' ? [{ geometry: new SphereGeometry(.1, 6, 4).scale(.8, 1.6, .8), x: .025, y: 1.63, z: .28, color: '#242529' }] : []),
       ...[-.12, .12].flatMap(x => seated || vehicle !== 'walk' ? [
         { geometry: new BoxGeometry(.15, .15, .42), x, y: .88, z: -.2, color: '#304255' },
         { geometry: new BoxGeometry(.15, .27, .15), x, y: .71, z: -.42, color: '#304255' },
       ] : [{ geometry: new BoxGeometry(.15, .78, .18), x, y: .43, z: 0, color: '#304255' }]),
       ...[-.12, .12].map(x => ({ geometry: new BoxGeometry(.18, .11, .29), x, y: seated || vehicle !== 'walk' ? .61 : .068, z: seated || vehicle !== 'walk' ? -.47 : -.07, color: '#f8f5e9' })),
-      ...[-.29, .29].map(x => ({ geometry: new BoxGeometry(.12, .48, .13), x, y: 1.12, z: 0, color })),
+      ...[-.29, .29].flatMap(x => [
+        { geometry: new BoxGeometry(.12, .48, .13), x, y: 1.12, z: 0, color: '#f1ead4' },
+        { geometry: new BoxGeometry(.125, .025, .135), x, y: 1.23, z: 0, color },
+        { geometry: new BoxGeometry(.125, .04, .135), x, y: .91, z: 0, color: '#253735' },
+      ]),
     ].map(part => ({ ...part, x: part.x + (vehicle === 'buggy' ? .36 : 0), y: part.y + (vehicle === 'buggy' ? -.03 : passenger ? -.26 : seated ? -.55 : vehicle === 'bicycle' ? .15 : 0), z: part.z + (vehicle === 'buggy' ? -.46 : 0) }))
     if (vehicle === 'bicycle') {
       for (const z of [-.7,.7]) pieces.push({ geometry: new TorusGeometry(.34,.04,4,12).rotateY(Math.PI/2), x:0,y:.37,z,color:'#202c31' })

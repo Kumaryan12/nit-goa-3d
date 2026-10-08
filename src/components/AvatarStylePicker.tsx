@@ -9,13 +9,17 @@ export function AvatarPortrait({ style, color = '#277c77' }: { style: AvatarStyl
     <ellipse cx="110" cy="197" rx="57" ry="7" fill="#173e33" opacity=".12" />
     <circle cx="110" cy="95" r="72" fill="currentColor" opacity=".07" />
     {style === 'girl' && <g><path d="M144 58c30 1 32 30 16 62l-13-15c10-22 7-31-7-36" fill="#242529" /><path d="M148 70l12 5" stroke="#bf9861" strokeWidth="5" strokeLinecap="round" /></g>}
-    <rect x="59" y="128" width="103" height="68" rx="25" fill="#263843" />
+    <path d="M76 131c-14 2-21 14-23 33l-2 25h22l10-53m61-5c14 2 21 14 23 33l2 25h-22l-10-53" fill="#f1ead4" />
+    <path d="M57 155l20 5m66 0 20-5" stroke={color} strokeWidth="6" />
+    <path d="M57 155l20 5m66 0 20-5" stroke="#cf9254" strokeWidth="1.5" />
+    <path d="M51 185h22m74 0h22" stroke="#253735" strokeWidth="7" />
     <path d="M75 132q35-17 70 0l11 57H64z" fill={color} />
-    <path d="M78 135l-11 36M142 135l11 36" stroke="#203e39" strokeWidth="8" strokeLinecap="round" />
-    <path d="M110 137v50" stroke="#f7f4e8" strokeWidth="2" /><rect x="107" y="142" width="6" height="9" rx="2" fill="#f7f4e8" /><path d="M99 133l11 10 11-10" fill="none" stroke="#f7f4e8" strokeWidth="3" />
-    <path d="M86 155v12m0-12 9 12v-12" fill="none" stroke="#f7f4e8" strokeWidth="3" strokeLinejoin="round" />
-    <path d="M76 185h68" stroke="#203e39" strokeWidth="7" />
-    <path d="M97 153v20M123 153v20" stroke="#f7f4e8" strokeWidth="2" strokeLinecap="round" />
+    <path d="M97 130q13 12 26 0" fill="none" stroke="#253735" strokeWidth="7" />
+    <path d="M110 137v50" stroke="#f7f4e8" strokeWidth="2" /><rect x="107" y="142" width="6" height="9" rx="2" fill="#f7f4e8" />
+    <path d="M86 155v12m0-12 9 12v-12" fill="none" stroke="#cf9254" strokeWidth="3" strokeLinejoin="round" />
+    <path d="M77 176l17-6m32 0 17 6" stroke="#f1ead4" strokeWidth="2" strokeLinecap="round" />
+    <path d="M76 185h68" stroke="#253735" strokeWidth="7" />
+    <path d="M76 185h68" stroke="#f1ead4" strokeWidth="1" />
     <rect x="97" y="110" width="26" height="27" rx="9" fill="#bd805b" />
     <ellipse cx="110" cy="85" rx="39" ry="46" fill="#cf9871" />
     <ellipse cx="70" cy="89" rx="7" ry="11" fill="#cf9871" /><ellipse cx="150" cy="89" rx="7" ry="11" fill="#cf9871" />
