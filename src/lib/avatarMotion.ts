@@ -1,7 +1,7 @@
 import type { LocalCoordinate } from './geo.ts'
 import type { SocialState } from './social.ts'
 
-export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; social?: SocialState; seated?: boolean }
+export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; verticalVelocity?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; social?: SocialState; seated?: boolean }
 export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0
@@ -45,20 +45,32 @@ export function stridePhase(phase: number, distance: number, running: boolean) {
   return (phase + Math.max(0, Math.min(.8, distance)) * Math.PI * 2 / (running ? 2.5 : 1.65)) % (Math.PI * 2)
 }
 
-export function avatarPose(phase: number, speed: number, running: boolean, time: number, turn = 0, kick = 0, airborne = false) {
-  const amount = Math.min(1, Math.max(0, speed) / (running ? 4 : 1.8)), wave = Math.sin(phase)
-  const swing = amount * (running ? .72 : .44)
+export function avatarPose(phase: number, speed: number, running: boolean | number, time: number, turn = 0, kick = 0, airborne = false, verticalVelocity?: number, landing = 0) {
+  // Blend gait from the visual run weight, rather than snapping when Shift is
+  // pressed. Travel and collision still use the original locomotion state.
+  const run = typeof running === 'boolean' ? Number(running) : Math.max(0, Math.min(1, running))
+  const amount = Math.min(1, Math.max(0, speed) / (1.8 + run * 2.2)), wave = Math.sin(phase)
+  const swing = amount * (.44 + run * .28)
   const hips = [wave * swing, -wave * swing]
-  const knees = [-Math.max(0, -wave) * amount * (running ? 1.15 : .7), -Math.max(0, wave) * amount * (running ? 1.15 : .7)]
+  // Lift the returning foot through the middle of its recovery, then extend
+  // before contact. The supporting leg stays long instead of marching stiffly.
+  const recovery = [Math.max(0, -wave), Math.max(0, wave)]
+  const knees = recovery.map(value => -Math.pow(value, .8) * amount * (.7 + run * .45))
   if (kick > 0) { hips[1] = Math.sin(kick * Math.PI) * 1.1; knees[1] = -.25 * Math.sin(kick * Math.PI) }
-  if (airborne) { hips[0] = .25; hips[1] = .25; knees[0] = -.55; knees[1] = -.55 }
-  // Keep the supporting sneaker on the ground, with a small breathing motion.
+  const impact = Math.max(0, Math.min(1, landing))
+  if (impact) for (const i of [0, 1]) { hips[i] += impact * .12; knees[i] -= impact * .32 }
+  const lift = verticalVelocity === undefined ? .5 : Math.max(0, Math.min(1, (verticalVelocity + 4.4) / 8.8))
+  if (airborne) { hips[0] = .17 + lift * .16; hips[1] = .33 - lift * .16; knees[0] = -.35 - lift * .4; knees[1] = -.35 - lift * .4 }
   const lowestSole = Math.min(...hips.map((hip, i) => .88 - .37 * Math.cos(hip) - .37 * Math.cos(hip + knees[i]) - .129))
   return {
     hips, knees, ankles: hips.map((hip, i) => -hip - knees[i]),
-    arms: airborne ? [-.35, -.35] : [-wave * swing * .85, wave * swing * .85], elbows: [-.16 - amount * (running ? .65 : .16), -.16 - amount * (running ? .65 : .16)],
-    rootY: .011 - lowestSole + Math.sin(time * 1.8) * .0025,
-    lean: -amount * (running ? .13 : .035), sway: wave * amount * .025,
+    arms: airborne ? [-.18 - lift * .34, -.18 - lift * .34] : [-wave * swing * .9, wave * swing * .9],
+    elbows: [-.16 - amount * (.16 + run * .49), -.16 - amount * (.16 + run * .49)],
+    // Keep airborne poses within the standing collision height. Grounded poses
+    // always place the supporting sole on the floor, including landing bends.
+    rootY: airborne ? -.025 : .011 - lowestSole,
+    lean: -amount * (.035 + run * .095) - impact * .055 + Math.sin(time * 1.8) * .004 * (1 - amount),
+    sway: wave * amount * .025,
     bank: Math.max(-.09, Math.min(.09, turn * amount * .045)),
   }
 }
