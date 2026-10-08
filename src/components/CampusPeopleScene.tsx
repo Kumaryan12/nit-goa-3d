@@ -24,7 +24,7 @@ function Visitor({ person, session, messages, space, walking, detailed, label }:
     const pose = session.current.motion?.sample(person.id, performance.now()) ?? currentPerson?.pose
     if (!group || !pose) { if (group) group.visible = false; return }
     const allowedSpace = walking ? pose.space === space : pose.space === 'outdoors'
-    const dt = motionDelta(delta), blend = 1 - Math.exp(-dt * 15), beforeX = group.position.x, beforeZ = group.position.z
+    const dt = motionDelta(delta), blend = 1 - Math.exp(-dt * 15), beforeX = group.position.x, beforeZ = group.position.z, beforeY = group.position.y, beforeYaw = group.rotation.y
     const snap = epoch.current !== pose.epoch || Math.hypot(group.position.x - pose.x, group.position.z - pose.z) > 8
     if (snap) { group.position.set(pose.x, pose.y, pose.z); group.rotation.y = pose.yaw; epoch.current = pose.epoch }
     else if (session.current.motion) { group.position.set(pose.x, pose.y, pose.z) }
@@ -41,6 +41,8 @@ function Visitor({ person, session, messages, space, walking, detailed, label }:
     motion.current.vehicle = currentPerson?.ride ? 'buggy' : pose.vehicle ?? 'walk'
     motion.current.phase = stridePhase(motion.current.phase, distance, pose.running)
     motion.current.social = currentPerson?.social; motion.current.airborne = pose.airborne
+    motion.current.verticalVelocity = !snap && dt && pose.airborne ? Math.max(-4.4, Math.min(4.4, (group.position.y - beforeY) / dt)) : undefined
+    motion.current.turn = !snap && dt ? Math.atan2(Math.sin(group.rotation.y - beforeYaw), Math.cos(group.rotation.y - beforeYaw)) / dt : 0
     if (bubble.current) bubble.current.hidden = !message || Date.now() - message.time > 8000
   })
   return <group ref={root} position={person.pose ? [person.pose.x, person.pose.y, person.pose.z] : [0, 0, 0]} name="shared-campus-visitor">

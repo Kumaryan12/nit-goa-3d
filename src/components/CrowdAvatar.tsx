@@ -11,14 +11,17 @@ export default function CrowdAvatar({ style = 'boy', motion, color, seated = fal
   const root = useRef<Group>(null)
   const geometry = useMemo(() => {
     const pieces: { geometry: BufferGeometry; x: number; y: number; z: number; color: string }[] = [
-      { geometry: new BoxGeometry(.42, .54, .27), x: 0, y: 1.15, z: 0, color },
-      { geometry: new SphereGeometry(.19, 8, 6), x: 0, y: 1.68, z: 0, color: '#cf9871' },
-      { geometry: new SphereGeometry(.2, 8, 6).scale(1, .6, .88), x: 0, y: 1.8, z: .02, color: '#302a28' },
+      { geometry: new BoxGeometry(.47, .49, .31), x: 0, y: 1.19, z: 0, color },
+      { geometry: new SphereGeometry(.215, 8, 6), x: 0, y: 1.72, z: 0, color: '#cf9871' },
+      { geometry: new SphereGeometry(.215, 8, 6).scale(1, .6, .88), x: 0, y: 1.84, z: .02, color: '#302a28' },
+      { geometry: new BoxGeometry(.01, .38, .015), x: 0, y: 1.19, z: -.162, color: '#f1ead4' },
+      { geometry: new BoxGeometry(.33, .4, .16), x: 0, y: 1.19, z: .25, color: '#cf9254' },
       ...(style === 'girl' ? [{ geometry: new SphereGeometry(.1, 6, 4).scale(.8, 1.6, .8), x: .025, y: 1.63, z: .22, color: '#302a28' }] : []),
       ...[-.12, .12].flatMap(x => seated || vehicle !== 'walk' ? [
         { geometry: new BoxGeometry(.15, .15, .42), x, y: .88, z: -.2, color: '#304255' },
         { geometry: new BoxGeometry(.15, .27, .15), x, y: .71, z: -.42, color: '#304255' },
       ] : [{ geometry: new BoxGeometry(.15, .78, .18), x, y: .43, z: 0, color: '#304255' }]),
+      ...[-.12, .12].map(x => ({ geometry: new BoxGeometry(.18, .11, .29), x, y: seated || vehicle !== 'walk' ? .61 : .068, z: seated || vehicle !== 'walk' ? -.47 : -.07, color: '#f8f5e9' })),
       ...[-.29, .29].map(x => ({ geometry: new BoxGeometry(.12, .48, .13), x, y: 1.12, z: 0, color })),
     ].map(part => ({ ...part, x: part.x + (vehicle === 'buggy' ? .36 : 0), y: part.y + (vehicle === 'buggy' ? -.03 : passenger ? -.26 : seated ? -.55 : vehicle === 'bicycle' ? .15 : 0), z: part.z + (vehicle === 'buggy' ? -.46 : 0) }))
     if (vehicle === 'bicycle') {

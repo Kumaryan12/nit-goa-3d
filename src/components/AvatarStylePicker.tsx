@@ -12,7 +12,9 @@ export function AvatarPortrait({ style, color = '#277c77' }: { style: AvatarStyl
     <rect x="59" y="128" width="103" height="68" rx="25" fill="#be8850" />
     <path d="M75 132q35-17 70 0l11 57H64z" fill={color} />
     <path d="M78 135l-11 36M142 135l11 36" stroke="#203e39" strokeWidth="8" strokeLinecap="round" />
-    <path d="M94 137l16 16 16-16" fill="none" stroke="#f7f4e8" strokeWidth="5" strokeLinecap="round" />
+    <path d="M110 137v50" stroke="#f7f4e8" strokeWidth="2" />
+    <path d="M86 155v12m0-12 9 12v-12" fill="none" stroke="#f7f4e8" strokeWidth="3" strokeLinejoin="round" />
+    <path d="M76 185h68" stroke="#203e39" strokeWidth="7" />
     <path d="M97 153v20M123 153v20" stroke="#f7f4e8" strokeWidth="2" strokeLinecap="round" />
     <rect x="97" y="110" width="26" height="27" rx="9" fill="#bd805b" />
     <ellipse cx="110" cy="85" rx="39" ry="46" fill="#cf9871" />

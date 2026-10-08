@@ -353,6 +353,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     motion.current.running = !passengerPose && ride.current === 'walk' && running
     motion.current.paused = !allowed
     motion.current.airborne = !jump.current.grounded
+    motion.current.verticalVelocity = jump.current.velocity
     motion.current.phase = stridePhase(motion.current.phase, moved, running)
     motion.current.turn = ride.current === 'walk' ? 0 : -vehicle.current.steering
     avatar.current.position.set(next.x, feetY, next.z)
