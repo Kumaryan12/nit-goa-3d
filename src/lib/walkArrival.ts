@@ -3,7 +3,7 @@ import type { DigitalTwin } from './digitalTwin.ts'
 import type { LocalCoordinate } from './geo.ts'
 import { gpsToLocal } from './geo.ts'
 import type { HostelPlan } from './hostelInterior.ts'
-import { campusFacadeFront } from './campusFacade.ts'
+import { campusFacadeApproach, campusFacadeFront } from './campusFacade.ts'
 import { createAdministrationFacade } from './administrationFacade.ts'
 import { findEntranceSpawn, findWalkSpawn } from './walking.ts'
 import type { WalkEntrance, WalkWorld } from './walking.ts'
@@ -32,7 +32,7 @@ export function findLocationArrival(location: CampusLocation, twin: DigitalTwin,
       distance = Math.max(2.4, 6.45 * facade.porchScale + 1)
     }
   } else if (building) {
-    const front = campusFacadeFront(building, twin.roads)
+    const front = campusFacadeFront(building, twin.roads, undefined, campusFacadeApproach(location.id, twin.locations))
     if (front) entrance = { point: front.entrance, outward: front.front.outward }
   } else if (location.id === 'main-entrance') {
     const centre = twin.boundary.length ? twin.boundary.reduce((sum, p) => ({ x: sum.x + p.x / twin.boundary.length, z: sum.z + p.z / twin.boundary.length }), { x: 0, z: 0 }) : { x: 0, z: 0 }

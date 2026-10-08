@@ -9,7 +9,7 @@ import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
 import { createWalkWorld, isWalkable, stepWalking, treeCeilingAt, findWalkSpawn, findEntranceSpawn, findSharedSpawn, nearestWalkLocation, placeDistance, cameraBoomFraction, explorerViewFromURL, withExplorerView, emptyWalkInput } from '../src/lib/walking.ts'
 import { findLocationArrival } from '../src/lib/walkArrival.ts'
-import { campusFacadeFront } from '../src/lib/campusFacade.ts'
+import { campusFacadeApproach, campusFacadeFront, createCampusFacade } from '../src/lib/campusFacade.ts'
 import { createHostelPlan, createGyanMandirPlan, GYAN_MANDIR_ID } from '../src/lib/hostelInterior.ts'
 import { gpsToLocal } from '../src/lib/geo.ts'
 import { pointInCampus } from '../src/lib/roads.ts'
@@ -109,7 +109,7 @@ test('selected buildings arrive in front of their doorway, face it, and never la
     close(-Math.sin(arrival.yaw),vector.x/length);close(-Math.cos(arrival.yaw),vector.z/length)
     const plan=Object.values(twin.interiors).find(p=>p?.buildingId===selection.buildingId)
     if(plan) {assert.deepEqual(arrival.position,plan.entrance.outside);assert.deepEqual(arrival.entrance.point,plan.entrance.point)}
-    else if(selection.location.id!=='administration-block') assert.deepEqual(arrival.entrance.point,campusFacadeFront(assignedBuilding(selection.location.id),twin.roads).entrance)
+    else if(selection.location.id!=='administration-block') assert.deepEqual(arrival.entrance.point,campusFacadeFront(assignedBuilding(selection.location.id),twin.roads,undefined,campusFacadeApproach(selection.location.id,twin.locations)).entrance)
     assert.deepEqual(findLocationArrival({...selection.location,name:'Renamed by owner'},twin,actual),arrival)
   }
 })
@@ -133,6 +133,25 @@ test('shared CSE and ECE arrivals stay outside all four walls, including their c
       occupied.push(next)
     }
   }
+})
+test('owner-confirmed CSE and ECE doors and arrivals face OAT, not the opposite road', () => {
+  const oat=twin.theatre.center
+  for(const id of ['relation/19505814/0','relation/19505815/0']) {
+    const selection=twin.selections.find(s=>s.location.id===id), building=assignedBuilding(id)
+    const target=campusFacadeApproach(id,twin.locations)
+    assert.deepEqual(target,oat)
+    const facade=createCampusFacade(building,selection,twin.roads,undefined,target)
+    const arrival=findLocationArrival(selection.location,twin,actual)
+    assert.ok(facade && arrival)
+    assert.ok(facade.front.outward.z<-.99,`${selection.location.name}: OAT-facing exterior side`)
+    assert.ok((oat.x-facade.entrance.x)*facade.front.outward.x+(oat.z-facade.entrance.z)*facade.front.outward.z>0)
+    assert.deepEqual(arrival.entrance.point,facade.entrance,'avatar and visible doorway agree')
+    const reversed=createCampusFacade({...building,outer:[...building.outer].reverse()},selection,twin.roads,undefined,target)
+    close(reversed.entrance.x,facade.entrance.x);close(reversed.entrance.z,facade.entrance.z)
+    const moved={...twin,locations:twin.locations.map(l=>l.id==='open-air-theatre'?{...l,coordinates:{x:oat.x+5,z:oat.z-5}}:l)}
+    assert.deepEqual(campusFacadeApproach(id,moved.locations),{x:oat.x+5,z:oat.z-5},'follows owner OAT corrections')
+  }
+  assert.equal(campusFacadeApproach('girls-hostel',twin.locations),undefined)
 })
 test('open-air theatre arrival keeps its entrance and faces the theatre; gate arrival faces into campus', () => {
   const theatre=findLocationArrival(twin.locations.find(l=>l.id==='open-air-theatre'),twin,actual)

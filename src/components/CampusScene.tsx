@@ -8,7 +8,7 @@ import { bindCameraGestures } from '../lib/cameraGestures'
 import type { CameraRequest } from '../lib/camera'
 import { gpsToLocal } from '../lib/geo'
 import { createAdministrationFacade } from '../lib/administrationFacade'
-import { createCampusFacade, campusFacadeCamera } from '../lib/campusFacade'
+import { createCampusFacade, campusFacadeCamera, campusFacadeApproach } from '../lib/campusFacade'
 import type { CampusFacadePlan } from '../lib/campusFacade'
 import { generateTerrain } from '../lib/terrain'
 import type { DigitalTwin } from '../lib/digitalTwin'
@@ -192,7 +192,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
     return index < 0 || !entrance ? null : createAdministrationFacade(twin.buildings[index], entrance.coordinates, twin.roads)
   }, [twin])
   const facades = useMemo(() => new Map(twin?.buildings.flatMap((building, i) => {
-    const plan = createCampusFacade(building, twin.selections[i], twin.roads, building.id===gyanPlan?.buildingId?gyanPlan:hostelPlan)
+    const plan = createCampusFacade(building, twin.selections[i], twin.roads, building.id===gyanPlan?.buildingId?gyanPlan:hostelPlan, campusFacadeApproach(twin.selections[i].location.id, twin.locations))
     return plan ? [[building.id, plan] as const] : []
   }) ?? []), [twin, hostelPlan, gyanPlan])
   const activeInterior=interiorBuildingId===gyanPlan?.buildingId?gyanPlan:hostelPlan

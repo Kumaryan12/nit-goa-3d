@@ -7,7 +7,7 @@ import { gpsToLocal } from './geo.ts'
 import type { LocalCoordinate } from './geo.ts'
 import { distanceToSegment } from './terrain.ts'
 import type { BuildingFootprint, RoadFootprint } from '../types/osm.ts'
-import type { BuildingSelection } from '../types/campus.ts'
+import type { BuildingSelection, CampusLocation } from '../types/campus.ts'
 import type { HostelPlan } from './hostelInterior.ts'
 import type { CameraView } from './camera.ts'
 
@@ -18,6 +18,16 @@ export interface CampusFacadePlan {
   frames: FacadeBox[]; panes: FacadeBox[]; trim: FacadeBox[]
   roof: { vertices: number[]; indices: number[] }
   canopyWidth: number; canopyDepth: number; roadClearance: number | null
+}
+// Owner-confirmed entrances follow stable location identities, including after
+// renaming/rebinding. Both departmental gates face the open-air theatre.
+const entranceFacingLandmark: Record<string, string> = {
+  'relation/19505814/0': 'open-air-theatre',
+  'relation/19505815/0': 'open-air-theatre',
+}
+export function campusFacadeApproach(locationId: string, locations: CampusLocation[]): LocalCoordinate | undefined {
+  const target = entranceFacingLandmark[locationId]
+  return target ? locations.find(location => location.id === target)?.coordinates : undefined
 }
 function ringWalls(points: LocalCoordinate[], courtyard = false): FacadeWall[] {
   const area = points.slice(1).reduce((sum, b, i) => sum + points[i].x * b.z - b.x * points[i].z, 0)
@@ -30,24 +40,28 @@ function ringWalls(points: LocalCoordinate[], courtyard = false): FacadeWall[] {
   })
 }
 // Walking arrivals and the rendered doorway must use the same exterior face.
-export function campusFacadeFront(building: BuildingFootprint, roads: RoadFootprint[], doorway?: HostelPlan | null) {
+export function campusFacadeFront(building: BuildingFootprint, roads: RoadFootprint[], doorway?: HostelPlan | null, approach?: LocalCoordinate) {
   const exterior = ringWalls(building.outer.map(gpsToLocal))
   if (!exterior.length) return null
   const segments = roads.filter(road => road.kind === 'road').flatMap(road => road.paths.flatMap(path => path.slice(1).map((b, i) => ({ a: path[i], b, width: road.width }))))
   const roadDistance = (p: LocalCoordinate) => segments.length ? Math.min(...segments.map(s => distanceToSegment(p, s.a, s.b) - s.width / 2)) : Infinity
   const longest = Math.max(...exterior.map(w => w.length)), entry = doorway?.buildingId === building.id ? doorway.entrance.point : null
-  const candidates = exterior.filter(w => w.length >= (entry ? 8 : Math.max(8, longest * .45)))
+  let candidates = exterior.filter(w => w.length >= (entry ? 8 : Math.max(8, longest * .45)))
   if (!candidates.length) return null
+  if (!entry && approach) {
+    const facing = candidates.filter(w => (approach.x - w.center.x) * w.outward.x + (approach.z - w.center.z) * w.outward.z > 0)
+    if (facing.length) candidates = facing
+  }
   const endpoints = (w: FacadeWall) => [facadePoint(w, -w.length / 2, 0), facadePoint(w, w.length / 2, 0)]
-  const score = (w: FacadeWall) => entry ? distanceToSegment(entry, ...endpoints(w) as [LocalCoordinate, LocalCoordinate]) : roadDistance(facadePoint(w, 0, 1))
+  const score = (w: FacadeWall) => entry || approach ? distanceToSegment((entry ?? approach)!, ...endpoints(w) as [LocalCoordinate, LocalCoordinate]) : roadDistance(facadePoint(w, 0, 1))
   candidates.sort((a, b) => score(a) - score(b) || b.length - a.length || a.center.x - b.center.x || a.center.z - b.center.z)
   const front = candidates[0], entrance = entry && score(front) < .2 ? entry : front.center
   return { front, entrance, exterior, segments, roadDistance }
 }
-export function createCampusFacade(building: BuildingFootprint, selection: BuildingSelection, roads: RoadFootprint[], doorway?: HostelPlan | null): CampusFacadePlan | null {
+export function createCampusFacade(building: BuildingFootprint, selection: BuildingSelection, roads: RoadFootprint[], doorway?: HostelPlan | null, approach?: LocalCoordinate): CampusFacadePlan | null {
   const appearance = buildingAppearances[selection.location.id]
   if (!appearance || !Number.isFinite(building.height) || building.height < 2) return null
-  const entry = campusFacadeFront(building, roads, doorway)
+  const entry = campusFacadeFront(building, roads, doorway, approach)
   if (!entry) return null
   const { front, entrance, exterior, segments, roadDistance } = entry
   const outer = building.outer.map(gpsToLocal), holes = building.holes.map(ring => ring.map(gpsToLocal))
