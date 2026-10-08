@@ -54,7 +54,7 @@ function BuildingInfoPanel({ gyanPlan, onEnterGyan, hostelPlan, onPlayFootball, 
     {!collapsed && <><p className="building-description">{location.description}</p>
     <div className="location-distance"><span aria-hidden="true">◎</span><span>{distance === null ? 'Campus center loading...' : `${distance} m from campus center`}<small>Approximate straight-line distance</small></span></div>
     <div className="panel-actions"><button type="button" className="navigate-button" onClick={onNavigate}>📍 Navigate here</button>
-      <button type="button" className="fly-button" onClick={() => onFlyTo(location.id)}>{walkMode ? 'Start walking here ↗' : 'Fly to location ↗'}</button></div>
+      <button type="button" className="fly-button" onClick={() => onFlyTo(location.id)}>{walkMode ? 'Start at entrance ↗' : 'Fly to location ↗'}</button></div>
     {gyanPlan?.locationId===location.id && onEnterGyan && <section className="panel-section"><h3>Explore the classrooms</h3><p className="panel-muted">Ground: rooms 1–15 · First: 16–45 · Second: 46–75. Two open courtyards and a large reading room at the north end of the first floor.</p><p className="building-match-note">Room ranges follow campus information. Interior partitions and furnishings are approximate.</p><button className="navigate-button" onClick={onEnterGyan}>Enter Gyan Mandir →</button></section>}
     {location.id === 'sports-ground' && onPlayFootball && <button className="navigate-button football-join" onClick={onPlayFootball}>⚽ Join live football</button>}
     {location.id === 'open-air-theatre' && onOpenConcert && <button className="navigate-button football-join" onClick={onOpenConcert}>🎤 Open live concert</button>}

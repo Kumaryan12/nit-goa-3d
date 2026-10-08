@@ -124,11 +124,28 @@ export function findWalkSpawn(anchor: LocalCoordinate, world: WalkWorld): LocalC
 // Distinct admission slots prevent simultaneous arrivals from occupying the
 // exact same point and covering each other's avatars. Check the actual world,
 // including walls, trees, canals and the boundary, before choosing a spot.
-export function findSharedSpawn(anchor: LocalCoordinate, world: WalkWorld, slot: number, occupied: LocalCoordinate[]): LocalCoordinate {
+export interface WalkEntrance { point: LocalCoordinate; outward: LocalCoordinate; buildingOuter?: LocalCoordinate[] }
+// Search only the small approach in front of this doorway, never the building
+// centre, an enclosed courtyard, or another side of the footprint.
+export function findEntranceSpawn(entrance: WalkEntrance, world: WalkWorld, distance = 2.4): LocalCoordinate | null {
+  const { point, outward } = entrance, along = { x: outward.z, z: -outward.x }
+  const offsets = [0, .8, -.8, 1.6, -1.6, 2.4, -2.4]
+  for (let depth = distance; depth <= distance + 6; depth += .8) for (const offset of offsets) {
+    const candidate = { x: point.x + outward.x * depth + along.x * offset, z: point.z + outward.z * depth + along.z * offset }
+    if ((!entrance.buildingOuter || !pointInCampus(candidate, entrance.buildingOuter)) && isWalkable(candidate, world)) return candidate
+  }
+  return null
+}
+export function findSharedSpawn(anchor: LocalCoordinate, world: WalkWorld, slot: number, occupied: LocalCoordinate[], entrance?: WalkEntrance): LocalCoordinate {
   const candidates: LocalCoordinate[] = []
-  for (let index = 0; index < 256 && candidates.length < 32; index++) {
-    const radius = index ? 2.2 * Math.sqrt(index) : 0, angle = index * 2.399963229728653
-    const candidate = { x: anchor.x + Math.cos(angle) * radius, z: anchor.z + Math.sin(angle) * radius }
+  const outward = entrance?.outward ?? { x: 0, z: 1 }, along = { x: outward.z, z: -outward.x }
+  const offsets = Array.from({ length: 21 * 21 }, (_, index) => ({ side: index % 21 - 10, depth: Math.floor(index / 21) - 10 }))
+    .sort((a, b) => a.side ** 2 + a.depth ** 2 - b.side ** 2 - b.depth ** 2 || b.depth - a.depth || a.side - b.side)
+  for (const offset of offsets) {
+    if (candidates.length >= 32) break
+    const candidate = { x: anchor.x + (along.x * offset.side + outward.x * offset.depth) * 1.6, z: anchor.z + (along.z * offset.side + outward.z * offset.depth) * 1.6 }
+    if (entrance && (candidate.x - entrance.point.x) * outward.x + (candidate.z - entrance.point.z) * outward.z < 1.5) continue
+    if (entrance?.buildingOuter && pointInCampus(candidate, entrance.buildingOuter)) continue
     if (isWalkable(candidate, world) && candidates.every(other => Math.hypot(candidate.x - other.x, candidate.z - other.z) >= 1.5)) candidates.push(candidate)
   }
   for (let attempt = 0; attempt < candidates.length; attempt++) {

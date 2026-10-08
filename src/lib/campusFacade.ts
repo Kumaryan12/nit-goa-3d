@@ -29,11 +29,9 @@ function ringWalls(points: LocalCoordinate[], courtyard = false): FacadeWall[] {
     return [{ center: { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }, outward, length, angle: Math.atan2(outward.x, outward.z) }]
   })
 }
-export function createCampusFacade(building: BuildingFootprint, selection: BuildingSelection, roads: RoadFootprint[], doorway?: HostelPlan | null): CampusFacadePlan | null {
-  const appearance = buildingAppearances[selection.location.id]
-  if (!appearance || !Number.isFinite(building.height) || building.height < 2) return null
-  const outer = building.outer.map(gpsToLocal), holes = building.holes.map(ring => ring.map(gpsToLocal))
-  const exterior = ringWalls(outer), walls = [...exterior, ...holes.flatMap(ring => ringWalls(ring, true))]
+// Walking arrivals and the rendered doorway must use the same exterior face.
+export function campusFacadeFront(building: BuildingFootprint, roads: RoadFootprint[], doorway?: HostelPlan | null) {
+  const exterior = ringWalls(building.outer.map(gpsToLocal))
   if (!exterior.length) return null
   const segments = roads.filter(road => road.kind === 'road').flatMap(road => road.paths.flatMap(path => path.slice(1).map((b, i) => ({ a: path[i], b, width: road.width }))))
   const roadDistance = (p: LocalCoordinate) => segments.length ? Math.min(...segments.map(s => distanceToSegment(p, s.a, s.b) - s.width / 2)) : Infinity
@@ -44,6 +42,16 @@ export function createCampusFacade(building: BuildingFootprint, selection: Build
   const score = (w: FacadeWall) => entry ? distanceToSegment(entry, ...endpoints(w) as [LocalCoordinate, LocalCoordinate]) : roadDistance(facadePoint(w, 0, 1))
   candidates.sort((a, b) => score(a) - score(b) || b.length - a.length || a.center.x - b.center.x || a.center.z - b.center.z)
   const front = candidates[0], entrance = entry && score(front) < .2 ? entry : front.center
+  return { front, entrance, exterior, segments, roadDistance }
+}
+export function createCampusFacade(building: BuildingFootprint, selection: BuildingSelection, roads: RoadFootprint[], doorway?: HostelPlan | null): CampusFacadePlan | null {
+  const appearance = buildingAppearances[selection.location.id]
+  if (!appearance || !Number.isFinite(building.height) || building.height < 2) return null
+  const entry = campusFacadeFront(building, roads, doorway)
+  if (!entry) return null
+  const { front, entrance, exterior, segments, roadDistance } = entry
+  const outer = building.outer.map(gpsToLocal), holes = building.holes.map(ring => ring.map(gpsToLocal))
+  const walls = [...exterior, ...holes.flatMap(ring => ringWalls(ring, true))]
   const entryAlong = (entrance.x - front.center.x) * Math.cos(front.angle) - (entrance.z - front.center.z) * Math.sin(front.angle)
   const availableWidth = Math.max(0, front.length - 2 * Math.abs(entryAlong) - 1)
   const canopyWidth = Math.min(availableWidth, appearance.style === 'tutorial' ? 15 : appearance.style === 'department' ? 18 : 9)
