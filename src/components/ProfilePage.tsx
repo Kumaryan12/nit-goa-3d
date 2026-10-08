@@ -4,12 +4,13 @@ import { PROFILE_COLORS, profileError } from '../lib/community'
 import { profileColorStyle } from '../lib/profile'
 import type { CampusProfile } from '../lib/community'
 import ProfileCard from './ProfileCard'
+import AvatarStylePicker from './AvatarStylePicker'
 export default function ProfilePage({
   userId,
   onSaved,
 }: {
   userId: string
-  onSaved: () => void
+  onSaved: (profile: CampusProfile) => void
 }) {
   const [savedShare, setSavedShare] = useState('')
   const [profile, setProfile] = useState<CampusProfile | null>(null),
@@ -82,6 +83,7 @@ export default function ProfilePage({
                 .map((s) => s.trim())
                 .filter(Boolean),
               avatar_color: profile.avatar_color,
+              avatar_style: profile.avatar_style ?? null,
               is_public: profile.is_public,
             }
             const error = profileError(fields)
@@ -105,7 +107,7 @@ export default function ProfilePage({
                     ? 'public and ready to share.'
                     : 'visible only to you.'),
               )
-              onSaved()
+              onSaved(data as CampusProfile)
             } catch (error) {
               setMessage(
                 error instanceof Error &&
@@ -187,6 +189,7 @@ export default function ProfilePage({
               placeholder="Music, football, late-night conversations"
             />
           </label>
+          <AvatarStylePicker value={profile.avatar_style} color={profile.avatar_color} disabled={busy} onChange={avatar_style => change({ avatar_style })} />
           <fieldset className="profile-colors">
             <legend>Pick your colour</legend>
             {PROFILE_COLORS.map((color) => (

@@ -7,7 +7,7 @@ import type { OatSnapshot } from '../lib/oatProtocol'
 import { CAMPUS_COLORS } from '../lib/campusProtocol'
 import type { CampusPerson, CampusSession } from '../lib/campusProtocol'
 import { allocateAvatarColor } from '../lib/profile'
-import type { AvatarColor } from '../lib/profile'
+import type { AvatarColor, AvatarStyle } from '../lib/profile'
 import StudentAvatar from './StudentAvatar'
 import CrowdAvatar from './CrowdAvatar'
 import { GraphicsContext } from './ScenePerformance'
@@ -17,11 +17,11 @@ import { theatreSeats } from '../lib/social'
 import type { SocialSeat } from '../lib/social'
 import type { AvatarMotion } from '../lib/avatarMotion'
 
-function ConcertVisitor({ point, id, name, performer, color, session, detailed, label }: { point: Pick<SocialSeat, 'x' | 'y' | 'z' | 'yaw'>; id: string; name: string; performer: boolean; color: string; session: React.RefObject<CampusSession>; detailed: boolean; label: boolean }) {
+function ConcertVisitor({ style, point, id, name, performer, color, session, detailed, label }: { style?: AvatarStyle; point: Pick<SocialSeat, 'x' | 'y' | 'z' | 'yaw'>; id: string; name: string; performer: boolean; color: string; session: React.RefObject<CampusSession>; detailed: boolean; label: boolean }) {
   const motion = useRef<AvatarMotion>({ phase: 0, moving: false, seated: !performer })
   useFrame(() => { motion.current.seated = !performer; motion.current.social = session.current.snapshot?.people.find(p => p.id === id)?.social })
   return <group position={[point.x, point.y, point.z]} rotation={[0, point.yaw, 0]} name={performer ? 'concert-performer' : 'seated-concert-visitor'}>
-    {detailed || performer ? <StudentAvatar motion={motion} jersey={color} /> : <CrowdAvatar motion={motion} color={color} seated />}
+    {detailed || performer ? <StudentAvatar style={style} motion={motion} jersey={color} /> : <CrowdAvatar style={style} motion={motion} color={color} seated />}
     {(label || performer) && <SocialBubble session={session} personId={id} height={performer ? 2.9 : 1.5} />}
     {performer && <Html center position={[0, 2.1, 0]} distanceFactor={35} style={{ pointerEvents: 'none' }}><span className="oat-performer-label">🎤 {name}</span></Html>}
   </group>
@@ -58,7 +58,7 @@ export default function OatConcertScene({ theatre, concert, people, session }: {
         <mesh position={[0, 1.46, 0]} rotation={[Math.PI / 2, 0, 0]}><capsuleGeometry args={[.045, .14, 4, 8]} /><meshStandardMaterial color="#1b2823" emissive="#e26f40" emissiveIntensity={concert?.micOn ? .6 : 0} /></mesh>
       </group>
     </group>
-    {performer && <ConcertVisitor point={{ ...stage, y: theatre.elevation + .53, yaw: theatre.rotation + Math.PI }} id={performer.id} session={session} name={performer.name} color={CAMPUS_COLORS[colors.get(performer.id)!]} performer detailed label />}
-    {audience.map((person, index) => <ConcertVisitor key={person.id} point={seats[index]} id={person.id} session={session} name={person.name} color={CAMPUS_COLORS[colors.get(person.id)!]} performer={false} detailed={detail.detailed.has(person.id)} label={detail.labels.has(person.id)} />)}
+    {performer && <ConcertVisitor style={people.find(p => p.id === performer.id)?.avatarStyle} point={{ ...stage, y: theatre.elevation + .53, yaw: theatre.rotation + Math.PI }} id={performer.id} session={session} name={performer.name} color={CAMPUS_COLORS[colors.get(performer.id)!]} performer detailed label />}
+    {audience.map((person, index) => <ConcertVisitor style={people.find(p => p.id === person.id)?.avatarStyle} key={person.id} point={seats[index]} id={person.id} session={session} name={person.name} color={CAMPUS_COLORS[colors.get(person.id)!]} performer={false} detailed={detail.detailed.has(person.id)} label={detail.labels.has(person.id)} />)}
   </group>
 }

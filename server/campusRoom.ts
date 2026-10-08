@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { gpsToLocal, localToGps, pointInRing, validClosedRing } from '../src/lib/geo.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
-import { allocateAvatarColor, defaultAvatarColor, isAvatarColor } from '../src/lib/profile.ts'
+import { allocateAvatarColor, defaultAvatarColor, isAvatarColor, isAvatarStyle } from '../src/lib/profile.ts'
 import type { AvatarColor } from '../src/lib/profile.ts'
 import { CAMPUS_CAPACITY, campusName, campusHandle, chatText, canHearNearby, parseCampusPose, buggySeatPose, campusId } from '../src/lib/campusProtocol.ts'
 import type { CampusPerson, CampusSnapshot, CampusChat, CampusActivity, CampusPose, BuggyRide } from '../src/lib/campusProtocol.ts'
@@ -30,7 +30,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
   const chatLimits = new Map<string, number[]>(), history: CampusChat[] = []
   let sequence = 0
   const preferredColor = (identity: CampusIdentity) => isAvatarColor(identity.avatarColor) ? identity.avatarColor : defaultAvatarColor(identity.id)
-  const metadata = (identity: CampusIdentity) => ({ name: campusName(identity.name), handle: campusHandle(identity.publicHandle) ? identity.publicHandle : null })
+  const metadata = (identity: CampusIdentity) => ({ avatarStyle: isAvatarStyle(identity.avatarStyle) ? identity.avatarStyle : 'boy' as const, name: campusName(identity.name), handle: campusHandle(identity.publicHandle) ? identity.publicHandle : null })
   const assignColor = (identity: CampusIdentity) => allocateAvatarColor(identity.id, preferredColor(identity), [...members.values()].filter(member => member.person.id !== identity.id).map(member => member.person.color))
   const prune = (now: number) => {
     while (history.length && (history.length > 50 || now - history[0].time > 15 * 60000)) history.shift()

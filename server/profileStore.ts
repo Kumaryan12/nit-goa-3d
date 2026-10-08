@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore'
 import { FieldPath } from 'firebase-admin/firestore'
-import { profileError } from '../src/lib/profile.ts'
+import { isAvatarStyle, profileError } from '../src/lib/profile.ts'
 import type { CampusProfile } from '../src/lib/profile.ts'
 import type { CampusIdentity } from './access.ts'
 export function createProfileStore(db: Firestore) {
@@ -43,6 +43,7 @@ export function createProfileStore(db: Firestore) {
       ],
       avatar_color: source.avatar_color as CampusProfile['avatar_color'],
       is_public: source.is_public,
+      ...(source.avatar_style !== undefined ? { avatar_style: source.avatar_style as CampusProfile['avatar_style'] } : {}),
     }
     const error = profileError(fields)
     if (error) throw new Error(error)
@@ -63,7 +64,7 @@ export function createProfileStore(db: Firestore) {
       const handleDoc = newHandle ? await tx.get(newHandle) : null
       if (handleDoc?.exists && handleDoc.data()?.userId !== identity.id)
         throw new Error('That handle is taken. Try another.')
-      const next = { ...fields, id: identity.id, created_at: old.created_at }
+      const next = { ...fields, avatar_style: source.avatar_style === undefined ? old.avatar_style ?? null : fields.avatar_style ?? null, id: identity.id, created_at: old.created_at }
       if (oldHandle && old.handle !== fields.handle) tx.delete(oldHandle)
       if (old.handle && (old.handle !== fields.handle || !fields.is_public))
         tx.delete(db.doc('publicProfiles/' + old.handle))
@@ -75,6 +76,22 @@ export function createProfileStore(db: Firestore) {
     })
     changed()
     return profile
+  }
+  async function saveAvatar(identity: CampusIdentity, input: unknown) {
+    if (!input || typeof input !== 'object' || Array.isArray(input) || !isAvatarStyle((input as Record<string, unknown>).avatar_style)) throw new Error('Choose a girl or boy avatar.')
+    const avatar_style = (input as { avatar_style: 'girl' | 'boy' }).avatar_style
+    const ref = db.doc('profiles/' + identity.id)
+    const profile = await db.runTransaction(async tx => {
+      const [previous, membership] = await Promise.all([tx.get(ref), tx.get(db.doc('campusMembers/' + identity.id))])
+      if (!previous.exists || membership.data()?.status !== 'active') throw new Error('Campus access is unavailable.')
+      const old = previous.data() as CampusProfile, next = { ...old, avatar_style }
+      // This endpoint updates appearance only. Never accept profile IDs, roles,
+      // names or visibility from the request, or overwrite a concurrent edit.
+      tx.update(ref, { avatar_style })
+      if (old.is_public && old.handle) tx.set(db.doc('publicProfiles/' + old.handle), next)
+      return next
+    })
+    changed(); return profile
   }
   async function publicProfile(handle: string) {
     if (!/^[a-z][a-z0-9_]{2,23}$/.test(handle)) return null
@@ -132,5 +149,5 @@ export function createProfileStore(db: Firestore) {
     cache.set(key, { until: Date.now() + 30000, data })
     return data
   }
-  return { own, save, publicProfile, directory, changed }
+  return { own, save, saveAvatar, publicProfile, directory, changed }
 }

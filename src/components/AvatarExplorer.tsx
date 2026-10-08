@@ -1,3 +1,4 @@
+import type { AvatarStyle } from '../lib/profile'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
@@ -26,7 +27,8 @@ import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../li
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ avatarStyle, campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+  avatarStyle?: AvatarStyle
   onSocialStop: () => void
   campusSession: React.RefObject<CampusSession>; onBuggyRide: (driverId: string | null) => void
   campusPose: React.RefObject<CampusPose | null>
@@ -386,5 +388,5 @@ export default function AvatarExplorer({ campusSession, onSocialStop, onBuggyRid
     }
   })
   useEffect(() => () => { footballControls.current.actor = null }, [footballControls])
-  return <group ref={avatar}><>{passengerView ? <StudentAvatar motion={motion} jersey={footballJersey} accent={avatarAccent} /> : <CampusVehicle mode={rideMode} motion={motion} jersey={footballJersey} accent={avatarAccent} />}</><SocialBubble session={campusSession} /></group>
+  return <group ref={avatar}><>{passengerView ? <StudentAvatar style={avatarStyle} motion={motion} jersey={footballJersey} accent={avatarAccent} /> : <CampusVehicle style={avatarStyle} mode={rideMode} motion={motion} jersey={footballJersey} accent={avatarAccent} />}</><SocialBubble session={campusSession} /></group>
 }

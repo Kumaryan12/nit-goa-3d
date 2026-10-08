@@ -1,3 +1,4 @@
+import type { AvatarStyle } from '../lib/profile'
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { BoxGeometry, Color, Float32BufferAttribute, SphereGeometry, TorusGeometry } from 'three'
@@ -6,12 +7,14 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { AvatarMotion } from '../lib/avatarMotion'
 
 // One draw call for distant visitors. Close friends keep the articulated model.
-export default function CrowdAvatar({ motion, color, seated = false, passenger = false, vehicle = 'walk' }: { motion: React.RefObject<AvatarMotion>; color: string; seated?: boolean; passenger?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy' }) {
+export default function CrowdAvatar({ style = 'boy', motion, color, seated = false, passenger = false, vehicle = 'walk' }: { style?: AvatarStyle; motion: React.RefObject<AvatarMotion>; color: string; seated?: boolean; passenger?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy' }) {
   const root = useRef<Group>(null)
   const geometry = useMemo(() => {
     const pieces: { geometry: BufferGeometry; x: number; y: number; z: number; color: string }[] = [
       { geometry: new BoxGeometry(.42, .54, .27), x: 0, y: 1.15, z: 0, color },
-      { geometry: new SphereGeometry(.19, 8, 6), x: 0, y: 1.68, z: 0, color: '#c99066' },
+      { geometry: new SphereGeometry(.19, 8, 6), x: 0, y: 1.68, z: 0, color: '#cf9871' },
+      { geometry: new SphereGeometry(.2, 8, 6).scale(1, .6, .88), x: 0, y: 1.8, z: .02, color: '#302a28' },
+      ...(style === 'girl' ? [{ geometry: new SphereGeometry(.1, 6, 4).scale(.8, 1.6, .8), x: .025, y: 1.63, z: .22, color: '#302a28' }] : []),
       ...[-.12, .12].flatMap(x => seated || vehicle !== 'walk' ? [
         { geometry: new BoxGeometry(.15, .15, .42), x, y: .88, z: -.2, color: '#304255' },
         { geometry: new BoxGeometry(.15, .27, .15), x, y: .71, z: -.42, color: '#304255' },
@@ -34,7 +37,7 @@ export default function CrowdAvatar({ motion, color, seated = false, passenger =
     })
     const result = mergeGeometries(colored)!
     colored.forEach(piece => piece.dispose()); return result
-  }, [color, seated, passenger, vehicle])
+  }, [style, color, seated, passenger, vehicle])
   useEffect(() => () => geometry.dispose(), [geometry])
   useFrame(() => {
     if (!root.current || motion.current.paused) return

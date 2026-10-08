@@ -17,6 +17,7 @@ export function createProfileAPI(
         path = url.pathname
       if (
         path !== '/api/me' &&
+        path !== '/api/me/avatar' &&
         path !== '/api/people' &&
         !path.startsWith('/api/people/')
       )
@@ -45,8 +46,8 @@ export function createProfileAPI(
       busy++
       void (async () => {
         store ??= provider()
-        if (path === '/api/me') {
-          if (!['GET', 'PATCH'].includes(req.method || '')) {
+        if (path === '/api/me' || path === '/api/me/avatar') {
+          if (!(path === '/api/me/avatar' ? ['PATCH'] : ['GET', 'PATCH']).includes(req.method || '')) {
             sendJSON(res, 405, { error: 'Method not supported.' })
             req.resume()
             return
@@ -57,7 +58,7 @@ export function createProfileAPI(
             200,
             req.method === 'GET'
               ? await store.own(identity.id)
-              : await store.save(identity, await readJSON(req)),
+              : path === '/api/me/avatar' ? await store.saveAvatar(identity, await readJSON(req)) : await store.save(identity, await readJSON(req)),
           )
           return
         }
@@ -77,7 +78,7 @@ export function createProfileAPI(
         .catch((error) => {
           const message = error instanceof Error ? error.message : ''
           const input =
-            /^(Invalid profile|Choose a display|Use 3|Choose a handle|Your bio|Add up to|Choose an available|That handle|Invalid directory|Use a JSON|Request too large|Invalid JSON)/.test(
+            /^(Invalid profile|Choose a display|Use 3|Choose a handle|Your bio|Add up to|Choose an available|Choose a girl|That handle|Invalid directory|Use a JSON|Request too large|Invalid JSON)/.test(
               message,
             )
           const auth =

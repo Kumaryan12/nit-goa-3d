@@ -9,9 +9,13 @@ import ProfilePage from './ProfilePage'
 import PeoplePage from './PeoplePage'
 import CrowdDesk from './CrowdDesk'
 import AccessPortal from './AccessPortal'
+import AvatarChoice from './AvatarChoice'
+import { isAvatarStyle } from '../lib/profile'
+import type { AvatarStyle } from '../lib/profile'
 import './community.css'
 const Campus = lazy(() => import('../App'))
 interface Access {
+  avatarStyle?: AvatarStyle | null
   id: string
   name: string
   role: 'member' | 'moderator' | 'admin'
@@ -161,6 +165,7 @@ export default function CommunityApp() {
       )}
     </div>
   )
+  if (inCampus && signedIn && !isAvatarStyle(access?.avatarStyle)) return <AvatarChoice key={access!.id} onBack={() => navigate('/student')} onSaved={style => { setAccess(previous => previous && previous.id === auth.user?.id ? { ...previous, avatarStyle: style } : previous); setRefresh(value => value + 1) }} />
   if (inCampus)
     return (
       <Suspense
@@ -172,6 +177,7 @@ export default function CommunityApp() {
         }
       >
         <Campus
+          avatarStyle={access?.avatarStyle ?? undefined}
           accountControl={accountControl}
           accountOpen={menu}
           canEdit={(path === '/admin/campus' && isAdmin) || (preview && import.meta.env.DEV && !auth.configured)}
@@ -294,7 +300,7 @@ export default function CommunityApp() {
             ) : path === '/me' && signedIn ? (
               <ProfilePage
                 userId={access!.id}
-                onSaved={() => setRefresh((v) => v + 1)}
+                onSaved={profile => { setAccess(previous => previous && previous.id === profile.id ? { ...previous, avatarStyle: profile.avatar_style ?? null, name: profile.display_name } : previous); setRefresh((v) => v + 1) }}
               />
             ) : (path === '/manage' || path === '/admin/crowd') && isAdmin ? (
               <CrowdDesk role={access!.role} />
