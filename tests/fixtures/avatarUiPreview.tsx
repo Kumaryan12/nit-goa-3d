@@ -1,10 +1,10 @@
 // Local rendering fixture only; no server identity or authentication bypass.
-import { StrictMode, useRef, useState } from 'react'
+import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { OrbitControls } from '@react-three/drei'
 import { stridePhase, motionDelta } from '../../src/lib/avatarMotion'
 import { advanceJump, freshJump } from '../../src/lib/avatarJump'
-import { useFrame, Canvas } from '@react-three/fiber'
+import { useFrame, useThree, Canvas } from '@react-three/fiber'
 import AvatarChoice from '../../src/components/AvatarChoice'
 import AvatarStylePicker from '../../src/components/AvatarStylePicker'
 import StudentAvatar from '../../src/components/StudentAvatar'
@@ -30,15 +30,20 @@ function AnimatedModel({ style, action, back }: { style: AvatarStyle; action: Pr
  })
  return <group ref={root} position={[0,-.65,0]} rotation={[0,back?.25:Math.PI+.25,0]}><StudentAvatar style={style} motion={motion}/></group>
 }
+function DetailCamera({ closeUp }: { closeUp: boolean }) {
+ const camera = useThree(state => state.camera)
+ useEffect(() => { camera.position.set(...(closeUp ? [.2,1.17,1.75] : [.5,1.5,5]) as [number,number,number]); camera.lookAt(0,closeUp?1.03:.65,0) },[camera,closeUp])
+ return null
+}
 function Showcase() {
- const [style,setStyle]=useState<AvatarStyle>('girl'), [action,setAction]=useState<PreviewAction>('idle'),[back,setBack]=useState(false)
+ const [style,setStyle]=useState<AvatarStyle>('girl'), [action,setAction]=useState<PreviewAction>('idle'),[back,setBack]=useState(false),[closeUp,setCloseUp]=useState(false)
  return <main style={{height:'100dvh',display:'grid',gridTemplateRows:'minmax(220px,1fr) auto',background:'#e5ede1'}}>
    <Canvas shadows camera={{position:[.5,1.5,5],fov:38}} dpr={[1,1.3]} onCreated={({camera})=>camera.lookAt(0,.65,0)}>
     <color attach="background" args={['#e5ede1']}/><ambientLight intensity={1.4}/><directionalLight position={[-3,5,4]} intensity={2.5}/><directionalLight position={[3,2,-4]} intensity={1.2}/>
-    <AnimatedModel style={style} action={action} back={back}/><OrbitControls target={[0,.65,0]} enablePan={false} minDistance={2.5} maxDistance={6}/>
+    <DetailCamera closeUp={closeUp}/><AnimatedModel style={style} action={action} back={back}/><OrbitControls target={[0,closeUp?1.03:.65,0]} enablePan={false} minDistance={1.7} maxDistance={6}/>
    </Canvas>
    <div style={{width:'min(420px,calc(100% - 24px))',margin:'0 auto 12px'}}>
-    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12}}>{(['idle','walk','run','jump','wave','dance','sit','bicycle','buggy'] as PreviewAction[]).map(value=><button key={value} onClick={()=>setAction(value)} aria-pressed={action===value}>{value}</button>)}<button onClick={()=>setBack(!back)}>Turn around</button></div>
+    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12}}>{(['idle','walk','run','jump','wave','dance','sit','bicycle','buggy'] as PreviewAction[]).map(value=><button key={value} onClick={()=>setAction(value)} aria-pressed={action===value}>{value}</button>)}<button onClick={()=>setBack(!back)}>{back?'Show front':'Show back'}</button><button onClick={()=>setCloseUp(!closeUp)}>{closeUp?'Full avatar':'Hair & face'}</button></div>
     <AvatarStylePicker value={style} onChange={setStyle}/>
    </div>
  </main>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { createAvatarGeometry } from '../lib/avatarGeometry'
+import { avatarScalpPoint, createAvatarGeometry } from '../lib/avatarGeometry'
 import type { BufferGeometry } from 'three'
 import type { Group } from 'three'
 import { advanceAvatarAnimation, freshAvatarAnimation } from '../lib/avatarAnimation'
@@ -36,16 +36,26 @@ function Parts({ parts, color = '#ffffff', roughness = .85 }: { parts: Part[]; c
 // trousers and chunky sneakers. Fixed details are merged into their joint mesh.
 const torsoParts = [rounded([.47, .49, .31], [0, .31, 0]), sphere(.13, [0, .55, .075], [1.35, .72, .95])]
 const skinParts = [capsule(.075, .07, [0, .65, 0]), sphere(.215, [0, .84, -.01], [.94, 1.02, .88]), sphere(.043, [-.195, .84, 0]), sphere(.043, [.195, .84, 0]), sphere(.036, [0, .825, -.198], [.65, .75, 1])]
-const boyHairParts = [sphere(.215, [0, .963, .022], [1, .57, .85]), sphere(.13, [-.10, .978, -.095], [1, .66, .8]), sphere(.12, [.085, .982, -.055], [1, .6, 1]), capsule(.031, .085, [-.188, .875, .04]), capsule(.031, .085, [.188, .875, .04])]
-const girlHairParts = [sphere(.215, [0, .963, .025], [1, .61, .88]), sphere(.12, [-.11, .953, -.095], [1, .65, .78]), sphere(.095, [.13, .944, -.04], [.65, 1, .8]), capsule(.044, .17, [-.185, .83, .07]), capsule(.044, .17, [.185, .83, .07])]
-const faceParts = [rounded([.055, .012, .013], [-.07, .917, -.182]), rounded([.055, .012, .013], [.07, .917, -.182]), { ...capsule(.006, .033, [-.017, .77, -.191]), rotation: [0, 0, 1.25] as Triple }, { ...capsule(.006, .033, [.017, .77, -.191]), rotation: [0, 0, -1.25] as Triple }]
-const hairHighlights = [sphere(.07, [-.115, .986, -.11], [1, .25, .45]), sphere(.04, [.11, .985, -.06], [1, .25, .5])]
-const heads = Object.fromEntries((['girl', 'boy'] as const).map(style => [style, [...painted(skinParts, '#cf9871'), ...painted(style === 'girl' ? girlHairParts : boyHairParts, '#292626'), ...painted(hairHighlights, '#453b33'), ...painted(faceParts, '#684538')]])) as Record<AvatarStyle, Part[]>
+// Front is -Z. Swept locks frame the forehead; the shell extends lower at
+// +Z so the rear reads as styled hair rather than a second skin-coloured face.
+const scalp = (front: number, back: number): Part => ({ shape: 'scalp', size: [.224, front, back], at: [0, .845, -.008], scale: [.95, 1.03, .90] })
+const boyHairParts = [{ ...scalp(1.12, 2.15), sweep: 1 }, capsule(.025, .065, [-.187, .872, .025]), capsule(.025, .065, [.187, .872, .025])]
+const girlHairParts = [scalp(1.13, 2.30), { ...capsule(.031, .125, [-.185, .879, -.047], [1, 1, .62]), rotation: [0, 0, -.20] as Triple }, { ...capsule(.031, .125, [.185, .879, -.047], [1, 1, .62]), rotation: [0, 0, .20] as Triple }]
+const faceParts = [{ ...capsule(.0055, .041, [-.071, .918, -.184], [1, 1, .7]), rotation: [0, 0, 1.43] as Triple }, { ...capsule(.0055, .041, [.071, .918, -.184], [1, 1, .7]), rotation: [0, 0, -1.43] as Triple }, { ...capsule(.005, .032, [-.016, .773, -.193]), rotation: [0, 0, 1.22] as Triple }, { ...capsule(.005, .032, [.016, .773, -.193]), rotation: [0, 0, -1.22] as Triple }]
+function hairStrands(style: AvatarStyle): Part[] {
+  const paths = style === 'girl' ? [-.38, -.2, .2, .38] : [-.65, -.25, .15]
+  return paths.map(offset => ({ shape: 'strand', size: [.0025, 0, 0], at: [0, .845, -.008], scale: [.95, 1.03, .90], curve: Array.from({ length: 8 }, (_, i) => avatarScalpPoint(.227, .32 + i * .105, offset + (style === 'girl' ? Math.sign(offset) * i * .065 : i * .07), style === 'boy' ? 1 : 0)) }))
+}
+const boyHairHighlights = hairStrands('boy'), girlHairHighlights = hairStrands('girl')
+const earDetail = [-.211, .211].map(x => sphere(.023, [x, .841, -.014], [.35, 1, .65]))
+const heads = Object.fromEntries((['girl', 'boy'] as const).map(style => [style, [...painted(skinParts, '#cf9871'), ...painted(earDetail, '#bb8060'), ...painted(style === 'girl' ? girlHairParts : boyHairParts, '#242529'), ...painted(style === 'girl' ? girlHairHighlights : boyHairHighlights, '#3c3732'), ...painted(faceParts, '#684538')]])) as Record<AvatarStyle, Part[]>
 const eyesParts = [...painted([-.07, .07].map(x => sphere(.029, [x, 0, -.189], [.9, 1, .34])), '#fff9ec'), ...painted([-.07, .07].map(x => sphere(.015, [x, 0, -.200], [.85, 1.1, .3])), '#302a28'), ...painted([-.07, .07].map(x => sphere(.005, [x + .003, .006, -.205], [1, 1, .4])), '#ffffff')]
-const ponytail = [...painted([sphere(.072, [0, 0, 0]), { ...capsule(.079, .18, [.018, -.155, .06], [1, 1, .8]), rotation: [-.25, 0, -.12] as Triple }], '#292626'), ...painted([capsule(.074, .01, [0, -.034, .016], [1, .65, .85])], '#c8a66a')]
-const bagParts = [rounded([.33, .40, .16], [0, .31, .25]), rounded([.28, .16, .055], [0, .22, .352])]
-const bagDetail = [...painted([box([.23, .014, .012], [0, .304, .387]), rounded([.06, .017, .018], [.07, .304, .397]), capsule(.017, .075, [-.105, .545, .24]), capsule(.017, .075, [.105, .545, .24])], '#333b3b'), ...painted([rounded([.065, .045, .015], [0, .405, .338])], '#f0e5c8')]
-const jacketDetails = [...painted([rounded([.46, .065, .322], [0, .08, 0]), capsule(.024, .40, [-.166, .34, -.164], [1, 1, .6]), capsule(.024, .40, [.166, .34, -.164], [1, 1, .6]), box([.018, .41, .012], [0, .31, -.164])], '#253735'), ...painted([box([.005, .38, .014], [0, .31, -.173]), rounded([.043, .009, .016], [-.105, .37, -.172]), rounded([.043, .009, .016], [-.105, .41, -.172]), box([.009, .048, .016], [-.122, .39, -.172]), box([.009, .048, .016], [-.087, .39, -.172]), { ...box([.009, .05, .016], [-.105, .39, -.172]), rotation: [0, 0, .6] as Triple }, rounded([.095, .012, .02], [-.105, .18, -.172]), rounded([.095, .012, .02], [.105, .18, -.172]), capsule(.009, .095, [-.035, .47, -.18]), capsule(.009, .095, [.035, .47, -.18])], '#f1ead4')]
+const ponytail = [...painted([sphere(.068, [0, 0, 0], [1, .8, 1]), { ...capsule(.068, .165, [.012, -.14, .075], [1, 1, .75]), rotation: [-.28, 0, -.12] as Triple }, sphere(.055, [.028, -.265, .112], [1, .72, .7])], '#242529'), ...painted([rounded([.064, .023, .020], [.008, -.048, .143])], '#bf9861'), ...painted([{ ...capsule(.003, .145, [-.024, -.14, .128], [1, 1, .7]), rotation: [-.28, 0, -.12] as Triple }], '#3c3732')]
+// A dark structured pack, warm front pocket and an ivory diamond badge make
+// the rear silhouette and colour layout distinct from every jacket colour.
+const bagParts = [rounded([.30, .13, .05], [0, .205, .356])]
+const bagDetail = [...painted([rounded([.34, .41, .17], [0, .325, .25]), rounded([.295, .105, .03], [0, .482, .34]), capsule(.015, .056, [-.045, .548, .246]), capsule(.015, .056, [.045, .548, .246]), { ...capsule(.015, .060, [0, .577, .246]), rotation: [0, 0, Math.PI / 2] as Triple }], '#263843'), ...painted([box([.254, .012, .014], [0, .282, .389]), rounded([.025, .031, .017], [.105, .272, .403]), box([.273, .008, .014], [0, .433, .36])], '#aebbb7'), ...painted([{ ...rounded([.053, .053, .014], [0, .371, .345]), rotation: [0, 0, Math.PI / 4] as Triple }, box([.004, .053, .02], [0, .371, .356])], '#eee6d0')]
+const jacketDetails = [...painted([rounded([.46, .065, .322], [0, .08, 0]), capsule(.016, .40, [-.173, .34, -.164], [1, 1, .6]), capsule(.016, .40, [.173, .34, -.164], [1, 1, .6]), box([.018, .41, .012], [0, .31, -.164])], '#253735'), ...painted([box([.005, .38, .014], [0, .31, -.173]), rounded([.021, .034, .015], [0, .444, -.187]), { ...capsule(.011, .073, [-.035, .548, -.129]), rotation: [0, 0, .65] as Triple }, { ...capsule(.011, .073, [.035, .548, -.129]), rotation: [0, 0, -.65] as Triple }, rounded([.043, .009, .016], [-.105, .37, -.172]), rounded([.043, .009, .016], [-.105, .41, -.172]), box([.009, .048, .016], [-.122, .39, -.172]), box([.009, .048, .016], [-.087, .39, -.172]), { ...box([.009, .05, .016], [-.105, .39, -.172]), rotation: [0, 0, .6] as Triple }, rounded([.095, .012, .02], [-.105, .18, -.172]), rounded([.095, .012, .02], [.105, .18, -.172]), capsule(.009, .095, [-.035, .47, -.18]), capsule(.009, .095, [.035, .47, -.18])], '#f1ead4')]
 const upperLeg = [...painted([capsule(.094, .22, [0, -.185, 0])], '#304255'), ...painted([rounded([.12, .11, .018], [0, -.105, -.085])], '#3e5267')]
 const lowerLeg = [...painted([capsule(.079, .24, [0, -.185, 0]), sphere(.08, [0, 0, 0])], '#304255'), ...painted([capsule(.081, .016, [0, -.315, 0])], '#233443')]
 const pelvis = [rounded([.31, .14, .26], [0, .01, 0])]
@@ -148,13 +158,13 @@ export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77
     <group ref={torso} position={[0, .88, 0]}>
       <Parts parts={outfit.body} />
       <group ref={head} position={[0, .65, 0]}><group position={[0, -.65, 0]}>
-        <Parts parts={heads[style]} roughness={.8} />
+        <Parts parts={heads[style]} roughness={.68} />
         {style === 'girl' && <group ref={tail} position={[0, .93, .185]}><Parts parts={ponytail} roughness={.7} /></group>}
         <group ref={eyes} position={[0, .875, 0]}>
           <Parts parts={eyesParts} roughness={.4} />
         </group>
       </group></group>
-      <group ref={backpack} position={[0, .54, .23]}><group position={[0, -.54, -.23]}><Parts parts={outfit.bag} /></group></group>
+      <group ref={backpack} position={[0, .54, .23]}><group position={[0, -.54, -.23]}><Parts parts={outfit.bag} roughness={.72} /></group></group>
 
     </group>
     <group ref={shoulders} position={[0, .88, 0]}>

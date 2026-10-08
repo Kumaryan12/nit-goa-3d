@@ -72,3 +72,25 @@ test('mixed rounded clothing and indexed face geometry merges into a valid colou
   assert.ok(new Set([...geometry.getAttribute('color').array]).size > 3)
   geometry.dispose()
 })
+
+test('sculpted hair covers the nape, leaves the face open and has outward finite normals', () => {
+  for (const back of [2.15, 2.3]) {
+    const geometry = createAvatarGeometry([{ shape: 'scalp', size: [.224, 1.12, back], sweep: back === 2.15 ? 1 : 0, at: [0, 0, 0] }])
+    assert.equal(geometry.index.count / 3, 20 * (2 * 10 - 1), 'open cap retains both triangles along each hairline segment')
+    const positions = geometry.getAttribute('position'), normals = geometry.getAttribute('normal')
+    const front = [], rear = []
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i)
+      const dot = x * normals.getX(i) + y * normals.getY(i) + z * normals.getZ(i)
+      assert.ok(Number.isFinite(dot) && dot > .15, 'hair normals point away from the head, including along the open hairline')
+      if (Math.abs(x) < .015 && z < -.04) front.push(y)
+      if (Math.abs(x) < .015 && z > .04) rear.push(y)
+    }
+    assert.ok(front.length && rear.length)
+    assert.ok(Math.min(...front) > .09, 'forehead and eyes remain visible')
+    assert.ok(Math.min(...rear) < -.12, 'rear hair reaches down to the nape')
+    geometry.computeBoundingBox()
+    assert.ok(.88 + .845 + geometry.boundingBox.max.y * 1.03 < 2.1, 'crown remains inside the standing collision height')
+    geometry.dispose()
+  }
+})
