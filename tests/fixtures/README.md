@@ -1,5 +1,7 @@
 # Real OSM regression fixture
 
+Local buggy review: open `/tests/fixtures/buggy-impact-preview.html` with Vite. Replay a rear or glancing collision at gentle or high speed. This development-only fixture uses the production vehicle model, contact solver and recoil integrator; authenticated delivery, passengers and delayed packets are exercised by the multiplayer regression tests.
+
 Local loading-screen review: start Vite and open `/tests/fixtures/loading-preview.html` (add `?mobile=1` for a 390px phone layout or `?phase=error` for retry controls). Use Preview reveal and Replay intro to review the gold logo’s foreground arrival and retreat. This development-only preview holds the selected visual stage without simulating authentication or changing real loading timing. `/tests/fixtures/campus-ui-preview.html?view=walk` verifies the actual intro-to-campus handoff with the published map snapshot when started with `VITE_FIREBASE_API_KEY=''`. Production entry uses the same intro while map, terrain, vegetation and the first rendered frames prepare; failed requests keep their retry actions, and exploration stays paused until reveal. A fast cached load lets the 1.15-second arrival finish before the one-second retreat; reduced-motion users get a short fade.
 
 `nit-goa-campus.json` is the unmodified JSON response fetched from `https://overpass-api.de/api/interpreter` on 2026-10-01 with `CAMPUS_QUERY` from `src/lib/osm.ts`.

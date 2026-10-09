@@ -1,3 +1,5 @@
+import { BUGGY_BODY, boundedBuggyVelocity } from './buggyImpacts.ts'
+import type { BuggyImpact } from './buggyImpacts.ts'
 import type { LocalCoordinate } from './geo.ts'
 import type { RoadFootprint } from '../types/osm.ts'
 import { motionDelta } from './avatarMotion.ts'
@@ -7,16 +9,26 @@ import { roadRibbon, ROAD_ELEVATION, FOOTPATH_ELEVATION } from './roadRibbon.ts'
 import { isWalkable, stepWalking, walkSurfaceHeightAt } from './walking.ts'
 import type { WalkWorld } from './walking.ts'
 import { theatreSurfaceHeightAt } from './theatre.ts'
-import { MOVEMENT_SPEEDS } from './movementLimits.ts'
+import { MOVEMENT_SPEEDS, PRESENCE_CATCHUP_SECONDS, PRESENCE_SPEED_LIMITS } from './movementLimits.ts'
 
 export type TransportMode = 'walk' | 'bicycle' | 'buggy'
 export type VehicleKind = Exclude<TransportMode, 'walk'>
-export interface VehicleState { speed: number; yaw: number; steering: number }
+export interface VehicleState { speed: number; yaw: number; steering: number; drift?: LocalCoordinate; impactTurn?: number; impactStrength?: number; impactAge?: number }
 export const VEHICLES = {
   bicycle: { speed: MOVEMENT_SPEEDS.bicycle, reverse: 0, acceleration: 1.4, brake: 7, radius: .3, halfLength: .7, wheelbase: 1.4, wheelRadius: .37 },
-  buggy: { speed: MOVEMENT_SPEEDS.buggy, reverse: 1.4, acceleration: 1.8, brake: 12, radius: .92, halfLength: .9, wheelbase: 2.1, wheelRadius: .33 },
+  buggy: { speed: MOVEMENT_SPEEDS.buggy, reverse: 1.4, acceleration: 1.8, brake: 12, radius: BUGGY_BODY.radius, halfLength: BUGGY_BODY.halfLength, wheelbase: 2.1, wheelRadius: .33 },
 } as const
 export const freshVehicle = (yaw = 0): VehicleState => ({ speed: 0, yaw, steering: 0 })
+// Set the server's resulting velocity once, rather than stacking network retries.
+export function applyBuggyImpact(state: VehicleState, impact: BuggyImpact, age = 0) {
+  const forward = { x: -Math.sin(state.yaw), z: -Math.cos(state.yaw) }
+  const velocity = boundedBuggyVelocity(impact.velocity)
+  state.speed = Math.max(-VEHICLES.buggy.reverse, Math.min(VEHICLES.buggy.speed, velocity.x * forward.x + velocity.z * forward.z))
+  const decay = Math.exp(-Math.max(0, age) * 4)
+  state.drift = { x: (velocity.x - forward.x * state.speed) * decay, z: (velocity.z - forward.z * state.speed) * decay }
+  state.impactTurn = impact.yawKick * decay; state.impactStrength = impact.strength; state.impactAge = Math.max(0, age)
+}
+
 const clamp = (n: number) => Number.isFinite(n) ? Math.max(-1, Math.min(1, n)) : 0
 const approach = (current: number, target: number, amount: number) => current + Math.max(-amount, Math.min(amount, target - current))
 
@@ -94,6 +106,21 @@ export function canRideAt(point: LocalCoordinate, yaw: number, kind: VehicleKind
   return true
 }
 
+export function canReconcileBuggy(point: LocalCoordinate, anchor: LocalCoordinate & { yaw: number }, world: WalkWorld, roads: RoadFootprint[]) {
+  const distance = Math.hypot(anchor.x-point.x,anchor.z-point.z)
+  if (distance > PRESENCE_SPEED_LIMITS.buggy * PRESENCE_CATCHUP_SECONDS) return false
+  const steps = Math.max(1,Math.ceil(distance/.1))
+  let previous = point
+  for (let i=0;i<=steps;i++) {
+    const next={x:point.x+(anchor.x-point.x)*i/steps,z:point.z+(anchor.z-point.z)*i/steps}
+    const theatre = world.terrain.theatre
+    const crossesPlaza = theatre && (theatreSurfaceHeightAt(previous, theatre) === null) !== (theatreSurfaceHeightAt(next, theatre) === null)
+    if (!canRideAt(next,anchor.yaw,'buggy',world,roads) || Math.abs(walkSurfaceHeightAt(world.terrain,next.x,next.z)-walkSurfaceHeightAt(world.terrain,previous.x,previous.z))>Math.hypot(next.x-previous.x,next.z-previous.z)*.85+(crossesPlaza ? .1 : .005)) return false
+    previous=next
+  }
+  return true
+}
+
 export function findVehicleMount(point: LocalCoordinate, yaw: number, kind: VehicleKind, world: WalkWorld, roads: RoadFootprint[]) {
   const candidates: { point: LocalCoordinate; yaw: number; distance: number }[] = []
   if (canRideAt(point, yaw, kind, world, roads)) return { point: { ...point }, yaw }
@@ -114,7 +141,7 @@ export function findVehicleMount(point: LocalCoordinate, yaw: number, kind: Vehi
 
 export function advanceVehicle(state: VehicleState, point: LocalCoordinate, kind: VehicleKind, throttle: number, steering: number, braking: boolean, delta: number, world: WalkWorld, roads: RoadFootprint[], enabled = true) {
   const dt = motionDelta(delta), spec = VEHICLES[kind]
-  if (!enabled) { state.speed = 0; state.steering = 0; return { point, distance: 0, blocked: false } }
+  if (!enabled) { state.speed = 0; state.steering = 0; state.drift = undefined; state.impactTurn = 0; state.impactStrength = 0; return { point, distance: 0, blocked: false } }
   const target = clamp(throttle) * (throttle < 0 ? spec.reverse : spec.speed)
   const opposing = target * state.speed < 0 || throttle < 0 && state.speed > 0
   const rate = braking || opposing ? spec.brake : throttle === 0 ? 2.4 : spec.acceleration
@@ -125,21 +152,28 @@ export function advanceVehicle(state: VehicleState, point: LocalCoordinate, kind
     state.speed = approach(state.speed, braking || opposing ? 0 : target, rate * sub)
     state.steering = approach(state.steering, clamp(steering) * .48 / (1 + (Math.abs(state.speed) / 5) ** 2), sub * 2.4)
     const speed = (previous + state.speed) / 2
-    const rotation = -speed / spec.wheelbase * Math.tan(state.steering) * sub
+    const drift = kind === 'buggy' ? state.drift : undefined
+    const driftRate = braking || opposing ? 10 : 4
+    const decay = Math.exp(-driftRate * sub), integral = sub ? (1 - decay) / (driftRate * sub) : 1
+    const rotation = (-speed / spec.wheelbase * Math.tan(state.steering) + (state.impactTurn ?? 0)) * sub
+    if (drift) state.drift = { x: drift.x * decay, z: drift.z * decay }
+    state.impactTurn = (state.impactTurn ?? 0) * decay
+    if (state.impactAge !== undefined) state.impactAge += sub
     // Clamp a turn against an obstacle before stopping forward travel. Every
     // candidate still checks the full body, so corners cannot clip through walls.
     let accepted: { point: LocalCoordinate; yaw: number } | undefined
     for (const fraction of [1, .5, .25, 0]) {
       const heading = state.yaw + rotation * fraction
-      const next = { x: current.x - Math.sin(heading) * speed * sub, z: current.z - Math.cos(heading) * speed * sub }
+      const velocity = kind === 'buggy' ? boundedBuggyVelocity({ x: -Math.sin(heading) * speed + (drift?.x ?? 0) * integral, z: -Math.cos(heading) * speed + (drift?.z ?? 0) * integral }) : { x: -Math.sin(heading) * speed, z: -Math.cos(heading) * speed }
+      const next = { x: current.x + velocity.x * sub, z: current.z + velocity.z * sub }
       const rise = Math.abs(walkSurfaceHeightAt(world.terrain, next.x, next.z) - walkSurfaceHeightAt(world.terrain, current.x, current.z))
       // The OAT plaza has an 8 cm lip. Clear small surface joins without allowing
       // vehicles to climb its stairs, stage or genuinely steep terrain.
       const theatre = world.terrain.theatre
       const crossesPlaza = theatre && (theatreSurfaceHeightAt(current, theatre) === null) !== (theatreSurfaceHeightAt(next, theatre) === null)
-      if (rise <= Math.abs(speed * sub) * .85 + (crossesPlaza ? .1 : .005) && canRideAt(next, heading, kind, world, roads)) { accepted = { point: next, yaw: heading }; break }
+      if (rise <= Math.hypot(next.x - current.x, next.z - current.z) * .85 + (crossesPlaza ? .1 : .005) && canRideAt(next, heading, kind, world, roads)) { accepted = { point: next, yaw: heading }; break }
     }
-    if (!accepted) { state.speed = 0; blocked = true; break }
+    if (!accepted) { state.speed = 0; state.drift = undefined; state.impactTurn = 0; blocked = true; break }
     distance += Math.hypot(accepted.point.x - current.x, accepted.point.z - current.z); current = accepted.point; state.yaw = accepted.yaw
   }
   return { point: current, distance, blocked }

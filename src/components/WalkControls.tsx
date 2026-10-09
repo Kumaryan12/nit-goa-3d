@@ -60,6 +60,7 @@ export default function WalkControls({ compact = false, campusLive, input, statu
       {(['walk', 'bicycle', 'buggy'] as const).map(mode => <button key={mode} className="fly-button" aria-pressed={(status?.vehicle ?? 'walk') === mode} disabled={paused || !ready || !!status?.error || !!passenger || mode !== 'walk' && !status?.canRide} onClick={() => { pointers.current.clear(); clearStick(); input.current = { ...emptyWalkInput(), vehicle: mode } }}>{mode === 'walk' ? 'On foot' : mode === 'bicycle' ? 'Bicycle' : 'Buggy'}</button>)}
       {riding && <span className="walk-speed">{Math.round((status?.speed ?? 0) * 3.6)} / {Math.round((status?.vehicle === 'bicycle' && !passenger ? MOVEMENT_SPEEDS.bicycle : MOVEMENT_SPEEDS.buggy) * 3.6)} km/h</span>}
     </div>
+    {!passenger && status?.vehicle === 'buggy' && <p className="walk-note">Bump another buggy to send it rolling. Faster hits push harder; glancing hits slide sideways.</p>}
     {(passenger || status?.vehicle === 'buggy') && <p className="walk-note" role="status">{occupants}/4 seats occupied{passenger ? ` · Passenger seat ${passenger.seat}` : ' · You are driving'}</p>}
     {passenger && <button className="navigate-button walk-board" disabled={paused || !!driver?.pose?.moving} onClick={() => campusLive.rideBuggy(null)}>{driver?.pose?.moving ? 'Get out when stopped' : 'Get out of buggy · F'}</button>}
     {!passenger && status?.canRide && (status.vehicle ?? 'walk') === 'walk' && nearbyBuggies.map(buggy => {

@@ -1,3 +1,5 @@
+import { parseBuggyImpact } from './buggyImpacts.ts'
+import type { BuggyImpact, ReceivedBuggyImpact } from './buggyImpacts.ts'
 import { PROFILE_COLORS, PROFILE_COLOR_HEX, isAvatarStyle } from './profile.ts'
 import type { AvatarStyle, CampusProfile } from './profile.ts'
 import { parseSocialState } from './social.ts'
@@ -7,12 +9,12 @@ export const CAMPUS_CAPACITY = 32
 export const NEARBY_CHAT_RADIUS = 35
 export const CAMPUS_COLORS = PROFILE_COLOR_HEX
 export type CampusActivity = 'walk' | 'overview' | 'football' | 'concert'
-export interface CampusPose { airborne?: boolean; pitch?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; x: number; y: number; z: number; yaw: number; moving: boolean; running: boolean; active: boolean; visible: boolean; space: string; epoch: number }
+export interface CampusPose { impactAck?: number; airborne?: boolean; pitch?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; x: number; y: number; z: number; yaw: number; moving: boolean; running: boolean; active: boolean; visible: boolean; space: string; epoch: number }
 export interface BuggyRide { driverId: string; seat: 1 | 2 | 3 }
-export interface CampusPerson { avatarStyle?: AvatarStyle; social?: SocialState; ride?: BuggyRide; id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
+export interface CampusPerson { impact?: BuggyImpact; avatarStyle?: AvatarStyle; social?: SocialState; ride?: BuggyRide; id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
 export interface CampusSnapshot { type: 'campus-state'; sequence: number; serverTime: number; people: CampusPerson[] }
 export interface CampusChat { type: 'chat'; id: string; sender: string; name: string; scope: 'campus' | 'nearby'; text: string; time: number }
-export interface CampusSession { id: string | null; snapshot: CampusSnapshot | null; correction?: CampusPose; motion?: RemoteMotionBuffer; peopleById?: Map<string, CampusPerson>; spawnSlot?: number; spawnPending?: boolean }
+export interface CampusSession { id: string | null; snapshot: CampusSnapshot | null; correction?: CampusPose; impact?: ReceivedBuggyImpact; motion?: RemoteMotionBuffer; peopleById?: Map<string, CampusPerson>; spawnSlot?: number; spawnPending?: boolean }
 export function publishedCampusPose(current: CampusPose, walking: boolean, activity: CampusActivity, focused: boolean): CampusPose {
   const visible = walking && current.visible
   return { ...current, yaw: Math.atan2(Math.sin(current.yaw), Math.cos(current.yaw)), visible, active: focused && current.active && (visible || activity === 'concert'), moving: visible && focused && current.moving }
@@ -30,10 +32,11 @@ export function parseCampusPose(value: unknown): CampusPose | null {
   if (!value || typeof value !== 'object') return null
   const p = value as CampusPose
   if (![p.x, p.z].every(v => finite(v, 1200)) || !finite(p.y, 64) || !finite(p.yaw, Math.PI + .001) || ![p.moving, p.running, p.active, p.visible].every(v => typeof v === 'boolean') || !Number.isSafeInteger(p.epoch) || p.epoch < 0 || p.epoch > 1e9 || typeof p.space !== 'string' || !/^(outdoors|hostel:[0-4]|gyan:[0-2])$/.test(p.space)) return null
+  if (p.impactAck !== undefined && (!Number.isSafeInteger(p.impactAck) || p.impactAck < 1 || p.impactAck > 1e9)) return null
   if (p.pitch !== undefined && !finite(p.pitch, .8)) return null
   if (p.airborne !== undefined && typeof p.airborne !== 'boolean') return null
   if (p.vehicle !== undefined && (!['walk', 'bicycle', 'buggy'].includes(p.vehicle) || p.vehicle !== 'walk' && p.space !== 'outdoors')) return null
-  return { ...(p.airborne === undefined ? {} : { airborne: p.airborne }), ...(p.pitch === undefined ? {} : { pitch: p.pitch }), ...(p.vehicle === undefined ? {} : { vehicle: p.vehicle }), x: p.x, y: p.y, z: p.z, yaw: p.yaw, moving: p.moving, running: p.running, active: p.active, visible: p.visible, space: p.space, epoch: p.epoch }
+  return { ...(p.impactAck === undefined ? {} : { impactAck: p.impactAck }), ...(p.airborne === undefined ? {} : { airborne: p.airborne }), ...(p.pitch === undefined ? {} : { pitch: p.pitch }), ...(p.vehicle === undefined ? {} : { vehicle: p.vehicle }), x: p.x, y: p.y, z: p.z, yaw: p.yaw, moving: p.moving, running: p.running, active: p.active, visible: p.visible, space: p.space, epoch: p.epoch }
 }
 export function parseCampusSnapshot(value: unknown): CampusSnapshot | null {
   if (!value || typeof value !== 'object') return null
@@ -46,9 +49,11 @@ export function parseCampusSnapshot(value: unknown): CampusSnapshot | null {
     const pose = p.pose === null ? null : parseCampusPose(p.pose)
     if (p.pose !== null && !pose) return null
     if (p.ride !== undefined && (!p.ride || !campusId(p.ride.driverId) || p.ride.driverId === p.id || ![1, 2, 3].includes(p.ride.seat) || !pose || pose.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk')) return null
+    const impact = p.impact === undefined ? undefined : parseBuggyImpact(p.impact)
+    if (p.impact !== undefined && (!impact || !pose || pose.vehicle !== 'buggy' || pose.epoch !== impact.anchor.epoch || p.ride)) return null
     const social = p.social === undefined ? undefined : parseSocialState(p.social)
     if (p.social !== undefined && (!social || p.ride || !pose || pose.airborne || (pose.vehicle ?? 'walk') !== 'walk' || p.activity === 'football' || social.action === 'sit' && (p.activity !== 'walk' || pose.space !== 'outdoors'))) return null
-    ids.add(p.id); people.push({ ...(social ? { social } : {}), ...(p.ride ? { ride: { driverId: p.ride.driverId, seat: p.ride.seat } } : {}), ...(p.avatarStyle ? { avatarStyle: p.avatarStyle } : {}), id: p.id, name: p.name, handle: p.handle, color: p.color, activity: p.activity, pose })
+    ids.add(p.id); people.push({ ...(impact ? { impact } : {}), ...(social ? { social } : {}), ...(p.ride ? { ride: { driverId: p.ride.driverId, seat: p.ride.seat } } : {}), ...(p.avatarStyle ? { avatarStyle: p.avatarStyle } : {}), id: p.id, name: p.name, handle: p.handle, color: p.color, activity: p.activity, pose })
   }
   const seats = new Set<string>()
   const socialSeats = new Set<string>()

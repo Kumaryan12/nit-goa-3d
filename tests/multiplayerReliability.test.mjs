@@ -7,6 +7,8 @@ import { attachCampusServer } from '../server/campusServer.ts'
 import { CAMPUS_CAPACITY, parseCampusSnapshot } from '../src/lib/campusProtocol.ts'
 import { chooseCrowd } from '../src/lib/crowdRendering.ts'
 import { liveRetryDelay } from '../src/lib/liveRecovery.ts'
+import { advanceVehicle, applyBuggyImpact, freshVehicle } from '../src/lib/vehicles.ts'
+import { createWalkWorld } from '../src/lib/walking.ts'
 
 const pose = extra => ({ x: 0, y: 0, z: 0, yaw: 0, epoch: 1, vehicle: 'walk', moving: false, running: false, active: true, visible: true, space: 'outdoors', ...extra })
 const waitFor = async predicate => { const end = Date.now() + 10000; while (Date.now() < end) { const result = predicate(); if (result) return result; await new Promise(r => setTimeout(r, 15)) }; throw new Error('Multiplayer state did not arrive') }
@@ -80,6 +82,49 @@ test('bunched full-speed updates never send a stop/reset correction and observer
   for(const p of drivers)p.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:p.vehicle,x:p.speed*7/10})}))
   await waitFor(()=>observer.messages.some(m=>m.type==='campus-state'&&drivers.every(d=>m.people.find(p=>p.id===d.id)?.pose?.x===d.speed*7/10)))
   assert.ok(drivers.every(p=>!p.messages.some(m=>m.type==='pose-correction')),'valid timing jitter cannot reset local momentum')
+})
+
+test('two live drivers share an impact once, passengers follow recoil, and valid recovery never sends a speed reset',async t=>{
+  const {peer}=await fixture(t),a=peer('rammer'),b=peer('parked'),rider=peer('passenger'),observer=peer('observer')
+  await waitFor(()=>[a,b,rider,observer].every(p=>p.messages.some(m=>m.type==='campus-welcome')))
+  a.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:'buggy',z:5})}))
+  b.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:'buggy'})}))
+  rider.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({x:1})}))
+  await waitFor(()=>observer.messages.some(m=>m.type==='campus-state'&&m.people.filter(p=>p.id!=='observer').every(p=>p.pose)))
+  rider.ws.send(JSON.stringify({type:'buggy-ride',driverId:'parked'}))
+  await waitFor(()=>rider.messages.some(m=>m.type==='buggy-result'&&m.ok))
+  for(const z of [4.1,3.2]) {
+    await new Promise(r=>setTimeout(r,100))
+    b.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:'buggy'})}))
+    a.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:'buggy',z})}))
+  }
+  const hitA=await waitFor(()=>a.messages.find(m=>m.type==='buggy-impact'))
+  const hitB=await waitFor(()=>b.messages.find(m=>m.type==='buggy-impact'))
+  assert.equal(hitA.impact.sequence,hitB.impact.sequence)
+  assert.ok(hitB.impact.velocity.z<0)
+  // A pre-impact packet arrives late, after the authority has resolved contact.
+  a.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:'buggy',z:2.3})}))
+  const flat={size:400,segments:40,heights:new Float32Array(41**2),colors:new Float32Array(41**2*3)}
+  const world=createWalkWorld([],[{x:-200,z:-200},{x:200,z:-200},{x:200,z:200},{x:-200,z:200},{x:-200,z:-200}],flat)
+  const drivers=[[a,hitA],[b,hitB]].map(([peer,event])=>{
+    const state=freshVehicle(event.impact.anchor.yaw);applyBuggyImpact(state,event.impact)
+    return {peer,state,impact:event.impact,p:{x:event.impact.anchor.x,z:event.impact.anchor.z}}
+  })
+  for(let tick=0;tick<10;tick++) {
+    await new Promise(r=>setTimeout(r,100))
+    for(const d of drivers) {
+      d.p=advanceVehicle(d.state,d.p,'buggy',1,.15,false,.1,world,[]).point
+      d.peer.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({...d.p,vehicle:'buggy',yaw:d.state.yaw,impactAck:d.impact.sequence})}))
+    }
+  }
+  const snapshot=await waitFor(()=>observer.messages.findLast(m=>m.type==='campus-state'&&m.people.find(p=>p.id==='parked')?.pose?.z<-2))
+  assert.ok(parseCampusSnapshot(snapshot))
+  const passenger=snapshot.people.find(p=>p.id==='passenger'),driver=snapshot.people.find(p=>p.id==='parked')
+  assert.equal(passenger.ride.driverId,'parked')
+  assert.ok(Math.hypot(passenger.pose.x-driver.pose.x,passenger.pose.z-driver.pose.z)<1)
+  assert.equal(a.messages.filter(m=>m.type==='buggy-impact').length,1)
+  assert.equal(b.messages.filter(m=>m.type==='buggy-impact').length,1)
+  assert.ok([a,b].every(p=>!p.messages.some(m=>m.type==='pose-correction')))
 })
 
 test('crowd detail has a strict budget, keeps close friends detailed and excludes other floors and hidden people',()=>{

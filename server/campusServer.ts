@@ -36,6 +36,7 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
           correctedAt = Date.now(); send(ws, { type: 'pose-correction', pose: accepted })
         }
       }
+      for (const { id, impact } of room.takeImpacts()) { const target = sockets.get(id); if (target) send(target, { type: 'buggy-impact', serverTime: Date.now(), impact }) }
       if (msg.type === 'social-action') send(ws, { type: 'social-result', ...room.social(identity.id, msg.action, msg.seatId) })
       if (msg.type === 'buggy-ride') {
         const result = room.ride(identity.id, msg.driverId)

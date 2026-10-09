@@ -1,3 +1,4 @@
+import { buggySuspension } from '../lib/buggyImpacts'
 import type { AvatarStyle } from '../lib/profile'
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
@@ -27,9 +28,13 @@ function Wheel({ radius, width, car = false }: { radius: number; width: number; 
   </group>
 }
 export default function CampusVehicle({ style, mode, motion, jersey, accent }: { style?: AvatarStyle; mode: TransportMode; motion: React.RefObject<AvatarMotion>; jersey?: string; accent?: string }) {
-  const wheels = useRef<(Group | null)[]>([]), front = useRef<Group>(null), spin = useRef(0)
+  const wheels = useRef<(Group | null)[]>([]), front = useRef<Group>(null), suspension = useRef<Group>(null), spin = useRef(0)
   useFrame((_, delta) => {
     motion.current.vehicle = mode
+    if (suspension.current) {
+      const spring = buggySuspension(motion.current.paused ? 0 : motion.current.impactStrength ?? 0, motion.current.impactAge ?? 2)
+      suspension.current.position.y = spring.lift; suspension.current.rotation.set(spring.pitch,0,spring.roll)
+    }
     if (mode === 'walk' || motion.current.paused) return
     spin.current -= (motion.current.driveSpeed ?? motion.current.speed ?? 0) * motionDelta(delta) / VEHICLES[mode].wheelRadius
     wheels.current.forEach(wheel => { if (wheel) wheel.rotation.x = spin.current })
@@ -49,10 +54,10 @@ export default function CampusVehicle({ style, mode, motion, jersey, accent }: {
       <mesh position={[0, .96, .34]}><boxGeometry args={[.08, .05, .035]} /><meshStandardMaterial color="#ff654d" emissive="#ff4029" emissiveIntensity={.8} /></mesh>
     </group>
   </group>
-  return <group name="campus-buggy">
+  return <group name="campus-buggy"><group ref={suspension}>
     <mesh position={[0, .35, 0]} castShadow receiveShadow><boxGeometry args={[1.66, .18, 3.5]} /><meshStandardMaterial color="#31554f" roughness={.7} /></mesh>
-    <mesh position={[0, .64, -1.23]} castShadow><boxGeometry args={[1.6, .42, .9]} /><meshStandardMaterial color="#72b4a1" roughness={.55} /></mesh>
-    <mesh position={[0, .66, 1.43]} castShadow><boxGeometry args={[1.6, .38, .45]} /><meshStandardMaterial color="#72b4a1" /></mesh>
+    <mesh position={[0, .64, -1.23]} castShadow><boxGeometry args={[1.6, .42, .9]} /><meshStandardMaterial color={jersey ?? '#72b4a1'} roughness={.55} /></mesh>
+    <mesh position={[0, .66, 1.43]} castShadow><boxGeometry args={[1.6, .38, .45]} /><meshStandardMaterial color={jersey ?? '#72b4a1'} /></mesh>
     <group position={[BUGGY_SEATS[0].x, .23, BUGGY_SEATS[0].z]}><StudentAvatar style={style} motion={motion} jersey={jersey} accent={accent} /></group>
     {[-.46, .62].map(z => <group key={z}>
       <mesh position={[0, .74, z + .07]} castShadow><boxGeometry args={[1.4, .15, .53]} /><meshStandardMaterial color="#e5c899" roughness={.9} /></mesh>
@@ -62,9 +67,11 @@ export default function CampusVehicle({ style, mode, motion, jersey, accent }: {
     <mesh position={[0, 1.34, -.95]} rotation={[-.12, 0, 0]}><boxGeometry args={[1.47, .77, .025]} /><meshStandardMaterial color="#b3d7e0" transparent opacity={.19} roughness={.2} depthWrite={false} /></mesh>
     <mesh position={[0, 1.98, .08]} castShadow><boxGeometry args={[1.75, .12, 2.75]} /><meshStandardMaterial color="#f0e4c8" roughness={.8} /></mesh>
     {[-.77, .77].flatMap(x => [-1.1, 1.24].map(z => <Tube key={`${x}:${z}`} a={[x, .45, z]} b={[x, 1.92, z + (z < 0 ? .1 : -.08)]} radius={.035} color="#405d57" />))}
-    {[-.81, .81].flatMap(x => [-1.08, 1.08].map((z, i) => <group key={`${x}:${z}`} ref={node => { wheels.current[(x < 0 ? 0 : 2) + i] = node }} position={[x, .33, z]}><Wheel radius={.33} width={.2} car /></group>))}
     {[-.56, .56].map(x => <group key={x}><mesh position={[x, .7, -1.7]}><boxGeometry args={[.28, .14, .035]} /><meshStandardMaterial color="#fff3ce" emissive="#fff3ce" emissiveIntensity={2} /></mesh><mesh position={[x, .7, 1.67]}><boxGeometry args={[.22, .12, .035]} /><meshStandardMaterial color="#f87157" emissive="#ff4c3b" emissiveIntensity={1.2} /></mesh></group>)}
-    <mesh position={[0, .44, -1.78]}><boxGeometry args={[1.5, .12, .05]} /><meshStandardMaterial color="#32494d" /></mesh>
+    <mesh position={[0, .856, -1.23]}><boxGeometry args={[.2, .012, .88]} /><meshStandardMaterial color="#f7e9bd" roughness={.45} /></mesh>
+    {[-1.75,1.75].map(z=><mesh key={z} position={[0,.44,z]} castShadow><boxGeometry args={[1.75,.2,.14]} /><meshStandardMaterial color="#202b30" roughness={.95} /></mesh>)}
     <mesh position={[.36, 1.08, -.83]} rotation={[.7, 0, 0]}><torusGeometry args={[.16, .022, 6, 12]} /><meshStandardMaterial color="#26393d" /></mesh>
+  </group>
+    {[-.81, .81].flatMap(x => [-1.08, 1.08].map((z, i) => <group key={`${x}:${z}`} ref={node => { wheels.current[(x < 0 ? 0 : 2) + i] = node }} position={[x, .33, z]}><Wheel radius={.33} width={.2} car /></group>))}
   </group>
 }

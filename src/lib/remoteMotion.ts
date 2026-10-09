@@ -31,6 +31,7 @@ export class RemoteMotionBuffer {
       this.frames.set(person.id, history.slice(-8))
     }
   }
+  renderTime(now: number) { return this.offset === null ? this.serverTime : now - this.offset - 100 }
   sample(id: string, now: number): CampusPose | null {
     const frames = this.frames.get(id), latest = frames?.at(-1)
     if (!frames?.length || !latest || this.offset === null) return null
