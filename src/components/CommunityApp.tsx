@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { campusAPI, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, initials, navigate } from '../lib/community'
@@ -10,7 +10,7 @@ import PeoplePage from './PeoplePage'
 import CrowdDesk from './CrowdDesk'
 import AccessPortal from './AccessPortal'
 import AvatarChoice from './AvatarChoice'
-import CampusLoadingScreen from './CampusLoadingScreen'
+import CampusLoadingBoundary from './CampusLoadingBoundary'
 import { isAvatarStyle } from '../lib/profile'
 import { trackPageView } from '../lib/analytics'
 import type { AvatarStyle } from '../lib/profile'
@@ -171,18 +171,14 @@ export default function CommunityApp() {
   if (inCampus && signedIn && !isAvatarStyle(access?.avatarStyle)) return <AvatarChoice key={access!.id} onBack={() => navigate('/student')} onSaved={style => { setAccess(previous => previous && previous.id === auth.user?.id ? { ...previous, avatarStyle: style } : previous); setRefresh(value => value + 1) }} />
   if (inCampus)
     return (
-      <Suspense
-        fallback={
-          <CampusLoadingScreen />
-        }
-      >
+      <CampusLoadingBoundary>
         <Campus
           avatarStyle={access?.avatarStyle ?? undefined}
           accountControl={accountControl}
           accountOpen={menu}
           canEdit={(path === '/admin/campus' && isAdmin) || (preview && import.meta.env.DEV && !auth.configured)}
         />
-      </Suspense>
+      </CampusLoadingBoundary>
     )
   return (
     <div className={`community-shell ${path === '/' ? 'welcome-shell' : ''}`}>

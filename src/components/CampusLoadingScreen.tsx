@@ -14,7 +14,7 @@ const captions: Record<CampusLoadingPhase, string> = {
   error: 'The connection needs another try',
   unavailable: 'The 3D view couldn’t start',
 }
-export default function CampusLoadingScreen({ phase = 'opening', stages = [false, false, false, false], exiting = false, showSlowNotice = true, retryBuildings, retryRoads, onExplore }: {
+export interface CampusLoadingScreenProps {
   phase?: CampusLoadingPhase
   stages?: boolean[]
   exiting?: boolean
@@ -22,7 +22,8 @@ export default function CampusLoadingScreen({ phase = 'opening', stages = [false
   retryBuildings?: () => void
   retryRoads?: () => void
   onExplore?: () => void
-}) {
+}
+export default function CampusLoadingScreen({ phase = 'opening', stages = [false, false, false, false], exiting = false, showSlowNotice = true, retryBuildings, retryRoads, onExplore }: CampusLoadingScreenProps) {
   const gradient = useId(), [slow, setSlow] = useState(false)
   useEffect(() => { if (!showSlowNotice) return; const timer = window.setTimeout(() => setSlow(true), 15000); return () => window.clearTimeout(timer) }, [showSlowNotice])
   const problem = phase === 'error' || phase === 'unavailable'

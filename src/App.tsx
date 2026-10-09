@@ -1,5 +1,5 @@
 import type { AvatarStyle } from './lib/profile'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 const CampusScene = lazy(() => import('./components/CampusScene'))
 const GalleryModal = lazy(() => import('./components/GalleryModal'))
@@ -22,6 +22,7 @@ import { firebasePublicConfig } from './lib/firebase'
 import { trackCampusEvent } from './lib/analytics'
 import { CAMPUS_LOADING_ENTRY_MS, CAMPUS_LOADING_EXIT_MS, campusStartup } from './lib/campusStartup'
 import CampusLoadingScreen from './components/CampusLoadingScreen'
+import { useCampusLoadingBoundary } from './components/CampusLoadingBoundary'
 import { CAMPUS_COLORS } from './lib/campusProtocol'
 import type { CampusPose } from './lib/campusProtocol'
 import OatControls from './components/OatControls'
@@ -69,6 +70,7 @@ const readState = () => {
   return parseURLState(window.location.href, [...campusLocations.map((p) => p.id), ...extra])
 }
 export default function App({avatarStyle,accountControl,accountOpen=false,canEdit=false,publishedMap=import.meta.env.PROD}:{avatarStyle?:AvatarStyle;accountControl?:ReactNode;accountOpen?:boolean;canEdit?:boolean;publishedMap?:boolean}={}) {
+  const loadingBoundary = useCampusLoadingBoundary()
   const explorer = useRef<HTMLElement>(null), [layout, setLayout] = useState(initialViewLayout)
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false)
   const changeLayout = (value: ViewLayout) => { setLayout(value); try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(value)) } catch { /* View changes work without storage. */ } }
@@ -146,7 +148,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const [vegetationReady, setVegetationReady] = useState(false)
   const [firstFrame, setFirstFrame] = useState(false), [sceneUnavailable, setSceneUnavailable] = useState(false)
   const [startupVisible, setStartupVisible] = useState(true), [startupExiting, setStartupExiting] = useState(false)
-  const startupStartedAt = useRef(performance.now())
+  const startupStartedAt = useRef(loadingBoundary?.startedAt ?? performance.now())
   const onSceneReady = useCallback(() => setFirstFrame(true), [])
   const onSceneUnavailable = useCallback(() => setSceneUnavailable(true), [])
   const [cameraRequest, setCameraRequest] = useState<CameraRequest>({ sequence: 0, locationId: initial.to ?? initial.location })
@@ -159,11 +161,23 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
     setVegetationReady(false)
     setRoadAttempt((attempt) => attempt + 1)
   }, [])
+  const retryStartupBuildings = useCallback(() => { setMapState({ status: 'loading' }); setMapAttempt(attempt => attempt + 1); setTerrainReady(false); setVegetationReady(false); setFirstFrame(false) }, [])
+  const retryStartupRoads = useCallback(() => { retryRoads(); setFirstFrame(false) }, [retryRoads])
+  const exploreAvailableCampus = useCallback(() => setStartupExiting(true), [])
   const mapData = mapState.status === 'ready' ? mapState.data : null
   const roadData = roadState.status === 'ready' ? roadState.data : null
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useDigitalTwin(mapData, roadData, requestsSettled, overrides, terrainSettings)
   const startup = campusStartup({ buildings: mapState.status, roads: roadState.status, terrain: terrainReady, vegetation: vegetationReady, frame: firstFrame, boundary: !!twin && twin.boundary.length >= 3, unavailable: sceneUnavailable })
+  const loadingScreen = useMemo(() => ({
+    phase: startup.phase, stages: startup.stages, exiting: startupExiting,
+    retryBuildings: mapState.status === 'error' ? retryStartupBuildings : undefined,
+    retryRoads: roadState.status === 'error' ? retryStartupRoads : undefined,
+    onExplore: startup.canExplore ? exploreAvailableCampus : undefined,
+  }), [startup.phase, startup.stages[0], startup.stages[1], startup.stages[2], startup.stages[3], startup.canExplore, startupExiting, mapState.status, roadState.status, retryStartupBuildings, retryStartupRoads, exploreAvailableCampus])
+  useLayoutEffect(() => {
+    loadingBoundary?.report(startupVisible ? loadingScreen : null)
+  }, [loadingBoundary, startupVisible, loadingScreen])
   useEffect(() => {
     if (!startupVisible || !startup.complete && !startupExiting) return
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -456,10 +470,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
       <CampusSocial live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
       <a className="map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
     </main>
-    {startupVisible && <CampusLoadingScreen phase={startup.phase} stages={startup.stages} exiting={startupExiting}
-      retryBuildings={mapState.status === 'error' ? () => { setMapState({ status: 'loading' }); setMapAttempt(attempt => attempt + 1); setTerrainReady(false); setVegetationReady(false); setFirstFrame(false) } : undefined}
-      retryRoads={roadState.status === 'error' ? () => { retryRoads(); setFirstFrame(false) } : undefined}
-      onExplore={startup.canExplore ? () => setStartupExiting(true) : undefined} />}
+    {!loadingBoundary && startupVisible && <CampusLoadingScreen {...loadingScreen} />}
     </>
   )
 }
