@@ -4,6 +4,7 @@ import { campusAPI, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, initials, navigate } from '../lib/community'
 import SignInForm from './SignInForm'
 import LandingPage from './LandingPage'
+import UpdatesPage from './UpdatesPage'
 import NitGoaLogo from './NitGoaLogo'
 import ProfilePage from './ProfilePage'
 import PeoplePage from './PeoplePage'
@@ -163,6 +164,7 @@ export default function CommunityApp() {
             <button onClick={() => navigate('/admin')}>Admin space ↗</button>
           )}
           <button onClick={() => navigate('/')}>Back to welcome</button>
+          <button onClick={() => navigate('/updates')}>What’s new ↗</button>
           {signedIn && <button onClick={() => void signOut()}>Sign out</button>}
         </nav>
       )}
@@ -181,7 +183,7 @@ export default function CommunityApp() {
       </CampusLoadingBoundary>
     )
   return (
-    <div className={`community-shell ${path === '/' ? 'welcome-shell' : ''}`}>
+    <div className={`community-shell ${path === '/' ? 'welcome-shell' : path === '/updates' ? 'updates-shell' : ''}`}>
       <a className="community-skip" href="#community-content">
         Skip to content
       </a>
@@ -211,6 +213,7 @@ export default function CommunityApp() {
           >
             Community
           </a>
+          <a href="/updates" aria-current={path === '/updates' ? 'page' : undefined} onClick={event => { event.preventDefault(); navigate('/updates') }}>What’s new</a>
           {signedIn && (
             <a
               href="/me"
@@ -261,7 +264,7 @@ export default function CommunityApp() {
         </div>
       </header>
       <div id="community-content">
-        {auth.loading || accessLoading ? (
+        {path === '/updates' ? <UpdatesPage /> : auth.loading || accessLoading ? (
           <div className="community-empty" role="status">
             Verifying your campus account…
           </div>
