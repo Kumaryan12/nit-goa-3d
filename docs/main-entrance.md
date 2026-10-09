@@ -1,0 +1,11 @@
+# Main Entrance
+
+Reference reviewed on 9 October 2026: [Esri World Imagery](https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer), level 18 tiles around row 119895 / column 184964, covering the saved entrance at approximately 15.1679335 N, 74.0104028 E. Retrieval date does not establish the imagery capture date. Imagery was inspected locally and is not redistributed as an application asset.
+
+The satellite view shows a divided eastbound driveway, a long central median, a short connection between the lanes, low buildings nearby and planted borders. The reconstruction retains the mapped lane centre lines and widths, saved arrival anchor, existing terrain slopes, and the owner-confirmed canal crossing just inside the entrance.
+
+Satellite imagery does not resolve the gate elevation. The gateway is a designed interpretation of the campus architecture: laterite-coloured piers, cream stone caps, bronze fins, a terracotta tiled canopy, forest-green fascia with the institute name, official NIT Goa crests, and a campus-facing welcome sign. Its underside clears the lanes by 5.85 metres. Side paths, four palms, low flowers and a median garden finish the approach; the median planting ends before the mapped cross-link. Night details use emissive strips and the existing streetlight budget.
+
+Rendering and collisions share a worker-serializable entrance plan. Piers, walls and bollards are solid; both driving lanes remain open. Boundary geometry is trimmed at the actual opening instead of leaving a plinth across the road. Planting reserves vegetation space without changing terrain grades. The gateway adds five batched box meshes, one roof, signs and crests; flowers use the existing instanced garden renderer.
+
+Validation: real-campus tests cover both lanes, walking/cycling/maximum-speed buggy passage through the canal bridge, 32 distinct movable arrivals, solid architecture, planted shoulders and the boundary opening. Browser review uses `/tests/fixtures/entrance-preview.html` for day/night and both sides, and the normal campus/mobile fixtures for integration. These review routes are local development files and are not production authentication bypasses.

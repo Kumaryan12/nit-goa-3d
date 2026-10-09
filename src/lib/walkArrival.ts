@@ -36,7 +36,7 @@ export function findLocationArrival(location: CampusLocation, twin: DigitalTwin,
     if (front) entrance = { point: front.entrance, outward: front.front.outward }
   } else if (location.id === 'main-entrance') {
     const centre = twin.boundary.length ? twin.boundary.reduce((sum, p) => ({ x: sum.x + p.x / twin.boundary.length, z: sum.z + p.z / twin.boundary.length }), { x: 0, z: 0 }) : { x: 0, z: 0 }
-    const inward = direction(location.coordinates, centre)
+    const inward = twin.mainEntrance?.inward ?? direction(location.coordinates, centre)
     const position = findEntranceSpawn({ point: location.coordinates, outward: inward }, world)
     return position ? { position, yaw: Math.atan2(-inward.x, -inward.z), entrance: { point: location.coordinates, outward: inward } } : null
   } else if (location.id === 'open-air-theatre') {

@@ -64,7 +64,7 @@ test('turf paints the existing terrain without changing heights or paving roads,
 })
 
 test('real campus lawns stay open for exploration and exclude the seeded large trees', () => {
-  assert.equal(twin.trees.length, 640)
+  assert.equal(twin.trees.length, 644, '640 campus trees plus four entrance palms')
   for (const tree of twin.trees) assert.ok(twin.lawns.every(lawn => !inLawnBoundary(tree, lawn)))
   const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
   for (const point of centers) {

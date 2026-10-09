@@ -14,6 +14,7 @@ import { LAMP_POLE_RADIUS } from './nightLighting.ts'
 import type { CampusLamp } from './nightLighting.ts'
 import { AVATAR_HEIGHT } from './avatarJump.ts'
 import { flagBlocksWalking, flagBlocksCamera } from './campusFlag.ts'
+import { entranceBlocksWalking, entranceBlocksCamera } from './mainEntrance.ts'
 
 import type { TransportMode } from './vehicles.ts'
 
@@ -71,6 +72,7 @@ export function isWalkable(point: LocalCoordinate, world: WalkWorld, radius = AV
   if (world.terrain.canal && canalBlocksWalking(point, world.terrain.canal, radius)) return false
   if (world.terrain.theatre && theatreBlocksWalking(point, world.terrain.theatre, radius)) return false
   if (world.terrain.flag && flagBlocksWalking(point, world.terrain.flag, radius)) return false
+  if (world.terrain.entrance && entranceBlocksWalking(point, world.terrain.entrance, radius)) return false
   if (world.lamps?.some(lamp => Math.hypot(point.x-lamp.x,point.z-lamp.z)<LAMP_POLE_RADIUS+radius)) return false
   if (nearbyTrees(point, world).some(tree => Math.hypot(point.x - tree.x, point.z - tree.z) < treeTrunkRadius(tree) + radius)) return false
   if (feetY + AVATAR_HEIGHT > treeCeilingAt(point, world, radius)) return false
@@ -179,7 +181,7 @@ export function cameraBoomFraction(origin: { x: number; y: number; z: number }, 
       return trunk || crown
     })
     const poleHit = world.lamps?.some(lamp => point.y>=lamp.y && point.y<=lamp.y+lamp.height && Math.hypot(point.x-lamp.x,point.z-lamp.z)<LAMP_POLE_RADIUS+.2)
-    if ((world.terrain.flag && flagBlocksCamera(point, world.terrain.flag)) || poleHit || treeHit || point.y < walkSurfaceHeightAt(world.terrain, point.x, point.z) + 0.25 || world.buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
+    if ((world.terrain.entrance && entranceBlocksCamera(point, world.terrain.entrance, world.terrain)) || (world.terrain.flag && flagBlocksCamera(point, world.terrain.flag)) || poleHit || treeHit || point.y < walkSurfaceHeightAt(world.terrain, point.x, point.z) + 0.25 || world.buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
   }
   return 1
 }

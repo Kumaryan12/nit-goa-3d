@@ -11,6 +11,7 @@ import type { TheatreLayout } from './theatre.ts'
 import { lawnWeightAt } from './landscaping.ts'
 import type { LawnPatch } from './landscaping.ts'
 import type { CampusFlagLayout } from './campusFlag.ts'
+import type { MainEntranceLayout } from './mainEntrance.ts'
 
 export interface GroundRect { x: number; z: number; halfX: number; halfZ: number; benchBuildingId?: string }
 export interface TerrainModel {
@@ -22,6 +23,7 @@ export interface TerrainModel {
   theatre?: TheatreLayout
   lawns?: LawnPatch[]
   flag?: CampusFlagLayout
+  entrance?: MainEntranceLayout
 }
 export interface TerrainFeatures {
   boundary: LocalCoordinate[]

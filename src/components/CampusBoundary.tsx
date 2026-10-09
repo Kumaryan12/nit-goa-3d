@@ -4,30 +4,29 @@ import { createRoadGeometry } from '../lib/roadGeometry'
 import { campusLocations } from '../data/campus'
 import { terrainHeightAt } from '../lib/terrain'
 import type { TerrainModel } from '../lib/terrain'
-import { distanceToSegment } from '../lib/terrain'
+import { entranceBoundaryPaths } from '../lib/mainEntrance'
 import type { LocalCoordinate } from '../lib/geo'
 
 function CampusBoundary({ points, terrain, entrance = campusLocations.find((location) => location.id === 'main-entrance')!.coordinates }: { points: LocalCoordinate[]; entrance?: LocalCoordinate; terrain?: TerrainModel }) {
   const wallsRef = useRef<InstancedMesh>(null)
   const postsRef = useRef<InstancedMesh>(null)
-  const outline = useMemo(() => createRoadGeometry(points.length > 2 ? [points] : [], 0.8, 0.12, terrain), [points, terrain])
+  const paths = useMemo(() => entranceBoundaryPaths(points, entrance), [points, entrance])
+  const outline = useMemo(() => createRoadGeometry(points.length > 2 ? paths : [], 0.8, 0.12, terrain), [points, paths, terrain])
   const { walls, posts } = useMemo(() => {
     const walls: { x: number; z: number; length: number; angle: number }[] = []
     const posts: LocalCoordinate[] = []
-    points.slice(1).forEach((b, i) => {
-      const a = points[i], length = Math.hypot(b.x - a.x, b.z - a.z)
+    paths.forEach(([a, b]) => {
+      const length = Math.hypot(b.x - a.x, b.z - a.z)
       const count = Math.max(1, Math.ceil(length / 10))
       for (let j = 0; j < count; j++) {
         const t = (j + 0.5) / count
         const center = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t }
-        // Leave a small arrival opening at the provisional entrance anchor.
-        if (Math.hypot(center.x - entrance.x, center.z - entrance.z) < 15 && distanceToSegment(entrance, a, b) < 18) continue
         walls.push({ ...center, length: length / count, angle: -Math.atan2(b.z - a.z, b.x - a.x) })
         posts.push({ x: a.x + (b.x - a.x) * j / count, z: a.z + (b.z - a.z) * j / count })
       }
     })
     return { walls, posts }
-  }, [points, entrance])
+  }, [paths])
   useLayoutEffect(() => {
     const dummy = new Object3D()
     walls.forEach((wall, i) => {

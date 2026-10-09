@@ -26,7 +26,7 @@ test('meadow covers the campus deterministically with bounded, terrain-attached 
   assert.ok(chunks.length > 20)
   assert.deepEqual(generateCampusMeadow(twin), chunks)
   assert.deepEqual(generateCampusMeadow({ ...twin, boundary: [] }), [])
-  assert.equal(twin.trees.length, 640)
+  assert.equal(twin.trees.length, 644, '640 campus trees plus four entrance palms')
   const quadrants = new Set(tufts.map(t => `${Math.sign(t.x)}/${Math.sign(t.z)}`))
   assert.equal(quadrants.size, 4, 'the cap does not concentrate grass at one end of campus')
   for (const c of chunks) for (const t of c.tufts) {

@@ -113,7 +113,7 @@ test('the real campus worker transfers terrain and interior plans while the pare
     assert.ok(result.twin.terrainPatches.every(p => p.positions instanceof Float32Array && p.positions.every(Number.isFinite)))
     assert.deepEqual(result.twin.interiors.gyan.floors.map(f => f.rooms.length), [15, 30, 30])
     assert.ok(result.twin.interiors.hostel.rooms.length > 0)
-    assert.equal(result.twin.trees.length, 640)
+    assert.equal(result.twin.trees.length, 644)
     assert.ok(result.twin.meadow.length > 20)
     assert.ok(result.twin.meadow.reduce((n, c) => n + c.tufts.length, 0) <= 10000)
     assert.ok(ticks > 5, 'campus construction runs outside the parent event loop')

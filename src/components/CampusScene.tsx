@@ -252,7 +252,7 @@ function CampusScene({ scenePrepared = false, onSceneReady, onSceneUnavailable, 
       {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
       {twin.vegetationReady && <CampusGardens gardens={twin.gardens} terrain={twin.terrain} />}
       {twin.meadow && <CampusMeadow chunks={twin.meadow} />}
-      {twin.boundary.length > 0 && <POIObjects locations={twin.locations} roads={twin.roads} terrain={twin.hasRelief ? twin.terrain : undefined} />}
+      {twin.boundary.length > 0 && <POIObjects locations={twin.locations} terrain={twin.terrain} entrance={twin.mainEntrance} entranceGardens={twin.entranceGardens} night={night} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}
         selected={selectedLocationId === 'open-air-theatre'} onSelect={selectTheatre} />}
       {twin.boundary.length > 0 && <OatConcertScene theatre={twin.theatre} concert={oatConcert} people={campusPeople} session={campusSession} />}

@@ -87,5 +87,5 @@ test('published corrections activate the Nescafe slope and preserve the exported
     assert.deepEqual(building.outer, map.buildings.find(source => source.id === building.id).outer)
     for (const point of building.outer.map(gpsToLocal)) close(terrainHeightAt(twin.terrain, point.x, point.z), building.baseElevation)
   }
-  assert.equal(twin.trees.length, 640)
+  assert.equal(twin.trees.length, 644)
 })
