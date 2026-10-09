@@ -1,8 +1,28 @@
-/* Smaller glass panels apply only within the campus explorer. */
-.explorer :is(.scene-header, .building-info-panel, .location-navigation, .campus-minimap, .walk-controls, .campus-social, .oat-controls, .football-controls, .search-dropdown, .terrain-controls-panel, .atmosphere-panel, .view-options, .view-dock, .campus-account-menu, .gesture-guide) {
-  background: var(--glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* One glass treatment for every campus surface, including lazy dialogs.
+   Keep opacity on the background so text and controls stay fully opaque. */
+.explorer :is(.scene-header, .building-info-panel, .location-navigation, .campus-minimap, .walk-controls, .campus-social, .oat-controls, .football-controls, .search-dropdown, .terrain-controls-panel, .atmosphere-panel, .social-action-panel, .view-options, .view-dock, .view-feedback, .campus-account-menu, .gesture-guide, .map-status, .resilience-notice, .campus-editor, .app-dialog, .gallery-error, .gallery-opening) {
+  background: linear-gradient(135deg, var(--glass-sheen), transparent 65%), var(--glass);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 28px var(--glass-shadow), inset 0 1px 0 var(--glass-sheen);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.explorer .app-dialog {
+  --ink: inherit; --muted: inherit; --glass: inherit; --accent: inherit; --border: inherit; --wash: inherit;
+}
+.explorer .app-dialog::backdrop { background: #06171159; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.explorer .map-status-complete { opacity: 1; }
+.explorer .campus-account-menu button:hover { background: var(--wash); }
+.explorer .graphics-control select { background: var(--wash); color: var(--ink); border-color: var(--border); }
+.explorer :is(.explorer-version-switch button, .campus-social-tabs button, .walk-transport button, .gesture-guide button, .walk-direction)[aria-pressed="true"],
+.explorer .walk-direction:active, .explorer .campus-chat-composer button, .explorer .campus-unread { color: var(--on-accent); }
+/* Small labels need a stable surface without adding a blur layer per avatar. */
+.explorer :is(.map-credit, .location-label, .campus-avatar-name, .campus-speech, .oat-performer-label, .route-marker-label, .campus-reaction) {
+  background: var(--glass); color: var(--ink); border-color: var(--border);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .explorer { --glass: #f5faefe8; }
+  .explorer.night-mode { --glass: #0b1925e8; }
 }
 .explorer .building-info-panel { width: 288px; padding: 14px; }
 .explorer .building-info-panel h2 { font-size: 20px; margin: 8px 0; }
@@ -65,6 +85,8 @@
   .explorer .location-navigation { padding: 12px; }
 }
 @media (max-width: 760px), (pointer: coarse) {
+  /* Lower blur cost on touch devices; the tint and highlights stay consistent. */
+  .explorer :is(.scene-header, .building-info-panel, .location-navigation, .campus-minimap, .walk-controls, .campus-social, .oat-controls, .football-controls, .search-dropdown, .terrain-controls-panel, .atmosphere-panel, .social-action-panel, .view-options, .view-dock, .view-feedback, .campus-account-menu, .gesture-guide, .map-status, .resilience-notice, .campus-editor, .app-dialog, .gallery-error, .gallery-opening) { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .explorer :is(.atmosphere-panel, .terrain-controls-panel) { position: fixed; top: auto; left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)); width: min(252px, calc(100vw - 24px)); max-height: calc(100dvh - 180px); }
   .explorer .campus-social { left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)); width: min(280px, calc(100vw - 24px)); height: min(340px, 48dvh); max-height: calc(100dvh - 180px); }
   .explorer.social-open .walk-controls { visibility: visible; }
@@ -75,4 +97,30 @@
   .explorer .panel-heading-actions :is(.panel-collapse, .panel-close) { min-width: 44px; }
   .explorer .campus-social input { min-height: 44px; }
   .explorer .atmosphere-details summary { min-height: 44px; align-content: center; }
+}
+@media (max-width: 760px) {
+  /* Focus mode has separate floating controls, not a full-width glass sheet. */
+  .explorer .walk-controls-compact { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .explorer .walk-controls-compact :is(.walk-movement, .walk-notice, .walk-transport button, .walk-look button, .walk-inspect, .walk-board) {
+    background: linear-gradient(135deg, var(--glass-sheen), transparent 65%), var(--glass);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 14px var(--glass-shadow);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .explorer .walk-controls-compact .walk-transport button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+}
+/* Landscape phones keep one scrolling toolbar row and usable panel height. */
+@media (max-height: 500px) and (max-width: 1100px) and (orientation: landscape) {
+  .explorer .scene-header {
+    left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+    width: auto; top: max(12px, env(safe-area-inset-top)); display: flex; flex-wrap: nowrap; padding: 8px; gap: 8px;
+  }
+  .explorer .scene-header :is(h1, .eyebrow, .campus-search) { display: none; }
+  .explorer .explorer-version-switch { margin: 0; }
+  .explorer .scene-header .scene-toolbar { width: auto; flex: 1; margin: 0; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+  .explorer .scene-toolbar > * { flex-shrink: 0; }
+  .explorer :is(.map-status-complete, .location-navigation) { display: none; }
+  .explorer :is(.building-info-panel, .campus-editor, .oat-controls, .football-controls) {
+    top: max(86px, calc(env(safe-area-inset-top) + 74px)); bottom: auto; max-height: calc(100dvh - 162px - env(safe-area-inset-top));
+  }
 }
