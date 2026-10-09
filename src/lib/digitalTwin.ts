@@ -25,6 +25,7 @@ import { generateCampusGardens } from './campusGardens.ts'
 import type { TerrainPatchData } from './terrainPatches.ts'
 import type { HostelPlan } from './hostelInterior.ts'
 import { createMainEntrance, createEntrancePlanting } from './mainEntrance.ts'
+import { createEntranceExterior } from './entranceExterior.ts'
 
 export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadData | null, vegetationReady = true, overrides: CampusOverrides = {}, terrainSettings: TerrainSettings = defaultTerrainSettings) {
   const relief = validateTerrainSettings(terrainSettings)
@@ -78,6 +79,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const flag = createCampusFlag(buildings, lawns, boundary, roads?.roads ?? [], terrain)
   if (flag) terrain.flag = flag
   if (mainEntrance) terrain.entrance = mainEntrance
+  if (mainEntrance) terrain.entranceExterior = createEntranceExterior(boundary)
   const entrancePlanting = mainEntrance ? createEntrancePlanting(mainEntrance, terrain, boundary) : undefined
   // Wait for both independent requests to settle before populating this model
   // in the scene, so late roads never run through previously generated trees.

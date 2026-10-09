@@ -2,6 +2,7 @@ import { memo } from 'react'
 import type { TerrainModel } from '../lib/terrain'
 import type { CampusLocation } from '../types/campus'
 import MainEntrance from './MainEntrance'
+import EntranceHighway from './EntranceHighway'
 import CampusGardens from './CampusGardens'
 import type { MainEntranceLayout } from '../lib/mainEntrance'
 import type { CampusGardens as GardenModel } from '../lib/campusGardens'
@@ -28,6 +29,7 @@ function POIObjects({ locations, terrain, entrance, entranceGardens, night }: { 
       <Goal x={-42} /><Goal x={42} />
     </group>
     {entrance && <MainEntrance layout={entrance} terrain={terrain} night={night} />}
+    {terrain.entranceExterior && <EntranceHighway exterior={terrain.entranceExterior} terrain={terrain} night={night} />}
     {entranceGardens && <CampusGardens gardens={entranceGardens} terrain={terrain} />}
   </group>
 }

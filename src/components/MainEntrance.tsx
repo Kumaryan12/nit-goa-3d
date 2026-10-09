@@ -25,7 +25,7 @@ function InstituteEmblem({ position, rear = false }: { position: [number,number,
 }
 
 function MainEntrance({ layout, terrain, night }: { layout: MainEntranceLayout; terrain: TerrainModel; night: boolean }) {
-  const paving=useMemo(()=>createRoadGeometry([-1,1].map(side=>[-1,26].map(u=>entrancePoint(layout,u,side*(layout.halfSpan-2)))),1.25,FOOTPATH_ELEVATION,terrain),[layout,terrain])
+  const paving=useMemo(()=>createRoadGeometry([-1,1].map(side=>[terrain.entranceExterior?-11:-1,26].map(u=>entrancePoint(layout,u,side*(layout.halfSpan-2)))),1.25,FOOTPATH_ELEVATION,terrain),[layout,terrain])
   useEffect(()=>()=>paving.dispose(),[paving])
   const parts=useMemo(()=>{
     const stone:Box[]=[],cream:Box[]=[],bronze:Box[]=[],green:Box[]=[],glow:Box[]=[]

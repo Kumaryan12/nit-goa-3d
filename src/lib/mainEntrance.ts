@@ -62,6 +62,12 @@ export function entranceCoordinates(layout: MainEntranceLayout,point: LocalCoord
   const dx=point.x-layout.center.x,dz=point.z-layout.center.z
   return {u:dx*layout.inward.x+dz*layout.inward.z,v:dx*layout.across.x+dz*layout.across.z}
 }
+export function mainEntranceCamera(layout: MainEntranceLayout,terrain: TerrainModel,aspect=1.5) {
+  const distance=Math.max(43,(layout.halfSpan*2+16)/(2*Math.tan(Math.PI/8)*Math.max(.35,Math.min(1.5,aspect))))
+  const eye=entrancePoint(layout,-distance,distance*.2),target=entrancePoint(layout,1,0)
+  const y=terrainHeightAt(terrain,layout.center.x,layout.center.z)
+  return {position:[eye.x,y+distance*.28,eye.z] as [number,number,number],target:[target.x,y+3,target.z] as [number,number,number]}
+}
 // Trim the same actual opening from the boundary plinth, walls and posts.
 // Skipping only segment centres can leave a strip across the road or a wall end
 // intruding into the pedestrian approach.

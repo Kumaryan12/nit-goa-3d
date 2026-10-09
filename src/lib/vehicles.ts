@@ -61,8 +61,9 @@ function contains(point: LocalCoordinate, { a, b, c }: RoadTriangle) {
 export function vehicleSurfaceHeightAt(point: LocalCoordinate, world: WalkWorld, roads: RoadFootprint[]) {
   const ground = terrainHeightAt(world.terrain, point.x, point.z)
   let height = walkSurfaceHeightAt(world.terrain, point.x, point.z)
-  for (const triangle of roadIndex(roads).get(`${Math.floor(point.x / 8)},${Math.floor(point.z / 8)}`) ?? [])
-    if (contains(point, triangle)) height = Math.max(height, ground + triangle.elevation)
+  const key=`${Math.floor(point.x / 8)},${Math.floor(point.z / 8)}`
+  for (const index of [roadIndex(roads), ...(world.terrain.entranceExterior ? [roadIndex(world.terrain.entranceExterior.roads)] : [])])
+    for (const triangle of index.get(key) ?? []) if (contains(point, triangle)) height = Math.max(height, ground + triangle.elevation)
   const canal = world.terrain.canal
   if (canal) height = Math.max(height, bridgeSurfaceHeightAt(point, canal, world.terrain) ?? -Infinity)
   return height

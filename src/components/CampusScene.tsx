@@ -35,6 +35,7 @@ import TerrainContours from './TerrainContours'
 import CampusBoundary from './CampusBoundary'
 import Vegetation from './Vegetation'
 import POIObjects from './POIObjects'
+import { mainEntranceCamera } from '../lib/mainEntrance'
 import LocationLabels from './LocationLabels'
 import OSMBuildings from './OSMBuildings'
 import OSMRoads from './OSMRoads'
@@ -158,6 +159,7 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
   const framingKey = points.map((point) => `${point.x},${point.z}`).join(';')
   const home = useMemo(() => campusCameraView(points, width / height), [framingKey, width, height])
   const facadeDestination = () => {
+    if(request.locationId==='main-entrance' && twin?.mainEntrance)return mainEntranceCamera(twin.mainEntrance,twin.terrain,width/height)
     const index = twin?.selections.findIndex(selection => selection.location.id === request.locationId) ?? -1
     const building = twin?.buildings[index], plan = building && facades.get(building.id)
     return plan && building ? campusFacadeCamera(plan, building.baseElevation ?? 0) : null

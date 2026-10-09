@@ -15,6 +15,8 @@ import type { CampusLamp } from './nightLighting.ts'
 import { AVATAR_HEIGHT } from './avatarJump.ts'
 import { flagBlocksWalking, flagBlocksCamera } from './campusFlag.ts'
 import { entranceBlocksWalking, entranceBlocksCamera } from './mainEntrance.ts'
+import { inEntranceExterior } from './entranceExterior.ts'
+import { savedCampusOverrides } from '../data/campusOverrides.ts'
 
 import type { TransportMode } from './vehicles.ts'
 
@@ -68,7 +70,14 @@ function hitsBuilding(point: LocalCoordinate, building: Collider, radius: number
 }
 export function isWalkable(point: LocalCoordinate, world: WalkWorld, radius = AVATAR_RADIUS, feetY = walkSurfaceHeightAt(world.terrain, point.x, point.z)): boolean {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.z) || Math.max(Math.abs(point.x), Math.abs(point.z)) > world.terrain.size / 2 - radius) return false
-  if (world.boundary.length >= 3 && (!pointInCampus(point, world.boundary) || ringDistance(point, world.boundary) < radius)) return false
+  if (world.boundary.length >= 3) {
+    const exterior=world.terrain.entranceExterior
+    if (!pointInCampus(point,world.boundary) && !(exterior && inEntranceExterior(point,exterior,radius))) return false
+    // Retain solid perimeter walls everywhere except the existing gate opening.
+    const anchor=savedCampusOverrides['main-entrance'].coordinates!
+    const opening=!!exterior && Math.hypot(point.x-anchor.x,point.z-anchor.z)<16-radius
+    if (ringDistance(point,world.boundary)<radius && !opening) return false
+  }
   if (world.terrain.canal && canalBlocksWalking(point, world.terrain.canal, radius)) return false
   if (world.terrain.theatre && theatreBlocksWalking(point, world.terrain.theatre, radius)) return false
   if (world.terrain.flag && flagBlocksWalking(point, world.terrain.flag, radius)) return false

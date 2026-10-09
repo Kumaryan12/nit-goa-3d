@@ -13,6 +13,7 @@ import type { CampusIdentity } from './access.ts'
 import { PRESENCE_CATCHUP_SECONDS, presenceSpeedLimit, presenceVerticalSpeedLimit } from '../src/lib/movementLimits.ts'
 import { isSocialAction, SOCIAL_DURATION } from '../src/lib/social.ts'
 import type { SocialSeat } from '../src/lib/social.ts'
+import { createEntranceAccess, inEntranceExterior } from '../src/lib/entranceAccess.ts'
 
 export function publishedCampusBoundary(): LocalCoordinate[] {
   const source = ['dist/map/nit-goa-campus.json', 'public/map/nit-goa-campus.json'].map(p => resolve(p)).find(existsSync)
@@ -25,6 +26,7 @@ export function publishedCampusBoundary(): LocalCoordinate[] {
 export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[] = []) {
   if (boundary.length < 4) throw new Error('Campus presence requires a closed boundary.')
   const region = boundary.map(localToGps)
+  const entranceExterior = createEntranceAccess(boundary)
   const members = new Map<string, { person: CampusPerson; preferredColor: AvatarColor; poseAt: number; spawnAt: number; velocity?: LocalCoordinate; movement?: { horizontal: number; vertical: number; speed: number; verticalSpeed: number }; seatOrigin?: CampusPose }>()
   const rideLimits = new Map<string, number>()
   const socialLimits = new Map<string, number[]>()
@@ -141,7 +143,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
     updatePose(id: string, input: unknown, activity: unknown, now = Date.now()): 'accepted' | 'throttled' | 'invalid' {
       syncRides(now); syncSocial(now)
       const member = members.get(id), pose = parseCampusPose(input)
-      if (!member || !pose || !['walk', 'overview', 'football', 'concert'].includes(activity as string) || !pointInRing(localToGps(pose), region)) return 'invalid'
+      if (!member || !pose || !['walk', 'overview', 'football', 'concert'].includes(activity as string) || !(pointInRing(localToGps(pose), region) || entranceExterior && inEntranceExterior(pose,entranceExterior))) return 'invalid'
       const throttled = now - member.poseAt < 70
       const previous = member.person.pose
       const impact = member.person.impact

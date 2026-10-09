@@ -9,6 +9,7 @@ import { extractBuildingFootprints } from '../../src/lib/buildings'
 import { extractCampusRoads } from '../../src/lib/roads'
 import { savedCampusOverrides } from '../../src/data/campusOverrides'
 import MainEntrance from '../../src/components/MainEntrance'
+import EntranceHighway from '../../src/components/EntranceHighway'
 import CampusGardens from '../../src/components/CampusGardens'
 import Terrain from '../../src/components/Terrain'
 import OSMRoads from '../../src/components/OSMRoads'
@@ -48,6 +49,7 @@ function Scene({night,rear,stats}:{night:boolean;rear:boolean;stats:(s:string)=>
  <Vegetation trees={trees} onReady={noop}/><CampusGardens gardens={twin.entranceGardens!} terrain={twin.terrain}/>
  <CampusStreetlights lamps={twin.lamps} terrain={twin.terrain} night={night}/>
  <MainEntrance layout={gate} terrain={twin.terrain} night={night}/><ReviewCamera rear={rear}/>
+ {twin.terrain.entranceExterior&&<EntranceHighway exterior={twin.terrain.entranceExterior} terrain={twin.terrain} night={night}/>}
  </>
 }
 function Preview(){const[night,setNight]=useState(false),[rear,setRear]=useState(false),[stats,setStats]=useState('Preparing scene…');return <><header><h1>Main Entrance · production geometry</h1><button onClick={()=>setNight(n=>!n)}>{night?'Day view':'Night view'}</button><button onClick={()=>setRear(r=>!r)}>{rear?'Front view':'Inside campus'}</button><p role="status">{stats}</p></header><Canvas shadows={{type:PCFShadowMap}} dpr={[1,1.5]} camera={{position:[gate.center.x-44,ground+12,gate.center.z+23],fov:45,near:.1,far:3000}}><Scene night={night} rear={rear} stats={setStats}/></Canvas></>}
