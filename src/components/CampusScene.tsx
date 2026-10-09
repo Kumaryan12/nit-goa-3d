@@ -7,6 +7,7 @@ import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
 import { sceneConfig } from '../lib/sceneConfig'
 import { campusCameraView, flyToLocation, routeCameraView } from '../lib/camera'
 import { bindCameraGestures } from '../lib/cameraGestures'
+import type { OverviewDrag } from '../lib/cameraGestures'
 import type { CameraRequest } from '../lib/camera'
 import { gpsToLocal } from '../lib/geo'
 import { createAdministrationFacade } from '../lib/administrationFacade'
@@ -57,6 +58,7 @@ import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number }
 interface CampusSceneProps {
+  overviewDrag?: OverviewDrag
   scenePrepared?: boolean
   onSceneReady?: () => void
   onSceneUnavailable?: () => void
@@ -136,7 +138,7 @@ class CampusGraphicsBoundary extends Component<{ children: ReactNode; onUnavaila
   }
 }
 
-function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; request: CameraRequest; facades: Map<string, CampusFacadePlan> }) {
+function Navigation({ twin, request, facades, drag }: { twin: DigitalTwin | null; request: CameraRequest; facades: Map<string, CampusFacadePlan>; drag: OverviewDrag }) {
   const controls = useRef<CameraControls>(null)
   const { width, height } = useThree((state) => state.size), gl = useThree(state => state.gl)
   const pinchDistance = useRef<number | null>(null)
@@ -179,7 +181,8 @@ function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; requ
     // Requests have a monotonic sequence so repeated clicks on the same place work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request])
-  return <CameraControls ref={controls} makeDefault smoothTime={0.4} draggingSmoothTime={0.18} azimuthRotateSpeed={0.45} polarRotateSpeed={0.45} dollySpeed={0.28}
+  return <CameraControls ref={controls} makeDefault smoothTime={0.4} draggingSmoothTime={0.1} azimuthRotateSpeed={0.45} polarRotateSpeed={0.45} dollySpeed={0.28} truckSpeed={1.6}
+    mouseButtons={{ left: drag === 'pan' ? CameraControlsImpl.ACTION.SCREEN_PAN : CameraControlsImpl.ACTION.ROTATE, right: CameraControlsImpl.ACTION.ROTATE, middle: CameraControlsImpl.ACTION.SCREEN_PAN, wheel: CameraControlsImpl.ACTION.DOLLY }}
     touches={{ one: CameraControlsImpl.ACTION.TOUCH_ROTATE, two: CameraControlsImpl.ACTION.TOUCH_DOLLY, three: CameraControlsImpl.ACTION.TOUCH_TRUCK }}
     minDistance={12} maxDistance={twin ? twin.size * 2 : 2000} maxPolarAngle={Math.PI / 2 - 0.035} />
 }
@@ -196,7 +199,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ overviewDrag = 'pan', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const compact = useRef(window.matchMedia('(pointer: coarse)').matches || navigator.hardwareConcurrency <= 4).current
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
   const profile = useMemo(() => graphicsProfile(graphicsMode, qualityLevel), [graphicsMode, qualityLevel])
@@ -267,7 +270,7 @@ function CampusScene({ scenePrepared = false, onSceneReady, onSceneUnavailable, 
     {view === 'overview' && twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     {slopePreview && twin && <SlopePreview points={slopePreview} terrain={twin.terrain} />}
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
-    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer avatarStyle={avatarStyle} onSocialStop={onSocialStop} onBuggyRide={onBuggyRide} campusSession={campusSession} campusPose={campusPose} avatarAccent={footballJoined ? avatarColor : undefined} footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : avatarColor} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
+    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} drag={overviewDrag} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer avatarStyle={avatarStyle} onSocialStop={onSocialStop} onBuggyRide={onBuggyRide} campusSession={campusSession} campusPose={campusPose} avatarAccent={footballJoined ? avatarColor : undefined} footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : avatarColor} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
     <RuntimeMetrics onMetrics={reportMetrics} />
   </Canvas></GraphicsContext.Provider></CampusGraphicsBoundary>
 }

@@ -21,7 +21,7 @@ export default function OpenAirTheatre({ theatre, terrain, selected, night, onSe
     return { tiers, access: createRoadGeometry([theatre.access], 2.4, .09, terrain) }
   }, [theatre, terrain])
   useEffect(() => () => { geometry.tiers.forEach(tier => [...tier.steps, ...tier.benches].forEach(mesh => mesh.dispose())); geometry.access.dispose() }, [geometry])
-  const choose = (event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); onSelect() }
+  const choose = (event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); if (event.delta <= 2) onSelect() }
   const plaza = hovered ? '#d2cbb8' : '#c7bea9'
   return <group name="open-air-theatre" onClick={choose} onPointerOver={event => { event.stopPropagation(); setHovered(true) }} onPointerOut={() => setHovered(false)}>
     <mesh geometry={geometry.access} receiveShadow><meshStandardMaterial color="#c8bea6" roughness={1} /></mesh>

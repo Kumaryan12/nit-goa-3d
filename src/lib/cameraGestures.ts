@@ -1,3 +1,5 @@
+export type OverviewDrag = 'pan' | 'rotate'
+
 // Pinch changes camera distance, never the browser page scale. The inverse
 // ratio makes spreading fingers bring the camera closer in both explorer modes.
 export function pinchRatio(previous: number, current: number) {

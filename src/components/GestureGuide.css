@@ -1,0 +1,25 @@
+.gesture-guide { position: absolute; bottom: calc(100% + 10px); right: 0; width: 284px; max-width: calc(100vw - 24px); max-height: calc(100dvh - 180px); overflow: auto; overscroll-behavior: contain; padding: 14px; border: 1px solid var(--border); border-radius: 18px; background: #f7faf0c2; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 8px 30px #132b191c; }
+.night-mode .gesture-guide { background: #101e30c7; }
+.gesture-guide-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; font-weight: 650; }
+.gesture-guide-heading small { margin-left: 6px; font-size: 10px; font-weight: 400; color: var(--muted); }
+.gesture-guide button { border: 0; color: inherit; background: transparent; font: inherit; border-radius: 8px; }
+.gesture-guide-heading button { min-width: 32px; min-height: 32px; font-size: 20px; }
+.gesture-guide button:hover { background: var(--wash); }
+.gesture-devices { display: flex; gap: 4px; padding: 3px; margin-top: 8px; border-radius: 10px; background: var(--wash); }
+.gesture-devices button { flex: 1; min-height: 32px; font-size: 10px; padding: 5px; }
+.gesture-guide button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.night-mode .gesture-guide button[aria-pressed="true"] { color: #101e30; }
+.gesture-drag-mode { display: flex; gap: 5px; align-items: center; margin-top: 10px; font-size: 10px; }
+.gesture-drag-mode > span { margin-right: auto; color: var(--muted); }
+.gesture-drag-mode button { min-height: 32px; padding: 5px 12px; background: var(--wash); }
+.gesture-guide dl { margin: 10px 0 0; font-size: 11px; }
+.gesture-guide dl > div { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 32px; border-top: 1px solid var(--border); }
+.gesture-guide dt { font-weight: 550; }
+.gesture-guide dd { margin: 0; text-align: right; color: var(--ink); }
+@media (min-width: 1101px) {
+  .explorer:not(.minimap-hidden):not(.football-mode):not(.editing-campus) .gesture-guide { right: 330px; }
+}
+@media (max-width: 760px), (pointer: coarse) {
+  .gesture-guide { max-height: calc(100dvh - 160px); }
+  .gesture-devices button, .gesture-drag-mode button, .gesture-guide-heading button { min-height: 44px; }
+}

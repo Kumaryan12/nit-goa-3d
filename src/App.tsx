@@ -62,6 +62,7 @@ import SocialActions from './components/SocialActions'
 import { theatreSeats } from './lib/social'
 import ViewControls, { initialViewLayout } from './components/ViewControls'
 import type { ViewLayout } from './components/ViewControls'
+import type { OverviewDrag } from './lib/cameraGestures'
 
 const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
 const readState = () => {
@@ -83,6 +84,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const initial = useRef(readState()).current
   const initialView = useRef(explorerViewFromURL(window.location.href)).current
   const [view, setView] = useState<ExplorerView>(initialView)
+  const [overviewDrag, setOverviewDrag] = useState<OverviewDrag>('pan')
   const [graphicsMode, setGraphicsMode] = useState(() => { try { return validGraphicsMode(localStorage.getItem('nit-goa:graphics')) } catch { return validGraphicsMode(null) } })
   const changeGraphics = (mode: typeof graphicsMode) => { setGraphicsMode(mode); try { localStorage.setItem('nit-goa:graphics', mode) } catch { /* Rendering still works without storage. */ } }
   const [terrainSettings, setTerrainSettings] = useState(() => readTerrainSettings(browserStorage))
@@ -379,9 +381,10 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
 
   return (<>
     <main ref={explorer} inert={startupVisible} aria-hidden={startupVisible || undefined} className={`explorer ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
-      <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} />
-      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, scroll or pinch with two fingers to zoom, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll or pinch with two fingers to zoom, and right-drag to pan.'}>
+      <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} view={view} drag={overviewDrag} onDrag={setOverviewDrag} vehicle={walkStatus?.vehicle ?? 'walk'} football={footballJoined} />
+      <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, scroll or pinch with two fingers to zoom, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : `Interactive campus. Click a building for details, left-drag to ${overviewDrag === 'pan' ? 'move the view' : 'rotate'}, right-drag to rotate, scroll or pinch with two fingers to zoom. Touch: one finger to rotate, pinch to zoom, three fingers to move the view.`}>
         <Suspense fallback={null}><CampusScene
+          overviewDrag={overviewDrag}
           scenePrepared={requestsSettled && !!twin && terrainReady && vegetationReady}
           onSceneReady={onSceneReady} onSceneUnavailable={onSceneUnavailable}
           oatConcert={oat.snapshot}

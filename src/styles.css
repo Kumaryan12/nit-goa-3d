@@ -15,7 +15,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .explorer.night-mode { --ink: #e4ede9; --muted: #a0b6b2; --glass: #101e30ed; --border: #b9cae030; --accent: #a0d6ba; --wash: #b9cae014; color-scheme: dark; }
 .scene-viewport { position: absolute; inset: 0; }
-.scene-viewport canvas { display: block; touch-action: none; }
+.scene-viewport canvas { display: block; touch-action: none; cursor: grab; }
+.scene-viewport canvas:active { cursor: grabbing; }
 .scene-header, .location-navigation, .map-status, .building-info-panel, .campus-minimap {
   border: 1px solid var(--border); background: var(--glass); backdrop-filter: blur(16px); box-shadow: 0 6px 30px #132b1910;
 }
