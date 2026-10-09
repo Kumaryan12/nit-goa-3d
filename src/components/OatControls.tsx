@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { OatSession } from '../hooks/useOatSession'
 import { OAT_BACKING_TRACK, OAT_CAPACITY, oatInviteURL } from '../lib/oatProtocol'
 
@@ -6,13 +6,16 @@ const timestamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Mat
 export default function OatControls({ session, joined, onJoin, onRetry, onClose }: {
   session: OatSession; joined: boolean; onJoin: (name: string) => void; onRetry: () => void; onClose: () => void
 }) {
+  const [collapsed, setCollapsed] = useState(false), contentId = useId()
   const [title, setTitle] = useState(''), [trackURL, setTrackURL] = useState(''), [trackTitle, setTrackTitle] = useState(''), [copied, setCopied] = useState(false)
   const { snapshot: room, selfId, connection, mic, error } = session
   const live = connection === 'live', onStage = !!selfId && room?.performerId === selfId
   const performer = room?.participants.find(p => p.id === room.performerId), queueIndex = selfId ? room?.queue.indexOf(selfId) ?? -1 : -1
   const invite = oatInviteURL(window.location.href)
-  return <aside className="oat-controls" aria-labelledby="oat-title">
-    <div className="oat-heading"><span className="eyebrow">Open Air Theatre · Live</span><button className="panel-close" aria-label="Leave OAT concert" onClick={onClose}>×</button></div>
+  return <aside className={`oat-controls ${collapsed ? 'panel-collapsed' : ''}`} aria-label="OAT concert controls" aria-labelledby={collapsed ? undefined : "oat-title"}>
+    <div className="oat-heading"><span className="eyebrow">OAT concert{mic === 'live' ? ' · Mic live' : ''}</span><div className="panel-heading-actions"><button className="panel-collapse" aria-expanded={!collapsed} aria-controls={contentId} aria-label={collapsed ? 'Expand concert controls' : 'Minimize concert controls'} onClick={() => setCollapsed(value => !value)}>{collapsed ? 'Expand' : '−'}</button><button className="panel-close" aria-label="Leave OAT concert" onClick={onClose}>×</button></div></div>
+    {collapsed && mic !== 'off' && <button className="navigate-button oat-collapsed-mic" onClick={session.stopMic}>{mic === 'live' ? '● Stop live microphone' : 'Cancel microphone request'}</button>}
+    <div id={contentId} hidden={collapsed}>
     <h2 id="oat-title">{room?.concertTitle ?? 'Concerts at the OAT'}</h2>
     {!joined ? <>
       <p>Meet at the theatre, share music and take the stage to sing live.</p>
@@ -70,7 +73,8 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
         <h3>Audience</h3><p className="oat-audience">{room?.participants.filter(p => p.id !== room.performerId).map(p => `${p.name}${p.id === selfId ? ' (you)' : ''}`).join(', ') || 'Invite people to your concert.'}</p>
       </section>
     </>}
-    {error && <p className="oat-error" role="alert">{error}</p>}
     <section className="oat-section"><h3>Invite your audience</h3><div className="oat-input-row"><input aria-label="Concert invitation link" readOnly value={invite} onFocus={event => event.target.select()} /><button className="fly-button" onClick={() => { void navigator.clipboard?.writeText(invite).then(() => setCopied(true)).catch(() => setCopied(false)) }}>{copied ? 'Copied' : 'Copy link'}</button></div></section>
+    </div>
+    {error && <p className="oat-error" role="alert">{error}</p>}
   </aside>
 }

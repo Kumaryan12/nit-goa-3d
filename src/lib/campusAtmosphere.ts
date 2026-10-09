@@ -1,4 +1,5 @@
 import type { CampusPose } from './campusProtocol.ts'
+import { MOVEMENT_SPEEDS, PRESENCE_SPEED_LIMITS } from './movementLimits.ts'
 
 export interface AtmosphereSettings { volume: number; muted: boolean; wind: boolean; birds: boolean; movement: boolean }
 export const DEFAULT_ATMOSPHERE: AtmosphereSettings = { volume: .38, muted: false, wind: true, birds: true, movement: true }
@@ -48,10 +49,10 @@ export function advanceAtmosphereMotion(state: AtmosphereMotion, pose: CampusPos
   const distance = Math.hypot(pose.x - before.x, pose.z - before.z), speed = distance / elapsed
   const vehicle = pose.vehicle ?? 'walk'
   // A jump/teleport must never become a backlog of steps or chain clicks.
-  if (!Number.isFinite(speed) || !Number.isFinite(pose.y) || distance > 3 || speed > (vehicle === 'walk' ? 5.8 : 10.5)) { reset(); return result }
+  if (!Number.isFinite(speed) || !Number.isFinite(pose.y) || distance > 3 || speed > PRESENCE_SPEED_LIMITS[vehicle]) { reset(); return result }
   if (vehicle === 'bicycle') {
     state.distance = 0
-    result.bicycle = speed < .12 ? 0 : Math.min(1, speed / 7)
+    result.bicycle = speed < .12 ? 0 : Math.min(1, speed / MOVEMENT_SPEEDS.bicycle)
     state.chainDistance += distance
     if (state.chainDistance >= 1.65) { result.chain = result.bicycle > 0; state.chainDistance %= 1.65 }
     return result

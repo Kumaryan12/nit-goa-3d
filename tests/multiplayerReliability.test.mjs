@@ -9,6 +9,7 @@ import { chooseCrowd } from '../src/lib/crowdRendering.ts'
 import { liveRetryDelay } from '../src/lib/liveRecovery.ts'
 import { advanceVehicle, applyBuggyImpact, freshVehicle } from '../src/lib/vehicles.ts'
 import { createWalkWorld } from '../src/lib/walking.ts'
+import { MOVEMENT_SPEEDS } from '../src/lib/movementLimits.ts'
 
 const pose = extra => ({ x: 0, y: 0, z: 0, yaw: 0, epoch: 1, vehicle: 'walk', moving: false, running: false, active: true, visible: true, space: 'outdoors', ...extra })
 const waitFor = async predicate => { const end = Date.now() + 10000; while (Date.now() < end) { const result = predicate(); if (result) return result; await new Promise(r => setTimeout(r, 15)) }; throw new Error('Multiplayer state did not arrive') }
@@ -71,7 +72,7 @@ test('two peers recover rejected movement without weakening server movement boun
 
 test('bunched full-speed updates never send a stop/reset correction and observers catch up',async t=>{
   const {peer}=await fixture(t),observer=peer('observer')
-  const drivers=[['walker', 'walk', 5],['cyclist','bicycle',7],['buggy_driver','buggy',9]].map(([id,vehicle,speed])=>({...peer(id),id,vehicle,speed}))
+  const drivers=[['walker', 'walk', MOVEMENT_SPEEDS.run],['cyclist','bicycle',MOVEMENT_SPEEDS.bicycle],['buggy_driver','buggy',MOVEMENT_SPEEDS.buggy]].map(([id,vehicle,speed])=>({...peer(id),id,vehicle,speed}))
   await waitFor(()=>[observer,...drivers].every(p=>p.messages.some(m=>m.type==='campus-welcome')))
   for(const p of drivers)p.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:p.vehicle})}))
   await waitFor(()=>observer.messages.some(m=>m.type==='campus-state'&&m.people.filter(p=>p.id!=='observer').every(p=>p.pose)))

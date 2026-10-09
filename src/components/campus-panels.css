@@ -1,0 +1,126 @@
+/* One glass treatment for every campus surface, including lazy dialogs.
+   Keep opacity on the background so text and controls stay fully opaque. */
+.explorer :is(.scene-header, .building-info-panel, .location-navigation, .campus-minimap, .walk-controls, .campus-social, .oat-controls, .football-controls, .search-dropdown, .terrain-controls-panel, .atmosphere-panel, .social-action-panel, .view-options, .view-dock, .view-feedback, .campus-account-menu, .gesture-guide, .map-status, .resilience-notice, .campus-editor, .app-dialog, .gallery-error, .gallery-opening) {
+  background: linear-gradient(135deg, var(--glass-sheen), transparent 65%), var(--glass);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 28px var(--glass-shadow), inset 0 1px 0 var(--glass-sheen);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.explorer .app-dialog {
+  --ink: inherit; --muted: inherit; --glass: inherit; --accent: inherit; --border: inherit; --wash: inherit;
+}
+.explorer .app-dialog::backdrop { background: #06171159; backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.explorer .map-status-complete { opacity: 1; }
+.explorer .campus-account-menu button:hover { background: var(--wash); }
+.explorer .graphics-control select { background: var(--wash); color: var(--ink); border-color: var(--border); }
+.explorer :is(.explorer-version-switch button, .campus-social-tabs button, .walk-transport button, .gesture-guide button, .walk-direction)[aria-pressed="true"],
+.explorer .walk-direction:active, .explorer .campus-chat-composer button, .explorer .campus-unread { color: var(--on-accent); }
+/* Small labels need a stable surface without adding a blur layer per avatar. */
+.explorer :is(.map-credit, .location-label, .campus-avatar-name, .campus-speech, .oat-performer-label, .route-marker-label, .campus-reaction) {
+  background: var(--glass); color: var(--ink); border-color: var(--border);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .explorer { --glass: #f5faefe8; }
+  .explorer.night-mode { --glass: #0b1925e8; }
+}
+.explorer .building-info-panel { width: 288px; padding: 14px; }
+.explorer .building-info-panel h2 { font-size: 20px; margin: 8px 0; }
+.explorer .building-info-panel.panel-collapsed h2 { font-size: 15px; margin-bottom: 0; }
+.explorer .panel-section { margin-top: 12px; padding-top: 10px; }
+.explorer .panel-section h3 { margin-bottom: 8px; }
+.explorer .panel-actions, .explorer .location-distance { margin-top: 12px; }
+.explorer .navigation-form { margin: 12px 0; gap: 5px; }
+.explorer .route-metrics { margin: 12px 0; gap: 22px; }
+.explorer .route-metrics dd { font-size: 24px; }
+.explorer .campus-social { width: 288px; height: 380px; bottom: 88px; padding: 12px; border-radius: 14px; max-height: calc(100dvh - 220px); }
+.campus-social-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.campus-social-content[hidden] { display: none; }
+.explorer .campus-social.panel-collapsed { height: auto; }
+.explorer.social-open:has(.campus-social.panel-collapsed) :is(.campus-minimap, .oat-controls, .football-controls, .building-info-panel, .location-navigation) { visibility: visible; }
+.explorer .campus-social-heading h2 { font-size: 15px; margin: 0; }
+.explorer .campus-social-status { margin: 8px 0; }
+.explorer .campus-chat-channel { margin: 8px 0 5px; }
+.explorer .campus-social-empty { padding: 12px 5px; }
+.explorer .campus-social-empty > span { font-size: 20px; }
+.explorer .campus-social-empty h3 { font-size: 13px; margin: 8px 0; }
+.explorer .campus-chat-composer { margin-top: 6px; }
+.explorer .campus-person-row { padding: 8px 0; }
+.explorer .oat-controls { width: 288px; padding: 12px; bottom: auto; max-height: min(520px, calc(100dvh - 220px)); border-radius: 14px; }
+.explorer .oat-controls.panel-collapsed { max-height: calc(100dvh - 220px); }
+.explorer .oat-heading { justify-content: space-between; }
+.explorer .oat-controls h2 { font-size: 19px; margin: 8px 0; }
+.explorer .oat-controls h3 { font-size: 12px; }
+.explorer .oat-controls p { font-size: 11px; line-height: 1.5; }
+.explorer .oat-section { margin-top: 10px; padding-top: 10px; }
+.explorer .oat-collapsed-mic { margin-top: 8px; width: 100%; }
+.explorer .football-controls { padding: 12px; width: 232px; }
+.explorer .football-score { margin: 10px 0; }
+.explorer .football-score b { font-size: 30px; }
+.explorer .football-help { font-size: 10px; }
+.explorer .atmosphere-panel { width: 252px; padding: 12px; border-radius: 14px; }
+.explorer .atmosphere-heading h2 { font-size: 14px; }
+.explorer .atmosphere-actions { margin-top: 8px; }
+.explorer .atmosphere-volume { margin-top: 10px; }
+.explorer .atmosphere-channels { gap: 4px; padding-top: 8px; margin-top: 6px; }
+.explorer .atmosphere-channels label { min-height: 28px; }
+.explorer .atmosphere-status { margin-top: 8px; }
+.explorer .atmosphere-details { margin-top: 8px; font-size: 11px; }
+.explorer .atmosphere-details summary { display: list-item; padding: 8px 0; cursor: pointer; }
+.explorer .terrain-controls-panel { width: 280px; padding: 12px; }
+.explorer > .terrain-controls-panel { z-index: 100; }
+.explorer .view-options { min-width: 210px; padding: 12px; }
+.explorer .campus-account-menu { min-width: 185px; border-color: var(--border); }
+.explorer .campus-account-menu button { color: var(--ink); font-size: 11px; padding: 9px; }
+.explorer .gesture-guide { width: 252px; padding: 12px; border-radius: 14px; }
+.explorer .gesture-guide dl > div { min-height: 28px; font-size: 10px; }
+@media (min-width: 761px) and (pointer: fine) {
+  .explorer.social-open .gesture-guide { right: 300px; }
+  .explorer .scene-header { padding: 10px 14px; gap: 16px; }
+  .explorer .scene-header h1 { font-size: 19px; }
+  .explorer .walk-controls:not(.walk-controls-compact) { width: 292px; padding: 12px; }
+  .explorer .walk-heading h2 { font-size: 15px; }
+  .explorer .walk-help, .explorer .walk-note { display: none; }
+  .explorer .walk-location { margin: 8px 0; }
+  .explorer .location-navigation { padding: 12px; }
+}
+@media (max-width: 760px), (pointer: coarse) {
+  /* Lower blur cost on touch devices; the tint and highlights stay consistent. */
+  .explorer :is(.scene-header, .building-info-panel, .location-navigation, .campus-minimap, .walk-controls, .campus-social, .oat-controls, .football-controls, .search-dropdown, .terrain-controls-panel, .atmosphere-panel, .social-action-panel, .view-options, .view-dock, .view-feedback, .campus-account-menu, .gesture-guide, .map-status, .resilience-notice, .campus-editor, .app-dialog, .gallery-error, .gallery-opening) { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .explorer :is(.atmosphere-panel, .terrain-controls-panel) { position: fixed; top: auto; left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)); width: min(252px, calc(100vw - 24px)); max-height: calc(100dvh - 180px); }
+  .explorer .campus-social { left: auto; right: max(12px, env(safe-area-inset-right)); bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)); width: min(280px, calc(100vw - 24px)); height: min(340px, 48dvh); max-height: calc(100dvh - 180px); }
+  .explorer.social-open .walk-controls { visibility: visible; }
+  .explorer .oat-controls { width: min(280px, calc(100vw - 24px)); top: auto; bottom: max(76px, calc(env(safe-area-inset-bottom) + 64px)); max-height: min(440px, 55dvh); }
+  .explorer .building-info-panel { left: auto; width: min(280px, calc(100vw - 24px)); padding: 12px; }
+  .explorer .football-controls { width: 170px; }
+  .explorer .panel-heading-actions :is(.panel-collapse, .panel-close), .explorer .atmosphere-actions button, .explorer .atmosphere-channels label, .explorer .campus-social-tabs button, .explorer .oat-controls button { min-height: 44px; }
+  .explorer .panel-heading-actions :is(.panel-collapse, .panel-close) { min-width: 44px; }
+  .explorer .campus-social input { min-height: 44px; }
+  .explorer .atmosphere-details summary { min-height: 44px; align-content: center; }
+}
+@media (max-width: 760px) {
+  /* Focus mode has separate floating controls, not a full-width glass sheet. */
+  .explorer .walk-controls-compact { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .explorer .walk-controls-compact :is(.walk-movement, .walk-notice, .walk-transport button, .walk-look button, .walk-inspect, .walk-board) {
+    background: linear-gradient(135deg, var(--glass-sheen), transparent 65%), var(--glass);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 14px var(--glass-shadow);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .explorer .walk-controls-compact .walk-transport button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+}
+/* Landscape phones keep one scrolling toolbar row and usable panel height. */
+@media (max-height: 500px) and (max-width: 1100px) and (orientation: landscape) {
+  .explorer .scene-header {
+    left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+    width: auto; top: max(12px, env(safe-area-inset-top)); display: flex; flex-wrap: nowrap; padding: 8px; gap: 8px;
+  }
+  .explorer .scene-header :is(h1, .eyebrow, .campus-search) { display: none; }
+  .explorer .explorer-version-switch { margin: 0; }
+  .explorer .scene-header .scene-toolbar { width: auto; flex: 1; margin: 0; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; scrollbar-width: thin; }
+  .explorer .scene-toolbar > * { flex-shrink: 0; }
+  .explorer :is(.map-status-complete, .location-navigation) { display: none; }
+  .explorer :is(.building-info-panel, .campus-editor, .oat-controls, .football-controls) {
+    top: max(86px, calc(env(safe-area-inset-top) + 74px)); bottom: auto; max-height: calc(100dvh - 162px - env(safe-area-inset-top));
+  }
+}

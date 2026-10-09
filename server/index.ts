@@ -114,7 +114,7 @@ const server = createServer((request, response) => {
   }
   const spa =
     path === '/' ||
-    ['/campus', '/student', '/admin', '/admin/campus', '/admin/crowd', '/me', '/manage', '/people'].includes(path) ||
+    ['/campus', '/student', '/admin', '/admin/campus', '/admin/crowd', '/me', '/manage', '/people', '/updates'].includes(path) ||
     /^\/people\/[a-z][a-z0-9_]{2,23}$/.test(path)
   const file = resolve(root, spa ? 'index.html' : '.' + path)
   if (!file.startsWith(root + sep)) {

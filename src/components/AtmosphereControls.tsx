@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import CampusPopover from './CampusPopover'
 import type { RefObject } from 'react'
 import type { CampusPose } from '../lib/campusProtocol'
 import { CampusAudio } from '../lib/campusAudio'
@@ -12,6 +13,7 @@ function readSettings() {
 }
 
 export default function AtmosphereControls({ pose, night, walking, concert }: AtmosphereControlsProps) {
+  const popover = useRef<HTMLElement>(null)
   const [settings, setSettings] = useState(readSettings), [enabled, setEnabled] = useState(false), [open, setOpen] = useState(false)
   const [status, setStatus] = useState('Enable sounds to hear the campus.'), [resumeNeeded, setResumeNeeded] = useState(false)
   const audio = useRef<CampusAudio | null>(null), preferences = useRef(settings), permission = useRef(false), motion = useRef(freshAtmosphereMotion())
@@ -78,7 +80,7 @@ export default function AtmosphereControls({ pose, night, walking, concert }: At
 
   useEffect(() => {
     if (!open) return
-    const outside = (event: PointerEvent) => { if (event.target instanceof Node && !container.current?.contains(event.target)) setOpen(false) }
+    const outside = (event: PointerEvent) => { if (event.target instanceof Node && !container.current?.contains(event.target) && !popover.current?.contains(event.target)) setOpen(false) }
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false); toggle.current?.focus() } }
     document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape)
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape) }
@@ -89,9 +91,8 @@ export default function AtmosphereControls({ pose, night, walking, concert }: At
     <button ref={toggle} type="button" className="toolbar-button" aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}>
       <span aria-hidden="true">{audible ? '♫' : '♪'}</span> Sounds {audible ? 'on' : 'off'}
     </button>
-    {open && <section id={id} className="atmosphere-panel" aria-labelledby={`${id}-heading`}>
+    {open && <CampusPopover anchor={container}><section ref={popover} id={id} className="atmosphere-panel" aria-labelledby={`${id}-heading`}>
       <div className="atmosphere-heading"><h2 id={`${id}-heading`}>Campus sounds</h2><button type="button" className="panel-close" aria-label="Close sound settings" onClick={() => { setOpen(false); toggle.current?.focus() }}>×</button></div>
-      <p className="atmosphere-description">A little breeze, birds in the trees, and the sound of exploring.</p>
       <div className="atmosphere-actions">
         {!enabled ? <button type="button" className="navigate-button" onClick={enable}>Enable campus sounds</button> : <>
           <button type="button" className="navigate-button" aria-pressed={settings.muted || settings.volume === 0} onClick={() => updateSettings(settings.muted || settings.volume === 0 ? { muted: false, volume: settings.volume || DEFAULT_ATMOSPHERE.volume } : { muted: true })}>{settings.muted || settings.volume === 0 ? 'Unmute' : 'Mute'}</button>
@@ -102,11 +103,13 @@ export default function AtmosphereControls({ pose, night, walking, concert }: At
       <label className="atmosphere-volume" htmlFor={`${id}-volume`}><span>Volume <output>{Math.round(settings.volume * 100)}%</output></span>
         <input id={`${id}-volume`} type="range" min="0" max="100" step="1" value={Math.round(settings.volume * 100)} onChange={event => updateSettings({ volume: Number(event.target.value) / 100 })} />
       </label>
-      <fieldset className="atmosphere-channels"><legend>Choose your sounds</legend>
+      <details className="atmosphere-details"><summary>Sound channels</summary>
+      <fieldset className="atmosphere-channels"><legend className="sr-only">Choose your sounds</legend>
         {([['wind', 'Wind in the trees'], ['birds', 'Birdsong'], ['movement', 'Footsteps & bicycle']] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={settings[key]} onChange={event => updateSettings({ [key]: event.target.checked })} />{label}</label>)}
       </fieldset>
-      <p className="atmosphere-status" role="status">{status}</p>
       <p className="atmosphere-note">Quieter indoors and during concerts. Pauses when you leave this tab.</p>
-    </section>}
+      </details>
+      <p className="atmosphere-status" role="status">{status}</p>
+    </section></CampusPopover>}
   </div>
 }

@@ -24,7 +24,7 @@ test('vehicles accelerate gently, stay within presence speed limits, and agree a
   assert.ok(Math.abs(slow.p.z-fast.p.z)<.04)
   assert.equal(slow.state.speed,VEHICLES[kind].speed)
   assert.ok(VEHICLES[kind].speed<PRESENCE_SPEED_LIMITS[kind])
-  assert.ok(drive(kind,60,.5).state.speed<1.2)
+  assert.ok(drive(kind,60,.5).state.speed<VEHICLES[kind].speed*.15,'brief throttle stays gentle')
  }
 })
 test('braking, reverse, coasting, blur/pause and frame stalls remain controlled',()=>{
@@ -109,7 +109,7 @@ test('full-speed riding shares every step without granting walking or unknown mo
  }
  for(const [vehicle,space,activity,accepted] of [['buggy','outdoors','walk',true],['walk','outdoors','walk',false],['bicycle','outdoors','walk',false],['plane','outdoors','walk',false],['buggy','gyan:0','walk',false],['buggy','outdoors','football',false]]) {
   const room=createCampusRoom(boundary);room.add({id:'alice',name:'Alice',role:'member',expiresAt:Date.now()+60000});room.pose('alice',pose(),'walk',1000)
-  assert.equal(room.pose('alice',pose({vehicle,space,x:4.5}),activity,1500),accepted,vehicle+'/'+space+'/'+activity)
+  assert.equal(room.pose('alice',pose({vehicle,space,x:VEHICLES.buggy.speed*.5}),activity,1500),accepted,vehicle+'/'+space+'/'+activity)
  }
 })
 test('off-road freedom still blocks the canal, bridge parapets and unsafe grades',()=>{
@@ -157,7 +157,7 @@ test('brief delayed updates and full-speed slope travel do not roll a valid driv
 
 test('a turn constrained by a parallel wall preserves safe forward momentum',()=>{
  const wall={id:'wall',outer:ring(1,-50,1.1,50).map(localToGps),holes:[],height:10}
- const w=createWalkWorld([wall],boundary,flat),state=freshVehicle();state.speed=9;state.steering=.3
+ const w=createWalkWorld([wall],boundary,flat),state=freshVehicle();state.speed=VEHICLES.buggy.speed;state.steering=.3
  let p={x:.079999,z:20}
  assert.ok(canRideAt(p,state.yaw,'buggy',w,[]))
  for(let i=0;i<60;i++){
@@ -165,7 +165,7 @@ test('a turn constrained by a parallel wall preserves safe forward momentum',()=
   assert.equal(result.blocked,false,'clamp the unsafe rotation instead of stopping safe travel')
   assert.ok(canRideAt(p,state.yaw,'buggy',w,[]))
  }
- assert.ok(p.z<12);assert.equal(state.speed,9)
+ assert.ok(p.z<12);assert.equal(state.speed,VEHICLES.buggy.speed)
 })
 
 test('slow vehicles traverse the small plaza lip without climbing OAT stairs',()=>{

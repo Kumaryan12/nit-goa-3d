@@ -34,7 +34,7 @@ export default function LandingPage({ signedIn, onEnter }: { signedIn: boolean; 
     </section>
     <footer className="welcome-footer community-container">
       <div className="welcome-footer-brand"><NitGoaLogo /><span>Made for the people of NIT Goa.<small>An independent campus experience.</small></span></div>
-      <div><a href="/people" onClick={event => { event.preventDefault(); navigate('/people') }}>The community ↗</a><a href="/admin" onClick={event => { event.preventDefault(); navigate('/admin') }}>Admin</a></div>
+      <div><a href="/people" onClick={event => { event.preventDefault(); navigate('/people') }}>The community ↗</a><a href="/updates" onClick={event => { event.preventDefault(); navigate('/updates') }}>What’s new ↗</a><a href="/admin" onClick={event => { event.preventDefault(); navigate('/admin') }}>Admin</a></div>
     </footer>
   </main>
 }

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { CAMPUS_CAPACITY, CAMPUS_COLORS, canHearNearby, chatText } from '../lib/campusProtocol'
 import type { CampusLiveSession } from '../hooks/useCampusSession'
 import type { CampusPose } from '../lib/campusProtocol'
 import { initials, avatarTextColor } from '../lib/profile'
 const activities = { walk: 'Walking around', overview: 'Exploring the map', football: 'Playing football', concert: 'At the OAT' }
 export default function CampusSocial({ live, open, onClose, pose, walking }: { live: CampusLiveSession; open: boolean; onClose: () => void; pose: React.RefObject<CampusPose | null>; walking: boolean }) {
+  const [collapsed, setCollapsed] = useState(false), contentId = useId()
   const [tab, setTab] = useState<'chat' | 'people'>('chat'), [scope, setScope] = useState<'campus' | 'nearby'>('campus'), [text, setText] = useState('')
   const [sending, setSending] = useState(false), [deliveryError, setDeliveryError] = useState('')
   const pending = useRef<{ text: string; known: Set<string> } | null>(null)
@@ -20,8 +21,9 @@ export default function CampusSocial({ live, open, onClose, pose, walking }: { l
   useEffect(() => { if (live.error || live.connection !== 'live') { pending.current = null; setSending(false) } }, [live.error, live.connection])
   useEffect(() => { if (!sending) return; const timer = setTimeout(() => { pending.current = null; setSending(false); setDeliveryError('Delivery has not been confirmed. Your message is still here; check the connection before retrying.') }, 5000); return () => clearTimeout(timer) }, [sending])
   if (!open) return null
-  return <aside className="campus-social" aria-label="Live campus people and chat" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onClose() } }}>
-    <div className="campus-social-heading"><div><span className="eyebrow">YOUR PEOPLE, RIGHT HERE</span><h2>Campus, together.</h2></div><button className="panel-close" aria-label="Close campus chat" onClick={onClose}>×</button></div>
+  return <aside className={`campus-social ${collapsed ? 'panel-collapsed' : ''}`} aria-label="Live campus people and chat" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onClose() } }}>
+    <div className="campus-social-heading"><h2>People &amp; chat</h2><div className="panel-heading-actions"><button className="panel-collapse" aria-expanded={!collapsed} aria-controls={contentId} aria-label={collapsed ? 'Expand campus chat' : 'Minimize campus chat'} onClick={() => setCollapsed(value => !value)}>{collapsed ? 'Expand' : '−'}</button><button className="panel-close" aria-label="Close campus chat" onClick={onClose}>×</button></div></div>
+    <div id={contentId} className="campus-social-content" hidden={collapsed}>
     <p className="campus-social-status" role="status"><i className={live.connection === 'live' ? 'connected' : ''} />{live.connection === 'live' ? `${live.people.length} / ${CAMPUS_CAPACITY} here now` : live.connection === 'waiting' ? `Campus is full · Queue position ${live.queue}` : live.connection === 'reconnecting' ? 'Reconnecting to the live campus…' : live.connection === 'connecting' ? 'Joining the live campus…' : live.connection === 'idle' ? 'Live campus needs Google sign-in' : 'Live connection is offline'}</p>
     {live.connection === 'offline' && <button className="navigate-button" onClick={live.rejoin}>Rejoin live campus ↗</button>}
     {(live.error || deliveryError) && <div className="campus-chat-error" role="alert">{live.error || deliveryError}<button aria-label="Dismiss chat notice" onClick={() => { live.clearError(); setDeliveryError('') }}>×</button></div>}
@@ -40,5 +42,6 @@ export default function CampusSocial({ live, open, onClose, pose, walking }: { l
         <label className="sr-only" htmlFor="campus-chat-message">Your message</label><input ref={composer} id="campus-chat-message" value={text} onChange={event => setText(event.target.value)} maxLength={280} autoComplete="off" placeholder="Say hello…" disabled={live.connection !== 'live'} /><button type="submit" aria-label="Send chat message" disabled={live.connection !== 'live' || !text.trim() || sending}>{sending ? '…' : '↑'}</button>
       </form><p className="campus-social-note">{scope === 'campus' ? 'Shared with everyone in this room. Recent chat lasts for this live session.' : 'Nearby messages are live only. Walk mode is needed to send.'} Be kind. Keep personal details private.</p>
     </>}
+    </div>
   </aside>
 }

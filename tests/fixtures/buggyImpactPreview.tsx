@@ -5,7 +5,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import type { Group } from 'three'
 import CampusVehicle from '../../src/components/CampusVehicle'
-import { advanceVehicle, applyBuggyImpact, freshVehicle } from '../../src/lib/vehicles'
+import { advanceVehicle, applyBuggyImpact, freshVehicle, VEHICLES } from '../../src/lib/vehicles'
 import { solveBuggyImpact, sweptBuggyContact } from '../../src/lib/buggyImpacts'
 import { createWalkWorld } from '../../src/lib/walking'
 import type { AvatarMotion } from '../../src/lib/avatarMotion'
@@ -15,7 +15,7 @@ const world=createWalkWorld([],bounds,{size:200,segments:20,heights:new Float32A
 function Review({glance,slow}:{glance:boolean;slow:boolean}) {
  const roots=[useRef<Group>(null),useRef<Group>(null)]
  const motions=[useRef<AvatarMotion>({phase:0,moving:false}),useRef<AvatarMotion>({phase:0,moving:false})]
- const simulation=useRef({time:0,hit:false,points:[{x:glance?1.35:0,z:7},{x:0,z:0}],states:[{...freshVehicle(),speed:slow?3:9},freshVehicle()]})
+ const simulation=useRef({time:0,hit:false,points:[{x:glance?1.35:0,z:7},{x:0,z:0}],states:[{...freshVehicle(),speed:slow?3:VEHICLES.buggy.speed},freshVehicle()]})
  useFrame((_,delta)=>{
   const sim=simulation.current,dt=Math.min(delta,.05);sim.time+=dt
   for(let i=0;i<2;i++) {

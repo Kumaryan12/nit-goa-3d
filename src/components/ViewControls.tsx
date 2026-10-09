@@ -18,7 +18,7 @@ export default function ViewControls({ explorer, layout, onChange, view, drag, o
 }) {
   const root = useRef<HTMLDivElement>(null), previous = useRef(defaults)
   const [open, setOpen] = useState(false), [fullscreen, setFullscreen] = useState(false), [message, setMessage] = useState('')
-  const [guideOpen, setGuideOpen] = useState(() => !window.matchMedia('(max-width: 760px), (pointer: coarse)').matches)
+  const [guideOpen, setGuideOpen] = useState(false)
   const focus = !layout.panels && !layout.minimap && !layout.toolbar
   useEffect(() => {
     const changed = () => setFullscreen(document.fullscreenElement === explorer.current)

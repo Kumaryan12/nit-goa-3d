@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createCampusRoom } from '../server/campusRoom.ts'
+import { MOVEMENT_SPEEDS, PRESENCE_SPEED_LIMITS } from '../src/lib/movementLimits.ts'
 
 const boundary = [{x:-200,z:-200},{x:200,z:-200},{x:200,z:200},{x:-200,z:200},{x:-200,z:-200}]
 const pose = (vehicle, x, y = 0) => ({vehicle,x,y,z:0,yaw:0,epoch:1,moving:true,running:false,active:true,visible:true,space:'outdoors'})
@@ -12,7 +13,7 @@ function roomFor(vehicle) {
 }
 
 test('maximum-speed walking, cycling and buggy travel survive delayed then bunched packets', () => {
-  for (const [vehicle,speed] of [['walk',5],['bicycle',7],['buggy',9]]) {
+  for (const [vehicle,speed] of [['walk',MOVEMENT_SPEEDS.run],['bicycle',MOVEMENT_SPEEDS.bicycle],['buggy',MOVEMENT_SPEEDS.buggy]]) {
     const room = roomFor(vehicle)
     // TCP preserves order but a 300 ms delay can drain as a burst. Intermediate
     // packets may be throttled; the next normal update must catch up safely.
@@ -36,7 +37,7 @@ test('packet throttling is distinct from a speed or boundary violation', () => {
 })
 
 test('accumulated timing allowance never grants sustained extra speed or unlimited idle catch-up', () => {
-  for (const [vehicle,speed] of [['walk',5.8],['bicycle',7.6],['buggy',9.6]]) {
+  for (const [vehicle,speed] of Object.entries(PRESENCE_SPEED_LIMITS)) {
     const room = roomFor(vehicle)
     assert.equal(room.pose('driver',pose(vehicle,100),'walk',101000),false,'idle catch-up remains bounded')
     let rejected = false

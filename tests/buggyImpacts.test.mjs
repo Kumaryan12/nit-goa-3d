@@ -5,6 +5,7 @@ import { advanceVehicle, applyBuggyImpact, canReconcileBuggy, canRideAt, freshVe
 import { createWalkWorld } from '../src/lib/walking.ts'
 import { localToGps } from '../src/lib/geo.ts'
 import { createCampusRoom } from '../server/campusRoom.ts'
+import { MOVEMENT_SPEEDS, PRESENCE_SPEED_LIMITS } from '../src/lib/movementLimits.ts'
 import { parseCampusPose, parseCampusSnapshot } from '../src/lib/campusProtocol.ts'
 
 const ring=(a,b,c,d)=>[{x:a,z:b},{x:c,z:b},{x:c,z:d},{x:a,z:d},{x:a,z:b}]
@@ -26,11 +27,12 @@ function collisionRoom(target={}) {
 
 test('head-on and rear impacts transfer momentum without adding energy; faster hits push harder',()=>{
  const a={x:0,z:3.6,yaw:0},b={x:0,z:0,yaw:Math.PI}
- const head=solveBuggyImpact(a,b,{x:0,z:-9},{x:0,z:9})
+ const speed=MOVEMENT_SPEEDS.buggy
+ const head=solveBuggyImpact(a,b,{x:0,z:-speed},{x:0,z:speed})
  assert.ok(head.a.velocity.z>0&&head.b.velocity.z<0,'both rebound')
  assert.ok(Math.abs(head.a.velocity.z+head.b.velocity.z)<1e-8)
- assert.ok(magnitude(head.a.velocity)**2+magnitude(head.b.velocity)**2<162)
- const slow=solveBuggyImpact(a,b,{x:0,z:-3},{x:0,z:0}),fast=solveBuggyImpact(a,b,{x:0,z:-9},{x:0,z:0})
+ assert.ok(magnitude(head.a.velocity)**2+magnitude(head.b.velocity)**2<2*speed**2)
+ const slow=solveBuggyImpact(a,b,{x:0,z:-3},{x:0,z:0}),fast=solveBuggyImpact(a,b,{x:0,z:-speed},{x:0,z:0})
  assert.ok(magnitude(fast.b.velocity)>magnitude(slow.b.velocity)*2.9)
  assert.ok(fast.strength>slow.strength)
  assert.equal(solveBuggyImpact(a,b,{x:0,z:0},{x:0,z:0}),null)
@@ -43,7 +45,7 @@ test('glancing hits preserve tangential travel and clamp linear and angular impu
  assert.ok(hit.b.velocity.x>0&&hit.a.velocity.x<4)
  for(const yaw of [0,.3,Math.PI/2,Math.PI])for(const velocity of [{x:100,z:100},{x:0,z:-9},{x:9,z:0}]) {
   const result=solveBuggyImpact({...a,yaw},b,velocity,{x:-9,z:0},{x:1,z:0})
-  if(result)for(const body of [result.a,result.b]) {assert.ok(magnitude(body.velocity)<=9.6+1e-8);assert.ok(Math.abs(body.yawKick)<=.55)}
+  if(result)for(const body of [result.a,result.b]) {assert.ok(magnitude(body.velocity)<=PRESENCE_SPEED_LIMITS.buggy+1e-8);assert.ok(Math.abs(body.yawKick)<=.55)}
  }
 })
 test('capsule contacts use the full body and swept samples catch a delayed crossing',()=>{
@@ -57,7 +59,7 @@ test('capsule contacts use the full body and swept samples catch a delayed cross
 test('recoil agrees at 30/60/144 fps, respects the speed cap, and braking/pause remain effective',()=>{
  const simulate=(hz,brake=false)=>{
   const state=freshVehicle();applyBuggyImpact(state,impact());let p={x:0,z:20}
-  for(let i=0;i<hz;i++){const before=p;p=advanceVehicle(state,p,'buggy',0,0,brake,1/hz,world,[]).point;assert.ok(Math.hypot(p.x-before.x,p.z-before.z)*hz<=9.6+.001)}
+  for(let i=0;i<hz;i++){const before=p;p=advanceVehicle(state,p,'buggy',0,0,brake,1/hz,world,[]).point;assert.ok(Math.hypot(p.x-before.x,p.z-before.z)*hz<=PRESENCE_SPEED_LIMITS.buggy+.001)}
   return {p,state}
  }
  const a=simulate(30),b=simulate(60),c=simulate(144)
