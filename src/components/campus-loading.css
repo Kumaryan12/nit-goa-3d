@@ -21,6 +21,7 @@
 .campus-intro-credit { display: flex; align-items: center; gap: 8px; margin: 28px 0 0; font-size: clamp(23px, 3vw, 32px); color: #a38c5d; letter-spacing: -.045em; font-weight: 350; }
 .campus-intro-credit strong { color: #f0d28a; font-weight: 550; }
 .campus-intro-credit > span { color: var(--intro-gold); font-size: 17px; margin-left: 4px; }
+.campus-intro-roll { margin: 10px 0 0; color: #c9ad70; font-size: 12px; font-weight: 450; letter-spacing: .16em; }
 .campus-intro-progress { display: flex; gap: 6px; width: 130px; margin-top: 32px; }
 .campus-intro-progress > span { flex: 1; height: 2px; border-radius: 2px; background: #e4c3781c; overflow: hidden; }
 .campus-intro-progress i { display: block; height: 100%; width: 100%; background: var(--intro-gold); opacity: 0; }

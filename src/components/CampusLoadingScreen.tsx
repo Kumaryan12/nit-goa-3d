@@ -46,6 +46,7 @@ export default function CampusLoadingScreen({ phase = 'opening', stages = [false
         </svg>
       </div>
       <p className="campus-intro-credit">Made by <strong>Aryan</strong><span aria-hidden="true">✦</span></p>
+      <p className="campus-intro-roll">23ECE1006</p>
       </div>
       <div className="campus-intro-progress" aria-label="Campus preparation stages">
         {['Map', 'Terrain', 'Greenery', 'Scene'].map((name, index) => <span key={name} className={stages[index] ? 'is-done' : !stages.slice(0, index).includes(false) ? 'is-current' : ''}><i aria-hidden="true" /><span className="sr-only">{name}: {stages[index] ? 'ready' : 'loading'}.</span></span>)}
