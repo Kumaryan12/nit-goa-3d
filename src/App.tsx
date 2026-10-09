@@ -20,6 +20,8 @@ import { useCampusSession } from './hooks/useCampusSession'
 import CampusSocial from './components/CampusSocial'
 import { firebasePublicConfig } from './lib/firebase'
 import { trackCampusEvent } from './lib/analytics'
+import { CAMPUS_LOADING_ENTRY_MS, CAMPUS_LOADING_EXIT_MS, campusStartup } from './lib/campusStartup'
+import CampusLoadingScreen from './components/CampusLoadingScreen'
 import { CAMPUS_COLORS } from './lib/campusProtocol'
 import type { CampusPose } from './lib/campusProtocol'
 import OatControls from './components/OatControls'
@@ -142,6 +144,11 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const [night, setNight] = useState(initial.night)
   const [terrainReady, setTerrainReady] = useState(false)
   const [vegetationReady, setVegetationReady] = useState(false)
+  const [firstFrame, setFirstFrame] = useState(false), [sceneUnavailable, setSceneUnavailable] = useState(false)
+  const [startupVisible, setStartupVisible] = useState(true), [startupExiting, setStartupExiting] = useState(false)
+  const startupStartedAt = useRef(performance.now())
+  const onSceneReady = useCallback(() => setFirstFrame(true), [])
+  const onSceneUnavailable = useCallback(() => setSceneUnavailable(true), [])
   const [cameraRequest, setCameraRequest] = useState<CameraRequest>({ sequence: 0, locationId: initial.to ?? initial.location })
   const onFlyTo = useCallback((locationId: string) => { if (view === 'walk') spawnNear(locationId); else setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId })) }, [view, spawnNear])
   const onResetCamera = () => { if (view === 'walk') spawnNear('main-entrance'); else setCameraRequest((request) => ({ sequence: request.sequence + 1, locationId: null })) }
@@ -156,6 +163,21 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const roadData = roadState.status === 'ready' ? roadState.data : null
   const requestsSettled = mapState.status !== 'loading' && roadState.status !== 'loading'
   const twin = useDigitalTwin(mapData, roadData, requestsSettled, overrides, terrainSettings)
+  const startup = campusStartup({ buildings: mapState.status, roads: roadState.status, terrain: terrainReady, vegetation: vegetationReady, frame: firstFrame, boundary: !!twin && twin.boundary.length >= 3, unavailable: sceneUnavailable })
+  useEffect(() => {
+    if (!startupVisible || !startup.complete && !startupExiting) return
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!startupExiting) {
+      // A warm cache can finish before the foreground arrival. Let that short
+      // motion settle before beginning the retreat, without faking progress.
+      const delay = reducedMotion ? 0 : Math.max(0, CAMPUS_LOADING_ENTRY_MS - (performance.now() - startupStartedAt.current))
+      const timer = window.setTimeout(() => setStartupExiting(true), delay)
+      return () => window.clearTimeout(timer)
+    }
+    const duration = reducedMotion ? 180 : CAMPUS_LOADING_EXIT_MS
+    const timer = window.setTimeout(() => setStartupVisible(false), duration)
+    return () => window.clearTimeout(timer)
+  }, [startupVisible, startup.complete, startupExiting])
   const socialSeats = useMemo(() => twin ? theatreSeats(twin.theatre).filter(seat => seat.row >= 3) : [], [twin])
   const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview', import.meta.env.DEV && !firebasePublicConfig, socialSeats)
   const stopSocial = useCallback(() => { campusLive.socialAction('stop') }, [campusLive.socialAction])
@@ -270,7 +292,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   }
   const openSlopeEditor = () => { changeView('overview'); setSlopeEditorOpen(true) }
   const viewSlopeSection = (points: LocalCoordinate[]) => setCameraRequest(request => ({ sequence: request.sequence + 1, locationId: null, routePoints: points }))
-  const walkPaused = accountOpen || walkManualPause || galleryOpen || uploadOpen || authOpen || editorOpen || slopeEditorOpen || terrainControlsOpen
+  const walkPaused = startupVisible || accountOpen || walkManualPause || galleryOpen || uploadOpen || authOpen || editorOpen || slopeEditorOpen || terrainControlsOpen
   const onRenderedCount = useCallback((count: number) => {
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Buildings successfully rendered:', count)
   }, [])
@@ -341,11 +363,13 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   }, [activeSelection?.location.id, navigationOpen, startId, night, photoId, view])
   useEffect(() => { if (twin && !initialSelectionResolved.current && (initial.to ?? initial.location)) { initialSelectionResolved.current = true; const resolved = selectionForLocation(initial.to ?? initial.location!, catalog, twin.selections); if (resolved) setSelection(resolved) } }, [twin])
 
-  return (
-    <main ref={explorer} className={`explorer ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
+  return (<>
+    <main ref={explorer} inert={startupVisible} aria-hidden={startupVisible || undefined} className={`explorer ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
       <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} />
       <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, scroll or pinch with two fingers to zoom, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : 'Interactive campus. Click a building for details, drag to orbit, scroll or pinch with two fingers to zoom, and right-drag to pan.'}>
-        <Suspense fallback={<p className="scene-loading" role="status">Preparing 3D campus…</p>}><CampusScene
+        <Suspense fallback={null}><CampusScene
+          scenePrepared={requestsSettled && !!twin && terrainReady && vegetationReady}
+          onSceneReady={onSceneReady} onSceneUnavailable={onSceneUnavailable}
           oatConcert={oat.snapshot}
           onSocialStop={stopSocial} onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarStyle={campusLive.people.find(p => p.id === campusLive.session.current.id)?.avatarStyle ?? avatarStyle} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}
@@ -432,5 +456,10 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
       <CampusSocial live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
       <a className="map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
     </main>
+    {startupVisible && <CampusLoadingScreen phase={startup.phase} stages={startup.stages} exiting={startupExiting}
+      retryBuildings={mapState.status === 'error' ? () => { setMapState({ status: 'loading' }); setMapAttempt(attempt => attempt + 1); setTerrainReady(false); setVegetationReady(false); setFirstFrame(false) } : undefined}
+      retryRoads={roadState.status === 'error' ? () => { retryRoads(); setFirstFrame(false) } : undefined}
+      onExplore={startup.canExplore ? () => setStartupExiting(true) : undefined} />}
+    </>
   )
 }

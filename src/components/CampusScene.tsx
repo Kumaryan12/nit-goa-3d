@@ -1,5 +1,6 @@
 import type { AvatarStyle } from '../lib/profile'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, CameraControlsImpl, Sky, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
@@ -55,6 +56,9 @@ import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number }
 interface CampusSceneProps {
+  scenePrepared?: boolean
+  onSceneReady?: () => void
+  onSceneUnavailable?: () => void
   onSocialStop: () => void
   graphicsMode: GraphicsMode
   onBuggyRide: (driverId: string | null) => void
@@ -111,6 +115,25 @@ interface CampusSceneProps {
 
 const loadingTerrain = generateTerrain(650, { boundary: [], buildings: [], roads: [], clearings: [] }, 48)
 const noop = () => {}
+
+function FirstCampusFrame({ prepared, onReady }: { prepared: boolean; onReady?: () => void }) {
+  const frames = useRef(0), delivered = useRef(false)
+  useFrame(() => {
+    if (!prepared) { frames.current = 0; delivered.current = false; return }
+    // useFrame runs before rendering. Wait for two complete renders so the
+    // intro never disappears onto an empty canvas or uncompiled scene.
+    if (!delivered.current && ++frames.current >= 3) { delivered.current = true; onReady?.() }
+  })
+  return null
+}
+class CampusGraphicsBoundary extends Component<{ children: ReactNode; onUnavailable?: () => void }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch() { this.props.onUnavailable?.() }
+  render() {
+    return this.state.failed ? <p className="webgl-fallback" role="alert">The 3D campus could not start. Reload or try another browser.</p> : this.props.children
+  }
+}
 
 function Navigation({ twin, request, facades }: { twin: DigitalTwin | null; request: CameraRequest; facades: Map<string, CampusFacadePlan> }) {
   const controls = useRef<CameraControls>(null)
@@ -171,7 +194,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const compact = useRef(window.matchMedia('(pointer: coarse)').matches || navigator.hardwareConcurrency <= 4).current
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
   const profile = useMemo(() => graphicsProfile(graphicsMode, qualityLevel), [graphicsMode, qualityLevel])
@@ -202,11 +225,12 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
   const selectGyan = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === gyanPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, gyanPlan, onSelectBuilding])
   const selectTheatre = useCallback(() => { const location = twin?.locations.find(item => item.id === 'open-air-theatre'); if (location) onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location }) }, [twin, onSelectBuilding])
   const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== administration?.buildingId && !facades.has(building.id) && !(view === 'walk' && hostelFloor !== null && activeInterior?.buildingId === building.id)) ?? [], [twin, administration, facades, view, hostelFloor, activeInterior])
-  return <GraphicsContext.Provider value={profile}><Canvas shadows={{ type: PCFShadowMap }} dpr={[.65, profile.dpr]}
+  return <CampusGraphicsBoundary onUnavailable={onSceneUnavailable}><GraphicsContext.Provider value={profile}><Canvas shadows={{ type: PCFShadowMap }} dpr={[.65, profile.dpr]}
     onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
     camera={{ position: sceneConfig.cameraPosition, fov: 45, near: 1, far: 10000 }}
     gl={{ antialias: !compact, toneMapping: ACESFilmicToneMapping }}
     fallback={<p className="webgl-fallback">Your browser needs WebGL to display the campus scene.</p>}>
+    <FirstCampusFrame prepared={scenePrepared} onReady={onSceneReady} />
     <color attach="background" args={[background]} />
     <fog attach="fog" args={[background, size * 1.1, size * 3]} />
     {night ? <Stars radius={3000} depth={150} count={1100} factor={2.2} saturation={0} fade speed={0} />
@@ -243,7 +267,7 @@ function CampusScene({ onSocialStop, graphicsMode, onBuggyRide, campusPeople, ca
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
     {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer avatarStyle={avatarStyle} onSocialStop={onSocialStop} onBuggyRide={onBuggyRide} campusSession={campusSession} campusPose={campusPose} avatarAccent={footballJoined ? avatarColor : undefined} footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : avatarColor} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
     <RuntimeMetrics onMetrics={reportMetrics} />
-  </Canvas></GraphicsContext.Provider>
+  </Canvas></GraphicsContext.Provider></CampusGraphicsBoundary>
 }
 
 export default memo(CampusScene)

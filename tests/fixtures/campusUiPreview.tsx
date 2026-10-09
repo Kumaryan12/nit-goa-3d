@@ -1,12 +1,13 @@
 // Development-only rendering fixture. It provides no server identity or auth bypass.
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from '../../src/App'
+import CampusLoadingScreen from '../../src/components/CampusLoadingScreen'
 import '../../src/styles.css'
 import '../../src/components/community.css'
+const App = lazy(() => import('../../src/App'))
 
 if (import.meta.env.DEV && !import.meta.env.VITE_FIREBASE_API_KEY) {
-  createRoot(document.getElementById('root')!).render(<StrictMode><App publishedMap /></StrictMode>)
+  createRoot(document.getElementById('root')!).render(<StrictMode><Suspense fallback={<CampusLoadingScreen />}><App publishedMap /></Suspense></StrictMode>)
   window.setInterval(() => {
     const inside = (selector: string) => {
       const element = document.querySelector(selector)

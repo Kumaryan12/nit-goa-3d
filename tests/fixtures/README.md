@@ -1,5 +1,7 @@
 # Real OSM regression fixture
 
+Local loading-screen review: start Vite and open `/tests/fixtures/loading-preview.html` (add `?mobile=1` for a 390px phone layout or `?phase=error` for retry controls). Use Preview reveal and Replay intro to review the gold logo’s foreground arrival and retreat. This development-only preview holds the selected visual stage without simulating authentication or changing real loading timing. `/tests/fixtures/campus-ui-preview.html?view=walk` verifies the actual intro-to-campus handoff with the published map snapshot when started with `VITE_FIREBASE_API_KEY=''`. Production entry uses the same intro while map, terrain, vegetation and the first rendered frames prepare; failed requests keep their retry actions, and exploration stays paused until reveal. A fast cached load lets the 1.15-second arrival finish before the one-second retreat; reduced-motion users get a short fade.
+
 `nit-goa-campus.json` is the unmodified JSON response fetched from `https://overpass-api.de/api/interpreter` on 2026-10-01 with `CAMPUS_QUERY` from `src/lib/osm.ts`.
 
 It includes campus way 1259742369, 14 building ways, and 8 building multipolygon relations. The relations contain 11 inner rings. The fixture is used by tests; an identical copy in public/map is served as the verified production map snapshot. Local development requests live Overpass data.

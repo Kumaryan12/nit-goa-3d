@@ -10,6 +10,7 @@ import PeoplePage from './PeoplePage'
 import CrowdDesk from './CrowdDesk'
 import AccessPortal from './AccessPortal'
 import AvatarChoice from './AvatarChoice'
+import CampusLoadingScreen from './CampusLoadingScreen'
 import { isAvatarStyle } from '../lib/profile'
 import { trackPageView } from '../lib/analytics'
 import type { AvatarStyle } from '../lib/profile'
@@ -172,10 +173,7 @@ export default function CommunityApp() {
     return (
       <Suspense
         fallback={
-          <div className="campus-loading">
-            <span className="loading-dot" />
-            <p>Taking you to campus…</p>
-          </div>
+          <CampusLoadingScreen />
         }
       >
         <Campus

@@ -519,16 +519,6 @@
 .dev-preview {
   margin-top: 26px;
 }
-.campus-loading {
-  height: 100dvh;
-  background: #f7f5ed;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  justify-content: center;
-  color: #65805b;
-  font-size: 13px;
-}
 .campus-account {
   position: fixed;
   left: 24px;
