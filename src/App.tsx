@@ -19,6 +19,7 @@ import { useOatSession } from './hooks/useOatSession'
 import { useCampusSession } from './hooks/useCampusSession'
 import CampusSocial from './components/CampusSocial'
 import { firebasePublicConfig } from './lib/firebase'
+import { trackCampusEvent } from './lib/analytics'
 import { CAMPUS_COLORS } from './lib/campusProtocol'
 import type { CampusPose } from './lib/campusProtocol'
 import OatControls from './components/OatControls'
@@ -182,6 +183,34 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const locations = twin?.locations ?? editableMetadata
   const catalog = useMemo(() => [...locations, ...(twin?.selections.filter((item) => item.matchMethod === 'unmatched').map((item) => item.location) ?? [])], [locations, twin])
   const activeSelection = useMemo(() => selection ? selectionForLocation(selection.location.id, catalog, twin?.selections) ?? selection : null, [selection, catalog, twin])
+  const analyticsEntered = useRef(false)
+  const analyticsState = useRef({ mode: '', selection: '', football: '', concert: '' })
+  useEffect(() => {
+    if (!twin || analyticsEntered.current) return
+    analyticsEntered.current = true
+    trackCampusEvent('campus_enter')
+  }, [twin])
+  useEffect(() => {
+    if (analyticsState.current.mode === view) return
+    analyticsState.current.mode = view
+    trackCampusEvent('exploration_mode', { mode: view })
+  }, [view])
+  useEffect(() => {
+    const id = activeSelection?.location.id || ''
+    if (analyticsState.current.selection === id) return
+    analyticsState.current.selection = id
+    if (activeSelection) trackCampusEvent('select_building', { category: activeSelection.location.category })
+  }, [activeSelection?.location.id])
+  useEffect(() => {
+    if (analyticsState.current.football === football.connection) return
+    analyticsState.current.football = football.connection
+    if (football.connection === 'live') trackCampusEvent('join_activity', { activity: 'football' })
+  }, [football.connection])
+  useEffect(() => {
+    if (analyticsState.current.concert === oat.connection) return
+    analyticsState.current.concert = oat.connection
+    if (oat.connection === 'live') trackCampusEvent('join_activity', { activity: 'concert' })
+  }, [oat.connection])
   const center = useMemo(() => twin?.boundary.length ? campusCenter(twin.boundary) : null, [twin])
   // Internal campus estimates assume authorized campus access. General-purpose
   // routing keeps the engine's default exclusion of private roads.

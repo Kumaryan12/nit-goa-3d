@@ -4,6 +4,10 @@ The app runs as one Node 24 service on Render: the landing page, profiles, share
 
 ## Live deployment
 
+Google Analytics is linked to Firebase project `nitg-explored-2026`, GA4 property `558036355`, and web stream `G-BHE7F5D3XY`. Set `VITE_FIREBASE_MEASUREMENT_ID` at build time (including the Docker build argument). Open [Firebase Analytics](https://console.firebase.google.com/project/nitg-explored-2026/analytics) or [Google Analytics](https://analytics.google.com/analytics/web/#/p558036355/reports/dashboard?r=firebase-overview) with the owner account. Realtime shows current visits; regular reports take longer to process.
+
+Production collection is lazy, skips local previews and browser Do Not Track/Global Privacy Control, and fails independently of authentication or gameplay. Events include sanitized route `page_view`, `login` (Google), `campus_enter`, `exploration_mode`, `select_building` (category), and `join_activity` (football/concert, after live admission). No account IDs, names, emails, profile handles, private query strings, coordinates, chat, microphone or uploaded content are supplied. Advertising consent is denied and Google signals/personalization are disabled. Automatic history pageviews/enhanced measurement should be disabled in this stream because the app sends sanitized pageviews itself. Allow only the named Firebase/Analytics endpoints in the server CSP.
+
 - Campus: https://nitg-explored.onrender.com
 - Render service: `srv-db0tjepsrm7s7394b09g`, Singapore, free, one Docker instance.
 - Release branch: `deploy/firebase-community`. Render deployment history records the exact release commit.

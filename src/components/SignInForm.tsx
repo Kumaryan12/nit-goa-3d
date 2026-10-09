@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { firebasePublicConfig, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, navigate } from '../lib/community'
 import type { Auth } from 'firebase/auth'
+import { trackCampusEvent } from '../lib/analytics'
 export default function SignInForm({ destination }: { destination?: '/student' | '/admin' } = {}) {
   const [auth, setAuth] = useState<Auth | null>(null),
     [sdk, setSdk] = useState<typeof import('firebase/auth') | null>(null),
@@ -37,6 +38,7 @@ export default function SignInForm({ destination }: { destination?: '/student' |
         return
       }
       await sdk.signInWithPopup(auth, provider)
+      trackCampusEvent('login', { method: 'google' })
       navigate(destination || campusDestination())
     } catch (error) {
       const code = (error as { code?: string }).code

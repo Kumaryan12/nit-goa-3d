@@ -54,7 +54,7 @@ const authDomain =
 if (!/^[a-z0-9.-]+$/.test(authDomain))
   throw new Error('Invalid Firebase auth domain.')
 if (production) firebaseAdmin()
-const csp = `default-src 'self'; script-src 'self' https://apis.google.com; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ${liveOrigin} https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://${authDomain} https://overpass-api.de https://overpass.kumi.systems ${customMapOrigin}; media-src 'self' blob: https:; frame-src https://${authDomain} https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
+const csp = `default-src 'self'; script-src 'self' https://apis.google.com https://www.googletagmanager.com; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://www.google-analytics.com https://region1.google-analytics.com; connect-src 'self' ${liveOrigin} https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebase.googleapis.com https://firebaseinstallations.googleapis.com https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://${authDomain} https://overpass-api.de https://overpass.kumi.systems ${customMapOrigin}; media-src 'self' blob: https:; frame-src https://${authDomain} https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`
 const server = createServer((request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff')
   response.setHeader('Referrer-Policy', 'no-referrer')
