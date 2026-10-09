@@ -1,3 +1,4 @@
+import { BuggyImpactInbox } from '../lib/buggyImpacts'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { authenticateLiveSocket } from '../lib/liveAuth'
 import { campusId, chatText, parseCampusChat, parseCampusSnapshot, parseCampusPose, publishedCampusPose } from '../lib/campusProtocol'
@@ -61,6 +62,11 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     const timeout = window.setTimeout(() => { if (!initialized) { setError('The campus is taking longer to respond. Retrying the live connection…'); ws.close(4000, 'Connection timeout') } }, 45000)
     ws.onopen = () => { stopAuth = authenticateLiveSocket(ws) }
     const addMessage = (message: CampusChat) => setMessages(previous => previous.some(m => m.id === message.id) ? previous : [...previous.filter(m => Date.now() - m.time < 15 * 60000), message].slice(-80))
+    const impacts = new BuggyImpactInbox()
+    const receiveImpact = (value: unknown, serverTime: number) => {
+      const received = impacts.accept(value, serverTime, performance.now())
+      if (received) session.current.impact = received
+    }
     ws.onmessage = event => {
       if (!active || typeof event.data !== 'string' || event.data.length > 131072) return
       let value
@@ -78,6 +84,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         return
       }
       if (!initialized) return
+      if (value.type === 'buggy-impact') { receiveImpact(value.impact, value.serverTime); watchdog.received(); return }
       if (value.type === 'pose-correction') {
         const corrected = parseCampusPose(value.pose)
         if (corrected) session.current.correction = corrected
@@ -88,6 +95,8 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (message) { addMessage(message); return }
       const snapshot = parseCampusSnapshot(value)
       if (!snapshot || (session.current.snapshot && snapshot.sequence <= session.current.snapshot.sequence)) return
+      const ownImpact = snapshot.people.find(p => p.id === session.current.id)?.impact
+      if (ownImpact) receiveImpact(ownImpact, snapshot.serverTime)
       session.current.snapshot = snapshot
       watchdog.received(); session.current.motion?.push(snapshot, performance.now())
       session.current.peopleById = new Map(snapshot.people.map(person => [person.id, person]))

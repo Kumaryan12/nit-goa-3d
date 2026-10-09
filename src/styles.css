@@ -15,7 +15,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .explorer.night-mode { --ink: #e4ede9; --muted: #a0b6b2; --glass: #101e30ed; --border: #b9cae030; --accent: #a0d6ba; --wash: #b9cae014; color-scheme: dark; }
 .scene-viewport { position: absolute; inset: 0; }
-.scene-viewport canvas { display: block; touch-action: none; }
+.scene-viewport canvas { display: block; touch-action: none; cursor: grab; }
+.scene-viewport canvas:active { cursor: grabbing; }
 .scene-header, .location-navigation, .map-status, .building-info-panel, .campus-minimap {
   border: 1px solid var(--border); background: var(--glass); backdrop-filter: blur(16px); box-shadow: 0 6px 30px #132b1910;
 }
@@ -279,7 +280,7 @@ h1 span { font-weight: 400; }
 .walk-start { display: flex; align-items: center; gap: 7px; }
 .walk-start label { font-size: 10px; white-space: nowrap; }
 .walk-start select { min-width: 0; flex: 1; border: 1px solid var(--border); padding: 8px; font-size: 10px; border-radius: 6px; color: var(--ink); background: var(--wash); }
-.walk-input-row { display: flex; gap: 16px; align-items: center; margin-top: 14px; }
+.walk-input-row { display: flex; gap: 16px; align-items: center; margin-top: 14px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .walk-pad { display: grid; grid-template: repeat(2, 44px) / repeat(3, 44px); gap: 4px; }
 .walk-movement { flex-shrink: 0; }
 .walk-joystick { display: none; position: relative; width: 112px; height: 112px; border-radius: 50%; touch-action: none; user-select: none; border: 1px solid var(--border); background: radial-gradient(circle, #2b756c12 0 38%, transparent 39% 58%, #2b756c0d 59%); box-shadow: inset 0 2px 12px #193d2910; }

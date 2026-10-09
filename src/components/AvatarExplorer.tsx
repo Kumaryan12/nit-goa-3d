@@ -13,7 +13,7 @@ import type { FootballControls, FootballPitch } from '../lib/football'
 import StudentAvatar from './StudentAvatar'
 import SocialBubble from './SocialBubble'
 import CampusVehicle from './CampusVehicle'
-import { advanceVehicle, findVehicleMount, findVehicleDismount, freshVehicle, vehicleGroundPose } from '../lib/vehicles'
+import { advanceVehicle, applyBuggyImpact, canReconcileBuggy, canRideAt, findVehicleMount, findVehicleDismount, freshVehicle, vehicleGroundPose } from '../lib/vehicles'
 import type { TransportMode } from '../lib/vehicles'
 import { advanceLocomotion, freshLocomotion, motionDelta, reconcileLocomotion, stridePhase } from '../lib/avatarMotion'
 import { advanceJump, freshJump } from '../lib/avatarJump'
@@ -44,6 +44,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
   const seatEpoch = useRef(0)
   const [rideMode, setRideMode] = useState<TransportMode>('walk')
   const ride = useRef<TransportMode>('walk'), vehicle = useRef(freshVehicle()), rideMessage = useRef<string | undefined>(undefined)
+  const presentation = useRef<Group>(null), recoilOffset = useRef({x:0,z:0}), impactAck = useRef(0), lastImpact = useRef('')
   const jump = useRef(freshJump())
   const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
   const campusEpoch = useRef((campusPose.current?.epoch ?? 0) + 1)
@@ -67,7 +68,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     nearest.current = place && place.distance <= 25 ? place.id : null
     const room = pose && plan ? roomAtPoint(plan, p) : null
     const status: WalkStatus = {
-      position: { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving, blocked, error, vehicle: ride.current, speed: ridingPassenger.current ? motion.current.speed : Math.abs(vehicle.current.speed), rideMessage: rideMessage.current, canRide: !seated.current && !activityBlocked && !ridingPassenger.current && !pose && !footballPitch && jump.current.grounded, canJump: !seated.current && !ridingPassenger.current && ride.current === 'walk' && jump.current.grounded && !journey.current,
+      position: { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving, blocked, error, vehicle: ride.current, speed: ridingPassenger.current || ride.current === 'buggy' ? motion.current.speed : Math.abs(vehicle.current.speed), rideMessage: rideMessage.current, canRide: !seated.current && !activityBlocked && !ridingPassenger.current && !pose && !footballPitch && jump.current.grounded, canJump: !seated.current && !ridingPassenger.current && ride.current === 'walk' && jump.current.grounded && !journey.current,
       canEnterHostel: !ridingPassenger.current && ride.current === 'walk' && jump.current.grounded && !pose && !!hostelPlan && pointDistance(p, hostelPlan.entrance.outside) <= 5,
       canEnterGyan: !ridingPassenger.current && ride.current === 'walk' && jump.current.grounded && !pose && !!gyanPlan && pointDistance(p, gyanPlan.entrance.outside) <= 5,
       interior: pose && plan ? { kind: plan.kind, name: plan.name, levels: plan.levels, floor: pose.floor, room: room ? interiorRoomLabel(plan, pose.floor, room.id) : null, canGoUp: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, true), canGoDown: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, false), stairLowFloor: journey.current?.lowFloor ?? null } : undefined,
@@ -214,7 +215,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
         position.current = { x: correction.x, z: correction.z }; avatar.current.position.set(correction.x, correction.y, correction.z)
         avatar.current.rotation.set(correction.pitch ?? 0, correction.yaw, 0)
         yaw.current = correction.yaw; lookTarget.current.yaw = correction.yaw
-        vehicle.current.yaw = correction.yaw; vehicle.current.speed = 0
+        vehicle.current = freshVehicle(correction.yaw); recoilOffset.current = {x:0,z:0}
         locomotion.current = freshLocomotion(); jump.current = freshJump(); snapped.current = false
       }
     }
@@ -258,6 +259,24 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
       if (self?.pose) campusEpoch.current = Math.max(campusEpoch.current, self.pose.epoch)
       publish()
     }
+    let reconciledImpact = false
+    const receivedImpact = campusSession.current.impact
+    if (receivedImpact) {
+      delete campusSession.current.impact
+      const impact = receivedImpact.impact, key = `${impact.sequence}:${impact.startedAt}`
+      if (lastImpact.current !== key && impact.anchor.epoch === campusEpoch.current && ride.current === 'buggy' && !passengerPose) {
+        lastImpact.current = key; impactAck.current = impact.sequence
+        const anchor = impact.anchor, before = position.current!, distance = Math.hypot(anchor.x-before.x, anchor.z-before.z)
+        const safe = canReconcileBuggy(before,anchor,world,twin.roads)
+        if (safe) {
+          const scale = Math.min(1, 1.2/(distance||1))
+          recoilOffset.current = {x:(before.x-anchor.x)*scale,z:(before.z-anchor.z)*scale}
+          position.current = {x:anchor.x,z:anchor.z}; vehicle.current.yaw = anchor.yaw
+          reconciledImpact = true
+        }
+        applyBuggyImpact(vehicle.current, impact, receivedImpact.age + Math.max(0, performance.now()-receivedImpact.receivedAt)/1000)
+      }
+    }
     const allowed = !paused && !editingText() && !document.hidden, key = (code: string) => allowed && keys.current.has(code) ? 1 : 0
     let forward = allowed ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
     let side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
@@ -294,7 +313,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     }
     const before = position.current, pose = interiorPose.current, plan = activePlan()
     // Room admission can relocate a football player between render frames.
-    if (!passengerPose && Math.hypot(before.x - avatar.current.position.x, before.z - avatar.current.position.z) > 2) { campusEpoch.current++; jump.current = freshJump() }
+    if (!passengerPose && !reconciledImpact && Math.hypot(before.x - avatar.current.position.x, before.z - avatar.current.position.z) > 2) { campusEpoch.current++; jump.current = freshJump() }
     const running = !!(allowed && !sitting && (key('ShiftLeft') || key('ShiftRight') || input.current.running))
     const travel = advanceLocomotion(locomotion.current, direction, walkSpeed(running, !!pose), delta, allowed && !journey.current && !passengerPose && !sitting)
     let vehicleBlocked = false
@@ -348,7 +367,9 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     position.current = next
     motion.current.moving = moved > .001
     motion.current.speed = delta > 0 ? Math.min(PRESENCE_SPEED_LIMITS[passengerPose ? 'buggy' : ride.current], moved / delta) : 0
-    motion.current.driveSpeed = vehicle.current.speed
+    motion.current.impactStrength = ride.current === 'buggy' ? vehicle.current.impactStrength ?? 0 : 0
+    motion.current.impactAge = vehicle.current.impactAge ?? 2
+    motion.current.driveSpeed = ride.current === 'buggy' && delta > 0 ? (-(next.x-before.x)*Math.sin(vehicle.current.yaw)-(next.z-before.z)*Math.cos(vehicle.current.yaw))/delta : vehicle.current.speed
     motion.current.vehicle = passengerPose ? 'buggy' : ride.current
     motion.current.running = !passengerPose && ride.current === 'walk' && running
     motion.current.paused = !allowed
@@ -357,6 +378,13 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     motion.current.phase = stridePhase(motion.current.phase, moved, running)
     motion.current.turn = ride.current === 'walk' ? 0 : -vehicle.current.steering
     avatar.current.position.set(next.x, feetY, next.z)
+    const recoil = recoilOffset.current, decay = Math.exp(-delta * 14)
+    recoil.x *= decay; recoil.z *= decay
+    if (ride.current !== 'buggy' || !canRideAt({x:next.x+recoil.x,z:next.z+recoil.z},vehicle.current.yaw,'buggy',world,twin.roads)) recoil.x = recoil.z = 0
+    if (presentation.current) {
+      const c=Math.cos(avatar.current.rotation.y),s=Math.sin(avatar.current.rotation.y),z=recoil.x*s+recoil.z*c, tilt=avatar.current.rotation.x
+      presentation.current.position.set(recoil.x*c-recoil.z*s,z*Math.sin(tilt),z*Math.cos(tilt))
+    }
     if (moved > .001 && !passengerPose && ride.current === 'walk') {
       const heading = Math.atan2(before.x - next.x, before.z - next.z), difference = Math.atan2(Math.sin(heading - avatar.current.rotation.y), Math.cos(heading - avatar.current.rotation.y))
       const rotation = difference * (1 - Math.exp(-delta * 9))
@@ -367,7 +395,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
       if (motion.current.kick !== undefined) avatar.current.rotation.y = yaw.current
       motion.current.kick = footballControls.current.kick
     }
-    campusPose.current = { ...(ride.current !== 'walk' || passengerPose ? { pitch: avatar.current.rotation.x } : {}), airborne: !jump.current.grounded, vehicle: ride.current, x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
+    campusPose.current = { ...(ride.current !== 'walk' || passengerPose ? { pitch: avatar.current.rotation.x } : {}), airborne: !jump.current.grounded, vehicle: ride.current, ...(ride.current === 'buggy' && impactAck.current ? {impactAck:impactAck.current} : {}), x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
     target.set(next.x, feetY + (sitting ? .9 : 1.35), next.z)
     const indoorFov = pose ? 75 : 60
     if ('fov' in camera && camera.fov !== indoorFov) { camera.fov = indoorFov; camera.updateProjectionMatrix() }
@@ -389,5 +417,5 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     }
   })
   useEffect(() => () => { footballControls.current.actor = null }, [footballControls])
-  return <group ref={avatar}><>{passengerView ? <StudentAvatar style={avatarStyle} motion={motion} jersey={footballJersey} accent={avatarAccent} /> : <CampusVehicle style={avatarStyle} mode={rideMode} motion={motion} jersey={footballJersey} accent={avatarAccent} />}</><SocialBubble session={campusSession} /></group>
+  return <group ref={avatar}><group ref={presentation}>{passengerView ? <StudentAvatar style={avatarStyle} motion={motion} jersey={footballJersey} accent={avatarAccent} /> : <CampusVehicle style={avatarStyle} mode={rideMode} motion={motion} jersey={footballJersey} accent={avatarAccent} />}</group><SocialBubble session={campusSession} /></group>
 }

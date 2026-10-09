@@ -74,7 +74,7 @@ test('garden generation preserves existing terrain, tree collision positions and
   assert.deepEqual(twin.terrain.colors, colors)
   assert.deepEqual(twin.trees, trees)
   assert.deepEqual(twin.lamps, lamps)
-  assert.equal(twin.trees.length, 640)
+  assert.equal(twin.trees.length, 644, '640 campus trees plus four entrance palms')
   assert.deepEqual(generateCampusGardens({ ...gardenCampus, boundary: [] }), { beds: [], flowers: [], shrubs: [] })
   assert.deepEqual(createDigitalTwin(map, roads, false, savedCampusOverrides).gardens, { beds: [], flowers: [], shrubs: [] })
 })

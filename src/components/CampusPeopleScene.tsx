@@ -38,6 +38,9 @@ function Visitor({ person, session, messages, space, walking, detailed, label }:
     motion.current.moving = pose.active && distance > .001; motion.current.running = pose.running; motion.current.speed = motion.current.moving && dt ? Math.min(PRESENCE_SPEED_LIMITS[currentPerson?.ride ? 'buggy' : pose.vehicle ?? 'walk'], distance / dt) : 0
     const forwardTravel = -(group.position.x - beforeX) * Math.sin(pose.yaw) - (group.position.z - beforeZ) * Math.cos(pose.yaw)
     motion.current.driveSpeed = (motion.current.speed ?? 0) * (forwardTravel < 0 ? -1 : 1)
+    const impact = currentPerson?.impact
+    motion.current.impactStrength = impact?.strength ?? 0
+    motion.current.impactAge = impact ? Math.max(0, ((session.current.motion?.renderTime(performance.now()) ?? session.current.snapshot?.serverTime ?? impact.until) - impact.startedAt) / 1000) : 2
     motion.current.vehicle = currentPerson?.ride ? 'buggy' : pose.vehicle ?? 'walk'
     motion.current.phase = stridePhase(motion.current.phase, distance, pose.running)
     motion.current.social = currentPerson?.social; motion.current.airborne = pose.airborne

@@ -8,22 +8,36 @@ export function AvatarPortrait({ style, color = '#277c77' }: { style: AvatarStyl
   return <svg viewBox="0 0 220 210" aria-hidden="true" className="avatar-portrait">
     <ellipse cx="110" cy="197" rx="57" ry="7" fill="#173e33" opacity=".12" />
     <circle cx="110" cy="95" r="72" fill="currentColor" opacity=".07" />
-    {style === 'girl' && <path d="M145 62c27 4 29 29 18 56l-15-12c12-23 3-31-9-32" fill="#302a28" />}
-    <rect x="59" y="128" width="103" height="68" rx="25" fill="#be8850" />
+    {style === 'girl' && <g><path d="M144 58c30 1 32 30 16 62l-13-15c10-22 7-31-7-36" fill="#242529" /><path d="M148 70l12 5" stroke="#bf9861" strokeWidth="5" strokeLinecap="round" /></g>}
+    <path d="M76 131c-14 2-21 14-23 33l-2 25h22l10-53m61-5c14 2 21 14 23 33l2 25h-22l-10-53" fill="#f1ead4" />
+    <path d="M57 155l20 5m66 0 20-5" stroke={color} strokeWidth="6" />
+    <path d="M57 155l20 5m66 0 20-5" stroke="#cf9254" strokeWidth="1.5" />
+    <path d="M51 185h22m74 0h22" stroke="#253735" strokeWidth="7" />
     <path d="M75 132q35-17 70 0l11 57H64z" fill={color} />
-    <path d="M78 135l-11 36M142 135l11 36" stroke="#203e39" strokeWidth="8" strokeLinecap="round" />
-    <path d="M110 137v50" stroke="#f7f4e8" strokeWidth="2" />
-    <path d="M86 155v12m0-12 9 12v-12" fill="none" stroke="#f7f4e8" strokeWidth="3" strokeLinejoin="round" />
-    <path d="M76 185h68" stroke="#203e39" strokeWidth="7" />
-    <path d="M97 153v20M123 153v20" stroke="#f7f4e8" strokeWidth="2" strokeLinecap="round" />
+    <path d="M97 130q13 12 26 0" fill="none" stroke="#253735" strokeWidth="7" />
+    <path d="M110 137v50" stroke="#f7f4e8" strokeWidth="2" /><rect x="107" y="142" width="6" height="9" rx="2" fill="#f7f4e8" />
+    <path d="M86 155v12m0-12 9 12v-12" fill="none" stroke="#cf9254" strokeWidth="3" strokeLinejoin="round" />
+    <path d="M77 176l17-6m32 0 17 6" stroke="#f1ead4" strokeWidth="2" strokeLinecap="round" />
+    <path d="M76 185h68" stroke="#253735" strokeWidth="7" />
+    <path d="M76 185h68" stroke="#f1ead4" strokeWidth="1" />
     <rect x="97" y="110" width="26" height="27" rx="9" fill="#bd805b" />
-    <ellipse cx="110" cy="85" rx="39" ry="46" fill="#cf9871" />
-    <ellipse cx="70" cy="89" rx="7" ry="11" fill="#cf9871" /><ellipse cx="150" cy="89" rx="7" ry="11" fill="#cf9871" />
-    {style === 'girl' ? <path d="M72 93c-11-34 1-64 37-65 35-1 46 24 41 62l-9-28c-12-1-20-10-23-17-10 17-25 22-39 22z" fill="#302a28" /> : <path d="M72 87c-10-25-2-52 24-58l-2-9c20 1 44 4 52 22 9 17 7 28 3 43l-7-23c-20 3-37 1-55-4l-8 31z" fill="#302a28" />}
-    <path d="M85 80l12-2M123 78l12 2" stroke="#302a28" strokeWidth="3" strokeLinecap="round" />
-    {[91,129].map(x => <g key={x}><ellipse cx={x} cy="89" rx="7" ry="8" fill="#fff9ec" /><ellipse cx={x} cy="90" rx="3.5" ry="5" fill="#302a28" /><circle cx={x+1} cy="87" r="1.4" fill="#fff" /></g>)}
-    <path d="M109 93l-3 9h6" fill="none" stroke="#b97d57" strokeWidth="2" strokeLinecap="round" />
-    <path d="M99 111q11 8 22 0" fill="none" stroke="#775043" strokeWidth="2.5" strokeLinecap="round" />
+    <path d="M70 83c0-27 15-44 40-44s40 17 40 44c0 24-17 43-40 43S70 107 70 83" fill="#d4a17c" />
+    <ellipse cx="70" cy="89" rx="6" ry="9" fill="#d4a17c" /><ellipse cx="150" cy="89" rx="6" ry="9" fill="#d4a17c" />
+    {style === 'girl' ? <g>
+      <path d="M72 96c-10-36 1-66 38-66 36 0 47 29 38 66l-8-19c-13-1-24-7-30-12-7 8-20 14-31 16z" fill="#242529" />
+      <path d="M104 40q-12 22-27 33M116 40q12 22 27 33M99 43q-8 22-18 31M121 43q8 22 18 31" fill="none" stroke="#443c35" strokeWidth="1.6" strokeLinecap="round" />
+    </g> : <g>
+      <path d="M72 90c-10-32 1-59 32-61 23-9 49 4 50 27 1 16-3 29-7 39l-7-21c-8 5-17 2-25-9-12 10-24 14-37 15z" fill="#242529" />
+      <path d="M86 41q34-6 49 29M94 38q31 1 43 29M80 49q29-7 47 24M79 58q22-3 34 9" fill="none" stroke="#443c35" strokeWidth="1.6" strokeLinecap="round" />
+    </g>}
+    <path d="M83 79q8-6 16-1M121 78q8-5 16 1" fill="none" stroke="#49352e" strokeWidth="3" strokeLinecap="round" />
+    {[91,129].map(x => <g key={x}>
+      <path d={`M${x-8} 89q8-11 16 0-8 9-16 0`} fill="#fff6e7" />
+      <ellipse cx={x} cy="89" rx="4" ry="4.8" fill="#77513a" /><ellipse cx={x} cy="89" rx="2.3" ry="3" fill="#242523" /><circle cx={x-1} cy="87" r="1.3" fill="#fff" />
+      <path d={`M${x-8} 89q8-11 16 0`} fill="none" stroke="#61443a" strokeWidth="1.4" strokeLinecap="round" />
+    </g>)}
+    <path d="M108 96q-3 7 3 7" fill="none" stroke="#b98566" strokeWidth="2" strokeLinecap="round" />
+    <path d="M98 109q12 10 24 0" fill="none" stroke="#935d50" strokeWidth="2.5" strokeLinecap="round" />
   </svg>
 }
 export default function AvatarStylePicker({ value, onChange, color = 'forest', disabled = false }: { value?: AvatarStyle | null; onChange: (style: AvatarStyle) => void; color?: keyof typeof PROFILE_COLOR_HEX; disabled?: boolean }) {

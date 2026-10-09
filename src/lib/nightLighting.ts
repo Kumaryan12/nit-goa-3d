@@ -10,6 +10,7 @@ import { treeTrunkRadius } from './vegetation.ts'
 import { inCanalOpening } from './canal.ts'
 import { theatreSurfaceHeightAt } from './theatre.ts'
 import { flagBlocksWalking } from './campusFlag.ts'
+import { entranceBlocksWalking } from './mainEntrance.ts'
 
 export const NIGHT_LIGHT_BUDGET = 8
 export const STREETLIGHT_LIMIT = 180
@@ -33,6 +34,7 @@ export function generateCampusLamps({ roads, buildings, boundary, terrain, trees
     &&!trees.some(tree=>Math.hypot(p.x-tree.x,p.z-tree.z)<Math.max(2.5*tree.scale,treeTrunkRadius(tree)+1))
     &&!(terrain.canal&&inCanalOpening(p,terrain.canal,1.2))
     &&!(terrain.flag&&flagBlocksWalking(p,terrain.flag,1))
+    &&!(terrain.entrance&&entranceBlocksWalking(p,terrain.entrance,1.5))
     &&!(terrain.theatre&&(theatreSurfaceHeightAt(p,terrain.theatre)!==null||terrain.theatre.access.slice(1).some((b,i)=>distanceToSegment(p,terrain.theatre!.access[i],b)<2)))
     &&!lamps.some(lamp=>Math.hypot(p.x-lamp.x,p.z-lamp.z)<10)
   const add=(p:LocalCoordinate,target:LocalCoordinate,kind:CampusLamp['kind'],id:string) => {

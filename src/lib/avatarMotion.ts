@@ -1,7 +1,7 @@
 import type { LocalCoordinate } from './geo.ts'
 import type { SocialState } from './social.ts'
 
-export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; verticalVelocity?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; social?: SocialState; seated?: boolean }
+export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; verticalVelocity?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; impactStrength?: number; impactAge?: number; social?: SocialState; seated?: boolean }
 export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0

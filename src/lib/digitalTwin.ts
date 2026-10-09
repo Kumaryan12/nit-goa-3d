@@ -24,6 +24,8 @@ import { createCampusFlag } from './campusFlag.ts'
 import { generateCampusGardens } from './campusGardens.ts'
 import type { TerrainPatchData } from './terrainPatches.ts'
 import type { HostelPlan } from './hostelInterior.ts'
+import { createMainEntrance, createEntrancePlanting } from './mainEntrance.ts'
+import { createEntranceExterior } from './entranceExterior.ts'
 
 export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadData | null, vegetationReady = true, overrides: CampusOverrides = {}, terrainSettings: TerrainSettings = defaultTerrainSettings) {
   const relief = validateTerrainSettings(terrainSettings)
@@ -38,6 +40,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   selections.forEach((selection, i) => { selection.location = locations.find((location) => location.id === selection.location.id) ?? { ...selection.location, coordinates: buildingCenter(buildings[i]) } })
   const sports = locations.find((location) => location.id === campusTopography.lowerLocationId)!
   const entrance = locations.find((location) => location.id === 'main-entrance')!
+  const mainEntrance = createMainEntrance(roads?.roads ?? [], entrance.coordinates)
   const clearings: GroundRect[] = [
     { ...sports.coordinates, halfX: 47 * Math.abs(Math.cos((sports.rotationDegrees ?? 0) * Math.PI / 180)) + 28 * Math.abs(Math.sin((sports.rotationDegrees ?? 0) * Math.PI / 180)), halfZ: 47 * Math.abs(Math.sin((sports.rotationDegrees ?? 0) * Math.PI / 180)) + 28 * Math.abs(Math.cos((sports.rotationDegrees ?? 0) * Math.PI / 180)) },
     { ...entrance.coordinates, halfX: 14, halfZ: 16 },
@@ -75,14 +78,20 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   terrain.theatre = theatre
   const flag = createCampusFlag(buildings, lawns, boundary, roads?.roads ?? [], terrain)
   if (flag) terrain.flag = flag
+  if (mainEntrance) terrain.entrance = mainEntrance
+  if (mainEntrance) terrain.entranceExterior = createEntranceExterior(boundary)
+  const entrancePlanting = mainEntrance ? createEntrancePlanting(mainEntrance, terrain, boundary) : undefined
   // Wait for both independent requests to settle before populating this model
   // in the scene, so late roads never run through previously generated trees.
   const access = theatre.access
-  const vegetationClearings = access.length ? [...clearings, { x: (access[0].x + access[1].x) / 2, z: (access[0].z + access[1].z) / 2, halfX: Math.abs(access[1].x - access[0].x) / 2 + 1.2, halfZ: Math.abs(access[1].z - access[0].z) / 2 + 1.2 }] : clearings
+  // Reserve gateway landscaping without altering the established gate slopes.
+  const plantingClearings = clearings.map((rect,index)=>index===1 && mainEntrance ? mainEntrance.clearing : rect)
+  const vegetationClearings = access.length ? [...plantingClearings, { x: (access[0].x + access[1].x) / 2, z: (access[0].z + access[1].z) / 2, halfX: Math.abs(access[1].x - access[0].x) / 2 + 1.2, halfZ: Math.abs(access[1].z - access[0].z) / 2 + 1.2 }] : plantingClearings
   const trees = vegetationReady ? generateTrees(boundary, buildings, roads?.roads ?? [], vegetationClearings, terrain) : []
+  if (vegetationReady && entrancePlanting) trees.push(...entrancePlanting.palms)
   const lamps = generateCampusLamps({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, locations })
   const gardens = vegetationReady ? generateCampusGardens({ roads: roads?.roads ?? [], buildings, boundary, terrain, trees, lamps, clearings: vegetationClearings, locations: [...locations, ...selections.map(s => s.location)] }) : { beds: [], flowers: [], shrubs: [] }
-  return { lamps, lawns, flag, gardens, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
+  return { mainEntrance, entranceGardens: vegetationReady ? entrancePlanting?.gardens : undefined, lamps, lawns, flag, gardens, upperLocation: upperIndex < 0 ? null : selections[upperIndex].location, slope, hasRelief, canal, theatre, boundary, selections, buildings, locations, clearings, vegetationClearings, size, terrain, trees, vegetationReady, roads: roads?.roads ?? [] }
 }
 export type DigitalTwin = ReturnType<typeof createDigitalTwin> & {
   meadow?: import('./campusMeadow.ts').MeadowChunk[]

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { firebasePublicConfig, getFirebaseAuth } from '../lib/firebase'
 import { safeAuthDestination } from '../lib/community'
+import { trackCampusEvent } from '../lib/analytics'
 export interface CampusUser {
   id: string
   email: string | null
@@ -22,6 +23,7 @@ export function useAuth() {
           .getRedirectResult(auth)
           .then((result) => {
             if (!result || !active) return
+            trackCampusEvent('login', { method: 'google' })
             const destination = safeAuthDestination(sessionStorage.getItem('campus-return'))
             sessionStorage.removeItem('campus-return')
             if (destination) {

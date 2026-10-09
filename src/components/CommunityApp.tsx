@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { campusAPI, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, initials, navigate } from '../lib/community'
@@ -10,7 +10,9 @@ import PeoplePage from './PeoplePage'
 import CrowdDesk from './CrowdDesk'
 import AccessPortal from './AccessPortal'
 import AvatarChoice from './AvatarChoice'
+import CampusLoadingBoundary from './CampusLoadingBoundary'
 import { isAvatarStyle } from '../lib/profile'
+import { trackPageView } from '../lib/analytics'
 import type { AvatarStyle } from '../lib/profile'
 import './community.css'
 const Campus = lazy(() => import('../App'))
@@ -30,6 +32,7 @@ export default function CommunityApp() {
     [refresh, setRefresh] = useState(0),
     [menu, setMenu] = useState(false),
     [preview, setPreview] = useState(false)
+  useEffect(() => { trackPageView(path) }, [path])
   useEffect(() => {
     const changed = () => {
       setPath(window.location.pathname)
@@ -168,21 +171,14 @@ export default function CommunityApp() {
   if (inCampus && signedIn && !isAvatarStyle(access?.avatarStyle)) return <AvatarChoice key={access!.id} onBack={() => navigate('/student')} onSaved={style => { setAccess(previous => previous && previous.id === auth.user?.id ? { ...previous, avatarStyle: style } : previous); setRefresh(value => value + 1) }} />
   if (inCampus)
     return (
-      <Suspense
-        fallback={
-          <div className="campus-loading">
-            <span className="loading-dot" />
-            <p>Taking you to campus…</p>
-          </div>
-        }
-      >
+      <CampusLoadingBoundary>
         <Campus
           avatarStyle={access?.avatarStyle ?? undefined}
           accountControl={accountControl}
           accountOpen={menu}
           canEdit={(path === '/admin/campus' && isAdmin) || (preview && import.meta.env.DEV && !auth.configured)}
         />
-      </Suspense>
+      </CampusLoadingBoundary>
     )
   return (
     <div className={`community-shell ${path === '/' ? 'welcome-shell' : ''}`}>

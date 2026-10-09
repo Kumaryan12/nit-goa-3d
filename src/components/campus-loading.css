@@ -1,0 +1,74 @@
+.campus-intro {
+  --intro-gold: #e5bf69;
+  position: fixed; inset: 0; z-index: 1000; isolation: isolate;
+  display: flex; flex-direction: column; justify-content: space-between;
+  min-height: 100dvh; padding: max(30px, env(safe-area-inset-top)) max(38px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(38px, env(safe-area-inset-left));
+  overflow: auto; color: #e5d2a5; background: #000;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+.campus-intro::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 44%, #b68b2510, transparent 52%); }
+.campus-intro-exit { pointer-events: none; animation: intro-reveal var(--intro-exit-duration) ease-in both; }
+.campus-intro-aura { position: absolute; top: 50%; left: 50%; width: min(75vw, 850px); aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); z-index: -1; pointer-events: none; background: radial-gradient(circle, #caa04608, transparent 65%); }
+.campus-intro-header, .campus-intro-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-shrink: 0; }
+.campus-intro-header > span:first-child { font-size: 17px; font-weight: 400; letter-spacing: -.055em; color: #c9b783; }
+.campus-intro-header b { font-weight: 650; color: #efdab0; }
+.campus-intro-footer { justify-content: flex-end; }
+.campus-intro-center { display: flex; flex-direction: column; align-items: center; text-align: center; margin: auto; padding: 35px 0; perspective: 1000px; perspective-origin: 50% 40%; }
+.ak-flight { display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform-origin: 50% 40%; animation: ak-arrive var(--intro-entry-duration) cubic-bezier(.16,1,.3,1) both; }
+.ak-emblem { position: relative; width: clamp(220px, 26vw, 310px); aspect-ratio: 1; display: grid; place-items: center; transform-style: preserve-3d; }
+.ak-emblem::before { content: ''; position: absolute; inset: 8%; border-radius: 50%; background: radial-gradient(circle, #be8c3012, transparent 70%); }
+.ak-emblem svg { width: 75%; height: auto; overflow: visible; filter: drop-shadow(0 7px 8px #000) drop-shadow(0 0 24px #d8ae4520); transform: translateZ(18px); }
+.campus-intro-credit { display: flex; align-items: center; gap: 8px; margin: 28px 0 0; font-size: clamp(23px, 3vw, 32px); color: #a38c5d; letter-spacing: -.045em; font-weight: 350; }
+.campus-intro-credit strong { color: #f0d28a; font-weight: 550; }
+.campus-intro-credit > span { color: var(--intro-gold); font-size: 17px; margin-left: 4px; }
+.campus-intro-roll { margin: 10px 0 0; color: #c9ad70; font-size: 12px; font-weight: 450; letter-spacing: .16em; }
+.campus-intro-progress { display: flex; gap: 6px; width: 130px; margin-top: 32px; }
+.campus-intro-progress > span { flex: 1; height: 2px; border-radius: 2px; background: #e4c3781c; overflow: hidden; }
+.campus-intro-progress i { display: block; height: 100%; width: 100%; background: var(--intro-gold); opacity: 0; }
+.campus-intro-progress .is-done i { opacity: 1; }
+.campus-intro-progress .is-current i { opacity: .65; animation: ak-progress 1.5s ease-in-out infinite; }
+.campus-intro-caption { margin: 15px 0 0; font-size: 11px; letter-spacing: .015em; color: #99855c; }
+.campus-loading-notice { display: flex; align-items: center; gap: 11px; padding: 12px 16px 12px 12px; border: 1px solid #d9b25828; border-radius: 12px; background: #d9b25808; font-size: 11px; color: #d8c79f; }
+.campus-notice-icon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #d9b2580e; color: var(--intro-gold); }
+.campus-notice-icon i { width: 11px; height: 11px; border: 1px solid #e5bf6930; border-top-color: var(--intro-gold); border-radius: 50%; animation: campus-notice-spin 1.1s linear infinite; }
+.campus-intro-recovery { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; max-width: 390px; font-size: 11px; }
+.campus-intro-recovery p { flex-basis: 100%; color: #d6c59d; line-height: 1.6; margin: 0 0 4px; }
+.campus-intro-recovery button { border: 1px solid #e5bf6940; border-radius: 8px; background: #e5bf6915; color: #f3deaa; padding: 10px 13px; }
+.campus-intro-recovery a { color: #cbb787; padding: 10px 5px; text-underline-offset: 4px; }
+.campus-intro :focus-visible { outline: 2px solid var(--intro-gold); outline-offset: 4px; }
+.campus-intro-exit .ak-flight { animation: ak-depart var(--intro-exit-duration) cubic-bezier(.45,0,.25,1) both; }
+.campus-intro-exit :is(.campus-intro-header, .campus-intro-footer, .campus-intro-progress, .campus-intro-caption, .campus-intro-recovery) { animation: intro-details-out 240ms ease both; }
+@keyframes campus-notice-spin { to { transform: rotate(360deg); } }
+@keyframes ak-arrive {
+  from { opacity: 0; transform: translateZ(650px) rotateY(-24deg) rotateX(12deg); }
+  22% { opacity: 1; }
+  to { opacity: 1; transform: translateZ(0) rotateY(0) rotateX(0); }
+}
+@keyframes ak-depart {
+  0% { opacity: 1; transform: translateZ(0); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: translateZ(-2400px) rotateY(18deg) rotateX(-10deg); }
+}
+@keyframes intro-reveal { 0%, 18% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes intro-details-out { to { opacity: 0; } }
+@keyframes ak-progress { 0%, 100% { transform: translateX(-70%); } 50% { transform: translateX(30%); } }
+@media (max-width: 600px) {
+  .campus-intro { padding: max(25px, env(safe-area-inset-top)) 25px max(24px, env(safe-area-inset-bottom)); }
+  .campus-intro-header > span:first-child { font-size: 15px; }
+  .campus-intro-footer { justify-content: center; }
+  .campus-intro-credit { margin-top: 26px; }
+  .ak-emblem { width: 230px; max-width: 65vw; }
+}
+@media (max-height: 500px) and (min-width: 601px) {
+  .campus-intro { padding: 20px 28px; }
+  .campus-intro-center { padding: 12px 0; }
+  .ak-emblem { width: 140px; }
+  .campus-intro-credit { margin-top: 12px; font-size: 23px; }
+  .campus-intro-progress { margin-top: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .campus-intro { transition: opacity 180ms ease; }
+  .campus-intro, .campus-intro *, .campus-intro *::before { animation: none !important; }
+  .campus-intro-exit { opacity: 0; }
+  .campus-intro-progress .is-current i { transform: none; opacity: .5; }
+}

@@ -79,7 +79,7 @@ Implementation: `components/AvatarExplorer.tsx`, `StudentAvatar.tsx`, `WalkContr
 
 ## 3D/GIS pipeline and data honesty
 
-One world unit is approximately one meter. GPS origin is latitude `15.16773`, longitude `74.01548`; east is +X, north is -Z and Y is up. Drag to orbit, scroll to zoom, right-drag to pan; touch supports one-finger orbit and two-finger pan/zoom. Grid cells are 5 m and the grid starts disabled.
+One world unit is approximately one meter. GPS origin is latitude `15.16773`, longitude `74.01548`; east is +X, north is -Z and Y is up. In Overview, left-drag moves the view across the ground, right-drag rotates, and scroll or pinch zooms. The translucent **Controls** guide offers a Move/Rotate toggle for left-drag, along with mouse, trackpad and touch instructions. Touch supports one-finger rotation, two-finger pinch zoom and three-finger pan. Walking keeps drag-to-look and WASD movement. Grid cells are 5 m and the grid starts disabled.
 
 The building loader queries campus way `1259742369` with Overpass `map_to_area` and `out geom`. Ways and assembled multipolygon relations become validated closed footprint rings with preserved courtyard holes; relation members are not rendered twice. If the campus query fails or has no usable footprints, buildings within 900 m of the origin are requested. This nearby fallback is labelled because it can include buildings outside campus.
 
