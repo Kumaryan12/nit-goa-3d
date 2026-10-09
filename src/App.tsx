@@ -85,7 +85,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const initial = useRef(readState()).current
   const initialView = useRef(explorerViewFromURL(window.location.href)).current
   const [view, setView] = useState<ExplorerView>(initialView)
-  const [overviewDrag, setOverviewDrag] = useState<OverviewDrag>('pan')
+  const [overviewDrag, setOverviewDrag] = useState<OverviewDrag>('rotate')
   const [graphicsMode, setGraphicsMode] = useState(() => { try { return validGraphicsMode(localStorage.getItem('nit-goa:graphics')) } catch { return validGraphicsMode(null) } })
   const changeGraphics = (mode: typeof graphicsMode) => { setGraphicsMode(mode); try { localStorage.setItem('nit-goa:graphics', mode) } catch { /* Rendering still works without storage. */ } }
   const [terrainSettings, setTerrainSettings] = useState(() => readTerrainSettings(browserStorage))
