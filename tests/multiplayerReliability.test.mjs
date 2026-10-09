@@ -67,6 +67,21 @@ test('two peers recover rejected movement without weakening server movement boun
   await waitFor(()=>bob.messages.some(m=>m.type==='campus-state'&&m.people.some(p=>p.id==='alice'&&p.pose?.x===.2&&p.pose.visible)))
 })
 
+test('bunched full-speed updates never send a stop/reset correction and observers catch up',async t=>{
+  const {peer}=await fixture(t),observer=peer('observer')
+  const drivers=[['walker', 'walk', 5],['cyclist','bicycle',7],['buggy_driver','buggy',9]].map(([id,vehicle,speed])=>({...peer(id),id,vehicle,speed}))
+  await waitFor(()=>[observer,...drivers].every(p=>p.messages.some(m=>m.type==='campus-welcome')))
+  for(const p of drivers)p.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:p.vehicle})}))
+  await waitFor(()=>observer.messages.some(m=>m.type==='campus-state'&&m.people.filter(p=>p.id!=='observer').every(p=>p.pose)))
+  // Six normal 100 ms samples arrive together after a transport stall.
+  await new Promise(resolve=>setTimeout(resolve,600))
+  for(const p of drivers)for(let sample=1;sample<=6;sample++)p.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:p.vehicle,x:p.speed*sample/10})}))
+  await new Promise(resolve=>setTimeout(resolve,100))
+  for(const p of drivers)p.ws.send(JSON.stringify({type:'pose',activity:'walk',pose:pose({vehicle:p.vehicle,x:p.speed*7/10})}))
+  await waitFor(()=>observer.messages.some(m=>m.type==='campus-state'&&drivers.every(d=>m.people.find(p=>p.id===d.id)?.pose?.x===d.speed*7/10)))
+  assert.ok(drivers.every(p=>!p.messages.some(m=>m.type==='pose-correction')),'valid timing jitter cannot reset local momentum')
+})
+
 test('crowd detail has a strict budget, keeps close friends detailed and excludes other floors and hidden people',()=>{
   const people=Array.from({length:32},(_,i)=>({id:`p${String(i).padStart(2,'0')}`,name:'Person',handle:null,color:'teal',activity:'walk',pose:pose({x:i*2})}))
   people[3].pose.space='gyan:1';people[4].pose.visible=false

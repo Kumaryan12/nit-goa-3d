@@ -23,7 +23,7 @@ export function publishedCampusBoundary(): LocalCoordinate[] {
 export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[] = []) {
   if (boundary.length < 4) throw new Error('Campus presence requires a closed boundary.')
   const region = boundary.map(localToGps)
-  const members = new Map<string, { person: CampusPerson; preferredColor: AvatarColor; poseAt: number; spawnAt: number; seatOrigin?: CampusPose }>()
+  const members = new Map<string, { person: CampusPerson; preferredColor: AvatarColor; poseAt: number; spawnAt: number; movement?: { horizontal: number; vertical: number; speed: number; verticalSpeed: number }; seatOrigin?: CampusPose }>()
   const rideLimits = new Map<string, number>()
   const socialLimits = new Map<string, number[]>()
   const socialSeats = new Map(seats.map(seat => [seat.id, seat]))
@@ -91,42 +91,60 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
     remove(id: string) { releasePassengers(id, Date.now()); members.delete(id); rideLimits.delete(id) },
     poseFor(id: string) { const pose = members.get(id)?.person.pose; return pose ? { ...pose } : null },
     removeMessages(id: string) { for (let i = history.length - 1; i >= 0; i--) if (history[i].sender === id) history.splice(i, 1) },
-    pose(id: string, input: unknown, activity: unknown, now = Date.now()) {
+    pose(id: string, input: unknown, activity: unknown, now = Date.now()): boolean {
+      return this.updatePose(id, input, activity, now) === 'accepted'
+    },
+    updatePose(id: string, input: unknown, activity: unknown, now = Date.now()): 'accepted' | 'throttled' | 'invalid' {
       syncRides(now); syncSocial(now)
       const member = members.get(id), pose = parseCampusPose(input)
-      if (!member || !pose || !['walk', 'overview', 'football', 'concert'].includes(activity as string) || !pointInRing(localToGps(pose), region) || now - member.poseAt < 70) return false
+      if (!member || !pose || !['walk', 'overview', 'football', 'concert'].includes(activity as string) || !pointInRing(localToGps(pose), region)) return 'invalid'
+      const throttled = now - member.poseAt < 70
       const previous = member.person.pose
       if (member.person.social?.action === 'sit') {
+        if (throttled) return 'throttled'
         // A client can leave a seat but cannot use a forged pose to relocate it.
         // Stop restores the last accepted standing position with a fresh epoch.
         if (activity !== 'walk' || !pose.visible || !pose.active || pose.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk') stopSocial(id, now)
         if (member.person.pose) { member.person.pose.active = pose.active; member.person.pose.visible = pose.visible }
         member.person.activity = activity as CampusActivity; member.poseAt = now
-        return true
+        return 'accepted'
       }
       if (member.person.ride) {
+        if (throttled) return 'throttled'
         if (activity !== 'walk' || !pose.visible || pose.space !== 'outdoors' || pose.epoch !== previous?.epoch) release(id, now)
         else {
           // Seat placement comes only from the driver and server seat assignment.
-          if ((pose.vehicle ?? 'walk') !== 'walk') return false
+          if ((pose.vehicle ?? 'walk') !== 'walk') return 'invalid'
           member.poseAt = now; if (member.person.pose) { member.person.pose.active = pose.active; member.person.pose.visible = pose.visible }
-          syncRides(now); return true
+          syncRides(now); return 'accepted'
         }
       }
       const relocated = !previous || previous.epoch !== pose.epoch
-      if (relocated && now - member.spawnAt < 1000) return false
+      if (relocated && now - member.spawnAt < 1000) return 'invalid'
+      const maximumSpeed = presenceSpeedLimit(pose, activity), verticalSpeed = presenceVerticalSpeedLimit(pose, activity)
+      let movement = { horizontal: .4, vertical: .5, speed: maximumSpeed, verticalSpeed }
       if (previous && !relocated) {
         const elapsed = Math.min(PRESENCE_CATCHUP_SECONDS, Math.max(0, (now - member.poseAt) / 1000))
-        const maximumSpeed = presenceSpeedLimit(pose, activity)
-        if (Math.hypot(pose.x - previous.x, pose.z - previous.z) > maximumSpeed * elapsed + .4 || Math.abs(pose.y - previous.y) > presenceVerticalSpeedLimit(pose, activity) * elapsed + .5) return false
+        const budget = member.movement?.speed === maximumSpeed && member.movement.verticalSpeed === verticalSpeed ? member.movement : movement
+        // Arrival intervals are not simulation intervals: delayed packets can
+        // drain in a burst. Carry unused travel allowance across accepted poses,
+        // capped at the same two-second catch-up window. Spend it only on valid
+        // poses; do not grant a fresh tolerance on every packet.
+        const horizontal = Math.min(maximumSpeed * PRESENCE_CATCHUP_SECONDS + .4, budget.horizontal + maximumSpeed * elapsed)
+        const vertical = Math.min(verticalSpeed * PRESENCE_CATCHUP_SECONDS + .5, budget.vertical + verticalSpeed * elapsed)
+        const distance = Math.hypot(pose.x - previous.x, pose.z - previous.z), rise = Math.abs(pose.y - previous.y)
+        if (distance > horizontal + 1e-8 || rise > vertical + 1e-8) return 'invalid'
+        movement = { horizontal: Math.max(0, horizontal - distance), vertical: Math.max(0, vertical - rise), speed: maximumSpeed, verticalSpeed }
       }
+      if (throttled) return 'throttled'
+      member.movement = movement
       if (previous?.vehicle === 'buggy' && (relocated || pose.vehicle !== 'buggy' || pose.space !== 'outdoors' || !pose.visible || activity !== 'walk')) releasePassengers(id, now)
       if (relocated) member.spawnAt = now
       pose.moving = pose.active && pose.visible && !!previous && !relocated && Math.hypot(pose.x - previous.x, pose.z - previous.z) > .005
       if (member.person.social && (relocated || pose.moving || pose.airborne || !pose.active || !pose.visible && activity !== 'concert' || (pose.vehicle ?? 'walk') !== 'walk' || activity !== member.person.activity || pose.space !== previous?.space || previous && Math.abs(pose.y - previous.y) > .08)) stopSocial(id, now)
       member.person.pose = pose; member.person.activity = activity as CampusActivity; member.poseAt = now
       syncRides(now)
-      return true
+      return 'accepted'
     },
     social(id: string, action: unknown, seatId?: unknown, now = Date.now()): { ok: true } | { error: string } {
       prune(now); syncRides(now); syncSocial(now)

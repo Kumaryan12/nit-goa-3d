@@ -27,9 +27,10 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
       let msg
       try { msg = JSON.parse(bytes.toString()) } catch { return }
       if (!msg || typeof msg !== 'object') return
-      if (msg.type === 'pose' && !room.pose(identity.id, msg.pose, msg.activity) && Date.now() - correctedAt >= 1000) {
+      if (msg.type === 'pose' && room.updatePose(identity.id, msg.pose, msg.activity) === 'invalid' && Date.now() - correctedAt >= 1000) {
         const incoming = parseCampusPose(msg.pose), accepted = room.poseFor(identity.id)
-        // Keep speed/boundary checks strict, but give a stalled client the
+        // Throttled burst packets are not movement violations and must not
+        // reset client momentum. Give a genuinely invalid/stalled client the
         // accepted position so it cannot remain invisible/desynced forever.
         if (incoming && accepted && incoming.epoch === accepted.epoch && (Math.hypot(incoming.x - accepted.x, incoming.z - accepted.z) > 2 || Math.abs(incoming.y - accepted.y) > 1.5)) {
           correctedAt = Date.now(); send(ws, { type: 'pose-correction', pose: accepted })
