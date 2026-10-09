@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import CampusPopover from './CampusPopover'
 import { defaultTerrainSettings } from '../data/topography'
 import type { TerrainSettings } from '../data/topography'
 
@@ -16,6 +17,7 @@ export default function TerrainControls({ settings, onChange, onOpenChange, onVi
   onViewCampusSlope?: (section: 'gate' | 'faculty') => void
   onEditSlopes?: () => void
 }) {
+  const popover = useRef<HTMLFormElement>(null)
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<TerrainSettings>(settings)
   const root = useRef<HTMLDivElement>(null), toggle = useRef<HTMLButtonElement>(null)
@@ -26,7 +28,7 @@ export default function TerrainControls({ settings, onChange, onOpenChange, onVi
   useEffect(() => {
     if (!open) return
     const outside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false)
+      if (event.target instanceof Node && !root.current?.contains(event.target) && !popover.current?.contains(event.target)) setOpen(false)
     }
     window.addEventListener('pointerdown', outside)
     return () => window.removeEventListener('pointerdown', outside)
@@ -35,7 +37,7 @@ export default function TerrainControls({ settings, onChange, onOpenChange, onVi
   return <div className="terrain-controls" ref={root}>
     <button type="button" ref={toggle} className="toolbar-button" aria-expanded={open} aria-controls={panelId}
       onClick={() => { if (!open) setDraft({ ...settings }); setOpen(!open) }}>Terrain</button>
-    {open && <form id={panelId} className="terrain-controls-panel" aria-label="Campus terrain settings" aria-describedby={noteId}
+    {open && <CampusPopover anchor={root}><form ref={popover} id={panelId} className="terrain-controls-panel" aria-label="Campus terrain settings" aria-describedby={noteId}
       onKeyDown={event => { event.stopPropagation(); if (event.key === 'Escape') { event.preventDefault(); close() } }}
       onSubmit={event => { event.preventDefault(); onChange({ ...draft }); close() }}>
       <div className="terrain-controls-heading">
@@ -69,6 +71,6 @@ export default function TerrainControls({ settings, onChange, onOpenChange, onVi
       <button type="button" className="navigate-button terrain-view-slope" disabled={!onEditSlopes}
         onClick={() => { onChange({ ...draft }); onEditSlopes?.(); close() }}>Map campus slopes ({settings.customSlopes.length})</button>
       <p className="terrain-controls-hint">Apply or view slope to save in this browser. Contours show 2 m intervals.</p>
-    </form>}
+    </form></CampusPopover>}
   </div>
 }

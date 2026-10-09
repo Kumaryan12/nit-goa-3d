@@ -63,6 +63,7 @@ import { theatreSeats } from './lib/social'
 import ViewControls, { initialViewLayout } from './components/ViewControls'
 import type { ViewLayout } from './components/ViewControls'
 import type { OverviewDrag } from './lib/cameraGestures'
+import './components/campus-panels.css'
 
 const browserStorage = { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value), removeItem: (key: string) => localStorage.removeItem(key) }
 const readState = () => {
