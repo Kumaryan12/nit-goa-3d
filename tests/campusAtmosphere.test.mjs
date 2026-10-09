@@ -1,3 +1,4 @@
+import { MOVEMENT_SPEEDS } from '../src/lib/movementLimits.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { advanceAtmosphereMotion, atmosphereMix, atmosphereSettings, DEFAULT_ATMOSPHERE, freshAtmosphereMotion } from '../src/lib/campusAtmosphere.ts'
@@ -69,7 +70,7 @@ test('bicycle rolling and chain clicks track speed and stop immediately when the
   for (let i = 0; i <= 40; i++) {
     const result = advanceAtmosphereMotion(state, pose({ vehicle: 'bicycle', x: i * .5 }), i * .1, true)
     assert.equal(result.step, null)
-    if (i) assert.ok(Math.abs(result.bicycle - 5 / 7) < 1e-10)
+    if (i) assert.ok(Math.abs(result.bicycle - 5 / MOVEMENT_SPEEDS.bicycle) < 1e-10)
     if (result.chain) clicks++
   }
   assert.ok(clicks >= 11 && clicks <= 12)

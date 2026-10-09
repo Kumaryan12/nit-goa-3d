@@ -15,8 +15,9 @@ export type TransportMode = 'walk' | 'bicycle' | 'buggy'
 export type VehicleKind = Exclude<TransportMode, 'walk'>
 export interface VehicleState { speed: number; yaw: number; steering: number; drift?: LocalCoordinate; impactTurn?: number; impactStrength?: number; impactAge?: number }
 export const VEHICLES = {
-  bicycle: { speed: MOVEMENT_SPEEDS.bicycle, reverse: 0, acceleration: 1.4, brake: 7, radius: .3, halfLength: .7, wheelbase: 1.4, wheelRadius: .37 },
-  buggy: { speed: MOVEMENT_SPEEDS.buggy, reverse: 1.4, acceleration: 1.8, brake: 12, radius: BUGGY_BODY.radius, halfLength: BUGGY_BODY.halfLength, wheelbase: 2.1, wheelRadius: .33 },
+  // Keep the five-second buildup and roughly 3.5 m full-speed braking distance.
+  bicycle: { speed: MOVEMENT_SPEEDS.bicycle, reverse: 0, acceleration: MOVEMENT_SPEEDS.bicycle / 5, brake: 12, radius: .3, halfLength: .7, wheelbase: 1.4, wheelRadius: .37 },
+  buggy: { speed: MOVEMENT_SPEEDS.buggy, reverse: 1.4, acceleration: MOVEMENT_SPEEDS.buggy / 5, brake: 22, radius: BUGGY_BODY.radius, halfLength: BUGGY_BODY.halfLength, wheelbase: 2.1, wheelRadius: .33 },
 } as const
 export const freshVehicle = (yaw = 0): VehicleState => ({ speed: 0, yaw, steering: 0 })
 // Set the server's resulting velocity once, rather than stacking network retries.
