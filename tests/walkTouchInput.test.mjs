@@ -43,6 +43,14 @@ test('movement, run and jump work together with independent fingers before a ren
   assert.equal(input.current.forward, 0); assert.equal(input.current.side, 0)
 })
 
+test('disabled actions ignore pointer presses as well as keyboard and assistive clicks', () => {
+  const { input, controls } = setup()
+  const press = instantControlPress(() => controls.toggleRun(), false)
+  press.onPointerDown({ button: 0, pointerId: 2 })
+  press.onClick({ detail: 0, nativeEvent: {} })
+  assert.equal(input.current.running, false)
+})
+
 test('steering and braking release only their own pointer while accelerating', () => {
   const { input, controls } = setup()
   controls.beginStick(1); controls.moveStick(1, 0, -32, 32)

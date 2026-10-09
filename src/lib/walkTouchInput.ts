@@ -11,16 +11,16 @@ interface ControlPointer {
 }
 // Action controls must accept non-primary fingers. The eventual browser click
 // must not execute a toggle twice; keyboard and assistive clicks still work.
-export function instantControlPress(perform: () => void) {
+export function instantControlPress(perform: () => void, enabled = true) {
   return {
     onPointerDown: (event: ControlPointer) => {
-      if (event.button !== 0) return
+      if (!enabled || event.button !== 0) return
       event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId)
       perform()
     },
     onClick: (event: { detail: number; nativeEvent: object }) => {
       const pointerType = (event.nativeEvent as { pointerType?: string }).pointerType
-      if (event.detail === 0 && !pointerType) perform()
+      if (enabled && event.detail === 0 && !pointerType) perform()
     },
     onKeyDown: (event: { key: string; stopPropagation: () => void }) => {
       if (event.key === ' ' || event.key === 'Enter') event.stopPropagation()

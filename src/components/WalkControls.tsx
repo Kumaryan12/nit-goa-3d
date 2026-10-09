@@ -23,6 +23,7 @@ export default function WalkControls({ compact = false, campusLive, input, statu
   const nearbyBuggies = snapshot?.people.filter(p => p.id !== selfId && !p.ride && p.pose?.vehicle === 'buggy' && p.pose.active && p.pose.visible && status && Math.hypot(p.pose.x - status.position.x, p.pose.z - status.position.z) <= 4) ?? []
   const occupants = 1 + (snapshot?.people.filter(p => p.ride?.driverId === (passenger?.driverId ?? selfId)).length ?? 0)
   const riding = !!passenger || !!status?.vehicle && status.vehicle !== 'walk'
+  const inputDisabled = paused || !ready || !!status?.error || !!passenger
   const inside = status?.interior
   const resetKnob = () => { if (knob.current) knob.current.style.transform = 'translate(-50%, -50%)' }
   const clearControls = () => { controls.clear(); resetKnob(); setJog(false) }
@@ -47,7 +48,7 @@ export default function WalkControls({ compact = false, campusLive, input, statu
   const button = (direction: WalkDirection, label: string, symbol: string) => {
     const keyboardId = -2 - ['forward','back','left','right','turn-left','turn-right'].indexOf(direction)
     return <button type="button" className={`walk-direction walk-${direction}`} aria-label={label} disabled={paused || !ready || !!status?.error || !!passenger}
-    onPointerDown={event => { if (event.button !== 0) return; startPress(event); controls.holdDirection(event.pointerId, direction) }}
+    onPointerDown={event => { if (inputDisabled || event.button !== 0) return; startPress(event); controls.holdDirection(event.pointerId, direction) }}
     onPointerUp={releaseStick} onPointerCancel={releaseStick} onLostPointerCapture={releaseStick}
     onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); controls.holdDirection(keyboardId, direction) } }}
     onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') { controls.release(keyboardId) } }} onBlur={() => controls.release(keyboardId)}>{symbol}</button>
@@ -85,13 +86,13 @@ export default function WalkControls({ compact = false, campusLive, input, statu
     <div className="walk-input-row"><div className="walk-movement"><div className="walk-joystick" role="group" aria-label={riding ? 'Drag forward to accelerate, backward to brake, sideways to steer' : 'Drag to walk; drag farther to move faster'} aria-disabled={paused || !ready || !!status?.error || !!passenger}
       onPointerDown={event => { if (event.button !== 0 || passenger || paused || !ready || status?.error || !controls.beginStick(event.pointerId)) return; startPress(event); moveStick(event) }}
       onPointerMove={moveStick} onPointerUp={releaseStick} onPointerCancel={releaseStick} onLostPointerCapture={releaseStick}><span className="walk-stick-cross">✦</span><span ref={knob} className="walk-stick-knob" /><span className="walk-stick-label">MOVE</span></div><div className="walk-pad" aria-label="Touch movement controls">{button('forward', riding ? 'Accelerate' : 'Walk forward', '↑')}{button('left', riding ? 'Steer left' : 'Step left', '←')}{button('back', riding ? 'Brake or reverse' : 'Walk backward', '↓')}{button('right', riding ? 'Steer right' : 'Step right', '→')}</div></div><div className="walk-look">{button('turn-left', riding ? 'Steer left' : 'Look left', '↶')}{button('turn-right', riding ? 'Steer right' : 'Look right', '↷')}{riding && !passenger && <button type="button" className="fly-button" disabled={paused || !ready || !!status?.error}
-        onPointerDown={event => { if (event.button !== 0) return; startPress(event); controls.holdBrake(event.pointerId) }}
+        onPointerDown={event => { if (inputDisabled || event.button !== 0) return; startPress(event); controls.holdBrake(event.pointerId) }}
         onPointerUp={releaseStick} onPointerCancel={releaseStick} onLostPointerCapture={releaseStick}
         onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); controls.holdBrake(-20) } }}
         onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') controls.release(-20) }} onBlur={() => controls.release(-20)}>Brake</button>}
       {!riding && <>
-        <button type="button" className="fly-button walk-jump" disabled={paused || !ready || !!status?.error || !!passenger || status?.canJump === false} {...instantControlPress(() => controls.jump())}>Jump ↑ <small>J</small></button>
-        <button type="button" className="fly-button" disabled={paused || !ready || !!status?.error || !!passenger} aria-pressed={jog} {...instantControlPress(() => setJog(controls.toggleRun()))}>{jog ? 'Running' : 'Run'}</button>
+        <button type="button" className="fly-button walk-jump" disabled={inputDisabled || status?.canJump === false} {...instantControlPress(() => controls.jump(), !inputDisabled && status?.canJump !== false)}>Jump ↑ <small>J</small></button>
+        <button type="button" className="fly-button" disabled={inputDisabled} aria-pressed={jog} {...instantControlPress(() => setJog(controls.toggleRun()), !inputDisabled)}>{jog ? 'Running' : 'Run'}</button>
       </>}
       <button type="button" className="fly-button" aria-pressed={paused} {...instantControlPress(onPause)}>{paused ? 'Resume' : 'Pause'}</button></div></div>
     <p className="walk-note">{inside ? 'Walk through open doorways. E uses stairs at a landing and exits near the ground entrance.' : passenger ? 'The driver controls this four-seat buggy. Board and get out while stopped.' : riding ? 'Ride on roads or across open campus ground. Dismount to explore interiors or play football.' : 'Choose a bicycle or buggy on open ground. Dismount to enter buildings.'}</p>
