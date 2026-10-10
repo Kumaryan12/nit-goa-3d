@@ -76,7 +76,8 @@ export function attachOatServer(
       ws.send(JSON.stringify(message))
   }
   const broadcast = () => {
-    const state = { ...room.snapshot(), ...(budget ? { voiceAvailability: budget.snapshot().availability } : {}) }
+    const voiceUsage = budget?.snapshot()
+    const state = { ...room.snapshot(), ...(voiceUsage ? { voiceAvailability: voiceUsage.availability, voiceUsage } : {}) }
     for (const peer of peers.values()) send(peer.ws, state)
   }
   let lastAvailability = budget?.snapshot().availability

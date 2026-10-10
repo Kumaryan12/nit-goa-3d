@@ -444,6 +444,19 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .oat-section { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px; }
 .oat-muted { color: var(--muted); font-size: 11px !important; }
 .oat-status, .oat-live-indicator { color: var(--accent); font-weight: 600; }
+.oat-usage { padding: 12px; margin: 12px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--wash); }
+.oat-usage-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 11px; }
+.oat-usage-heading span { color: var(--accent); font-size: 10px; }
+.oat-controls .oat-usage-total { margin: 8px 0; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.oat-usage-total span { color: var(--muted); font-weight: 400; }
+.oat-usage .oat-muted { margin: 6px 0 0; font-size: 10px !important; }
+.oat-usage-warning .oat-usage-heading span, .oat-usage-warning .oat-usage-notice { color: var(--ink); }
+.oat-usage-warning { border-color: #b8904770; }
+.oat-controls .oat-usage-warning progress { accent-color: #b89047; }
+.oat-usage-paused .oat-usage-heading span { color: var(--muted); }
+.oat-usage-notice { margin: 6px 0 0; }
+.oat-usage-compact { margin-bottom: 0; padding: 8px; }
+.oat-controls .oat-usage-compact .oat-usage-total { margin-bottom: 0; font-size: 10px; }
 .oat-controls .navigate-button, .oat-controls .fly-button { padding: 10px 12px; font-size: 11px; }
 .oat-input-row button { flex-shrink: 0; }
 .oat-mic { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 16px; }
