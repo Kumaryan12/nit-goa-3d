@@ -6,6 +6,7 @@ const timestamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Mat
 export default function OatControls({ session, joined, onJoin, onRetry, onClose }: {
   session: OatSession; joined: boolean; onJoin: (name: string) => void; onRetry: () => void; onClose: () => void
 }) {
+  const volumeId = useId()
   const [collapsed, setCollapsed] = useState(false), contentId = useId()
   const [title, setTitle] = useState(''), [trackURL, setTrackURL] = useState(''), [trackTitle, setTrackTitle] = useState(''), [copied, setCopied] = useState(false)
   const { snapshot: room, selfId, connection, mic, error } = session
@@ -25,6 +26,16 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
     </> : <>
       <p className="oat-status" role="status">{live ? `${room?.participants.length ?? 0} / ${OAT_CAPACITY} people here` : connection === 'waiting' ? `Theatre full · you’re ${session.queuePosition} in the waiting queue. You’ll enter automatically.` : connection === 'connecting' ? 'Joining the concert…' : 'Connection lost. Your microphone is off.'}</p>
       {!live && connection !== 'connecting' && connection !== 'waiting' && <button className="navigate-button" onClick={onRetry}>Reconnect to concert</button>}
+      <section className="oat-section" aria-label="My concert sound">
+        <h3>My sound</h3>
+        <div className="oat-sound-controls">
+          <button className="fly-button" disabled={!live} onClick={() => !session.listening || session.soundBlocked ? session.enableSound() : session.muteSound()}>{session.soundBlocked ? 'Enable / retry sound' : session.listening ? 'Mute my sound' : 'Enable my sound'}</button>
+          <label htmlFor={volumeId}>My volume <input id={volumeId} type="range" min={0} max={1} step={.05} value={session.volume} onChange={event => session.changeVolume(Number(event.target.value))} /></label>
+        </div>
+        {session.soundBlocked && <p className="oat-muted" role="status">Tap Enable / retry sound to hear the concert.</p>}
+        {room?.micOn && <button className="fly-button oat-wide" onClick={session.reconnectVoice} disabled={!live}>Retry voice connection</button>}
+        {!session.listening && !onStage && room?.micOn && <p className="oat-muted">Enable sound to hear the live performer.</p>}
+      </section>
       <section className="oat-section" aria-label="Concert stage">
         <h3>{onStage ? 'You’re on stage' : performer ? `${performer.name} is on stage` : 'The stage is open'}</h3>
         <p className="oat-muted">{onStage ? 'You control the music for the concert.' : queueIndex >= 0 ? `You’re ${queueIndex + 1} in the performer queue.` : 'Listen from the audience or join the performer queue.'}</p>
@@ -40,12 +51,13 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
           </form>
           <div className={`oat-mic ${mic === 'live' ? 'oat-mic-live' : ''}`}>
             <button className="navigate-button" disabled={!live} onClick={() => mic === 'off' ? void session.startMic() : session.stopMic()}>
-              {mic === 'live' ? '● Stop live microphone' : mic === 'requesting' ? 'Cancel microphone request' : '🎤 Start live microphone'}
+              {mic === 'live' ? '● Stop live microphone' : mic === 'requesting' ? 'Cancel microphone request' : mic === 'connecting' ? 'Cancel microphone connection' : '🎤 Start live microphone'}
             </button>
-            <p>{mic === 'live' ? 'Your microphone is broadcasting to this concert.' : mic === 'requesting' ? 'Allow microphone access in your browser to sing.' : 'Your voice will be heard by everyone in this concert. Use headphones when singing over music.'}</p>
+            <p>{mic === 'live' ? 'Microphone enabled. Check the input meter and listener connection below.' : mic === 'requesting' ? 'Allow microphone access in your browser to sing.' : mic === 'connecting' ? 'Connecting your microphone to the concert…' : 'Your voice will be heard by everyone in this concert. Use headphones when singing over music.'}</p>
+            {mic === 'live' && <div className="oat-input-meter"><meter aria-label="Microphone input level" min={0} max={1} value={session.micLevel} /><span>{session.micLevel > .025 ? 'Microphone is picking up audio' : 'Speak or sing to check your input'}</span></div>}
           </div>
         </>}
-        {room?.micOn && !onStage && <p className="oat-live-indicator">● Live microphone · {performer?.name}</p>}
+        {room?.micOn && !onStage && <><p className="oat-live-indicator">● Live microphone · {performer?.name}</p><div className="oat-input-meter"><meter aria-label="Received voice level" min={0} max={1} value={session.voiceLevel}/><span>{session.voiceLevel > .025 ? session.listening && !session.soundBlocked ? 'Receiving live audio' : session.soundBlocked ? 'Receiving audio · tap Enable / retry sound' : 'Receiving audio · your sound is muted' : 'Waiting for the performer’s voice'}</span></div></>}
         {session.voiceStatus && <p className="oat-muted" role="status">{session.voiceStatus}</p>}
       </section>
       <section className="oat-section" aria-label="Shared music">
@@ -62,11 +74,6 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
             <button className="fly-button" disabled={!live}>Load for everyone</button><p className="oat-muted">Use a link to an audio file. Music service page links won’t play here.</p>
           </form></details>
         </>}
-        <div className="oat-sound-controls">
-          <button className="fly-button" disabled={!live} onClick={() => !session.listening || session.soundBlocked ? session.enableSound() : session.muteSound()}>{session.soundBlocked ? 'Enable / retry sound' : session.listening ? 'Mute my sound' : 'Enable my sound'}</button>
-          <label htmlFor="oat-volume">My volume <input id="oat-volume" type="range" min={0} max={1} step={.05} value={session.volume} onChange={event => session.changeVolume(Number(event.target.value))} /></label>
-        </div>
-        {session.soundBlocked && <p className="oat-muted" role="status">Tap Enable / retry sound to hear the concert.</p>}
       </section>
       <section className="oat-section" aria-label="Concert lineup"><h3>Up next · {room?.queue.length ?? 0}</h3>
         {room?.queue.length ? <ol className="oat-lineup">{room.queue.map(queued => <li key={queued}>{room.participants.find(p => p.id === queued)?.name}{queued === selfId ? ' (you)' : ''}</li>)}</ol> : <p className="oat-muted">The next performer can join the queue.</p>}

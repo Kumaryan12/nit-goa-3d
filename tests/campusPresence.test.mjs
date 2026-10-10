@@ -188,6 +188,24 @@ test('authenticated peers see bicycle, buggy and dismount updates over the live 
   }
 })
 
+test('finder visibility is authenticated, cannot change another user, and hides remote coordinates over WebSockets', async t => {
+  const { campus, peer } = await campusFixture(t), a = peer('alice'), b = peer('bob')
+  await waitFor(() => a.messages.some(m => m.type === 'campus-welcome') && b.messages.some(m => m.type === 'campus-welcome'))
+  a.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: -100 }) }))
+  b.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: 100 }) }))
+  await waitFor(() => b.messages.some(m => m.type === 'campus-state' && m.people.every(p => p.pose)))
+  a.ws.send(JSON.stringify({ type: 'locator-visibility', visible: false, id: 'bob' }))
+  await waitFor(() => a.messages.some(m => m.type === 'locator-result' && m.ok && !m.visible))
+  const hidden = await waitFor(() => b.messages.find(m => m.type === 'campus-state' && m.people.find(p => p.id === 'alice')?.locatorVisible === false))
+  assert.equal(hidden.people.find(p => p.id === 'alice').pose, null)
+  assert.notEqual(hidden.people.find(p => p.id === 'bob').locatorVisible, false)
+  assert.ok(parseCampusSnapshot(hidden))
+  assert.equal(campus.room.locatorVisibility('nobody', false), false)
+  assert.equal(campus.room.locatorVisibility('bob', 'false'), false)
+  a.ws.send(JSON.stringify({ type: 'locator-visibility', visible: true }))
+  await waitFor(() => b.messages.some(m => m.type === 'campus-state' && m.people.find(p => p.id === 'alice')?.locatorVisible === true && m.people.find(p => p.id === 'alice')?.pose))
+})
+
 test('live buggy boarding follows a driver, rejects position spoofing, and frees seats on departure', async t => {
   const { peer } = await campusFixture(t), driver = peer('alice'), rider = peer('bob')
   await waitFor(() => driver.messages.some(m => m.type === 'campus-welcome') && rider.messages.some(m => m.type === 'campus-welcome'))

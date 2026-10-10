@@ -24,6 +24,7 @@ import { PRESENCE_SPEED_LIMITS } from '../lib/movementLimits'
 import type { CampusPose, CampusSession } from '../lib/campusProtocol'
 import { canUseStairs, interiorFloorPlan, interiorLocationId, interiorRoomLabel, interiorSpace, interiorCameraFraction, interiorJumpCeiling, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
+import { nearestHostelLift, hostelLiftArrival, hostelAreaLabel, hostelCourtSurface } from '../lib/boysHostelLayout'
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
@@ -71,7 +72,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
       position: { x: Math.round(p.x * 10) / 10, z: Math.round(p.z * 10) / 10 }, nearestId: nearest.current, distance: place?.distance ?? Infinity, moving, blocked, error, vehicle: ride.current, speed: ridingPassenger.current || ride.current === 'buggy' ? motion.current.speed : Math.abs(vehicle.current.speed), rideMessage: rideMessage.current, canRide: !seated.current && !activityBlocked && !ridingPassenger.current && !pose && !footballPitch && jump.current.grounded, canJump: !seated.current && !ridingPassenger.current && ride.current === 'walk' && jump.current.grounded && !journey.current,
       canEnterHostel: !ridingPassenger.current && ride.current === 'walk' && jump.current.grounded && !pose && !!hostelPlan && pointDistance(p, hostelPlan.entrance.outside) <= 5,
       canEnterGyan: !ridingPassenger.current && ride.current === 'walk' && jump.current.grounded && !pose && !!gyanPlan && pointDistance(p, gyanPlan.entrance.outside) <= 5,
-      interior: pose && plan ? { kind: plan.kind, name: plan.name, levels: plan.levels, floor: pose.floor, room: room ? interiorRoomLabel(plan, pose.floor, room.id) : null, canGoUp: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, true), canGoDown: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, false), stairLowFloor: journey.current?.lowFloor ?? null } : undefined,
+      interior: pose && plan ? { kind: plan.kind, name: plan.name, levels: plan.levels, floor: pose.floor, room: room ? interiorRoomLabel(plan, pose.floor, room.id) : hostelAreaLabel(plan,p), lift: jump.current.grounded&&!journey.current?nearestHostelLift(plan,p)?.id:undefined, canGoUp: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, true), canGoDown: jump.current.grounded && !journey.current && canUseStairs(plan, p, pose.floor, false), stairLowFloor: journey.current?.lowFloor ?? null } : undefined,
     }
     actionContext.current = status; onStatus(status)
   }, [hostelPlan, gyanPlan, activePlan, interiorPose, position, locations, world, onStatus, footballPitch, campusSession])
@@ -133,6 +134,11 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     } else if (action === 'find-stairs' && pose) {
       const up = pose.floor < plan.levels - 1; position.current = stairLanding(plan, up)
       yaw.current = Math.atan2(plan.stairs.along.x * (up ? -1 : 1), plan.stairs.along.z * (up ? -1 : 1))
+    } else if (pose && action.startsWith('lift-floor-')) {
+      const arrival=hostelLiftArrival(plan,p,Number(action.slice('lift-floor-'.length)))
+      if(!arrival)return
+      pose.floor=arrival.floor;position.current=arrival.point
+      yaw.current=Math.atan2(-arrival.lift.facing.x,-arrival.lift.facing.z)
     } else if (pose && (action === 'stairs-up' || action === 'stairs-down')) {
       const up = action === 'stairs-up'; if (!canUseStairs(plan, p, pose.floor, up)) return
       journey.current = { lowFloor: up ? pose.floor : pose.floor - 1, up, progress: 0 }
@@ -315,7 +321,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     // Room admission can relocate a football player between render frames.
     if (!passengerPose && !reconciledImpact && Math.hypot(before.x - avatar.current.position.x, before.z - avatar.current.position.z) > 2) { campusEpoch.current++; jump.current = freshJump() }
     const running = !!(allowed && !sitting && (key('ShiftLeft') || key('ShiftRight') || input.current.running))
-    const travel = advanceLocomotion(locomotion.current, direction, walkSpeed(running, !!pose), delta, allowed && !journey.current && !passengerPose && !sitting)
+    const travel = advanceLocomotion(locomotion.current, direction, walkSpeed(running, !!pose, pose && plan ? interiorLocationId(plan) : undefined), delta, allowed && !journey.current && !passengerPose && !sitting)
     let vehicleBlocked = false
     let next = before, surfaceY = walkSurfaceHeightAt(twin.terrain, before.x, before.z)
     if (sitting) {
@@ -341,7 +347,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
       avatar.current.rotation.x = ground.pitch
     } else if (pose && plan) {
       avatar.current.rotation.x = 0
-      surfaceY = plan.base + pose.floor * plan.floorHeight + .14
+      surfaceY = hostelCourtSurface(plan,before,pose.floor)
       if (journey.current) {
         jump.current = freshJump()
         if (allowed) journey.current.progress += Math.min(delta, .1) / 3.4
@@ -352,7 +358,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
           lookTarget.current.yaw = yaw.current
           avatar.current.rotation.y = yaw.current; snapped.current = false; publish()
         }
-      } else next = stepInterior(before, travel.direction, travel.speed, travel.delta, plan, jump.current.grounded ? undefined : jump.current.y ?? undefined, pose.floor)
+      } else { next = stepInterior(before, travel.direction, travel.speed, travel.delta, plan, jump.current.grounded ? undefined : jump.current.y ?? undefined, pose.floor); surfaceY=hostelCourtSurface(plan,next,pose.floor) }
     } else {
       avatar.current.rotation.x = 0
       next = stepWalking(before, travel.direction, travel.speed, travel.delta, world, jump.current.grounded ? undefined : jump.current.y ?? undefined)

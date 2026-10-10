@@ -1,3 +1,4 @@
+import { campusSnapshotForViewer } from './campusLocator.ts'
 import type { EventEmitter } from 'node:events'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { VerifyAccess } from './access.ts'
@@ -20,7 +21,7 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
     while ([...spawnSlots.values()].includes(spawnSlot)) spawnSlot++
     spawnSlots.set(identity.id, spawnSlot)
     send(ws, { type: 'campus-welcome', id: identity.id, spawnSlot, history: room.history() })
-    send(ws, room.snapshot())
+    send(ws, campusSnapshotForViewer(room.snapshot(), identity.id))
     let correctedAt = 0
     ws.on('message', (bytes, binary) => {
       if (binary || ws.readyState !== WebSocket.OPEN || !access.isAdmitted(ws)) return
@@ -37,6 +38,7 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
         }
       }
       for (const { id, impact } of room.takeImpacts()) { const target = sockets.get(id); if (target) send(target, { type: 'buggy-impact', serverTime: Date.now(), impact }) }
+      if (msg.type === 'locator-visibility') send(ws, { type: 'locator-result', ok: room.locatorVisibility(identity.id, msg.visible), visible: msg.visible === true })
       if (msg.type === 'social-action') send(ws, { type: 'social-result', ...room.social(identity.id, msg.action, msg.seatId) })
       if (msg.type === 'buggy-ride') {
         const result = room.ride(identity.id, msg.driverId)
@@ -53,8 +55,8 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
   const timer = setInterval(() => {
     for (const [id, ws] of sockets) { const identity = access.identity(ws); if (identity) room.updateIdentity(identity); else { room.remove(id); sockets.delete(id); spawnSlots.delete(id) } }
     if (!sockets.size) return
-    const snapshot = JSON.stringify(room.snapshot())
-    for (const ws of sockets.values()) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(snapshot)
+    const state = room.snapshot(), snapshot = JSON.stringify(state), privateMarkers = state.people.some(p => p.locatorVisible === false)
+    for (const [id, ws] of sockets) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(privateMarkers ? JSON.stringify(campusSnapshotForViewer(state, id)) : snapshot)
   }, 100)
   timer.unref()
   let closed = false

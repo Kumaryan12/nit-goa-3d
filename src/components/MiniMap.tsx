@@ -6,8 +6,10 @@ import type { LocalCoordinate } from '../lib/geo'
 import type { BuildingSelection } from '../types/campus'
 import { canalPoint } from '../lib/canal'
 import { THEATRE_OUTER_RADIUS } from '../lib/theatre'
+import FinderMapMarkers from './FinderMapMarkers'
+import type { FinderMapProps } from './FinderMapMarkers'
 
-function MiniMap({ twin, selection, onSelect, presentation, travelerPosition, avatarPosition }: { avatarPosition?: React.RefObject<LocalCoordinate | null>; presentation?: RoutePresentation | null; travelerPosition?: React.RefObject<LocalCoordinate | null>; twin: DigitalTwin | null; selection: BuildingSelection | null; onSelect: (id: string) => void }) {
+function MiniMap({ twin, selection, onSelect, presentation, travelerPosition, avatarPosition, finder }: { finder?: FinderMapProps; avatarPosition?: React.RefObject<LocalCoordinate | null>; presentation?: RoutePresentation | null; travelerPosition?: React.RefObject<LocalCoordinate | null>; twin: DigitalTwin | null; selection: BuildingSelection | null; onSelect: (id: string) => void }) {
   const map = useMemo(() => miniMapData(twin), [twin])
   const traveler = useRef<SVGCircleElement>(null)
   useEffect(() => {
@@ -52,6 +54,7 @@ function MiniMap({ twin, selection, onSelect, presentation, travelerPosition, av
       {selected && !presentation && <g className="minimap-marker" transform={`translate(${selected.x} ${selected.z})`}>
         <circle r="19" fill="#d88a45" fillOpacity="0.22" /><circle r="7" fill="#e79a51" stroke="#fff" strokeWidth="2" vectorEffect="non-scaling-stroke" />
       </g>}
+      {finder && <FinderMapMarkers {...finder}/>}
     </svg>
     {!twin && <span className="minimap-empty">Loading overview...</span>}
     <div className="minimap-legend"><span><i /> Buildings</span><span><i /> Roads</span><span><i /> Selected</span>{avatarPosition && <span className="minimap-you"><i /> You</span>}</div>

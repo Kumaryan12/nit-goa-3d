@@ -6,6 +6,8 @@ export const WALK_CONTROLS = {
   runSpeed: MOVEMENT_SPEEDS.run,
   indoorWalkSpeed: 1.15,
   indoorRunSpeed: 1.9,
+  hostelWalkSpeed: 2.2,
+  hostelRunSpeed: 3.6,
   turnSpeed: 1,
   dragYaw: .0022,
   dragPitch: .0016,
@@ -13,9 +15,12 @@ export const WALK_CONTROLS = {
   cameraFollowRate: 8,
 } as const
 
-export const walkSpeed = (running: boolean, indoors: boolean) => indoors
-  ? running ? WALK_CONTROLS.indoorRunSpeed : WALK_CONTROLS.indoorWalkSpeed
-  : running ? WALK_CONTROLS.runSpeed : WALK_CONTROLS.walkSpeed
+export function walkSpeed(running: boolean, indoors: boolean, locationId?: string) {
+  if (!indoors) return running ? WALK_CONTROLS.runSpeed : WALK_CONTROLS.walkSpeed
+  // Long hostel corridors need a brisker pace than classroom interiors.
+  if (locationId === 'boys-hostel') return running ? WALK_CONTROLS.hostelRunSpeed : WALK_CONTROLS.hostelWalkSpeed
+  return running ? WALK_CONTROLS.indoorRunSpeed : WALK_CONTROLS.indoorWalkSpeed
+}
 
 // Integrate a limited angular speed followed by exponential settling. This
 // bounds a large drag without introducing frame-rate-dependent camera motion.

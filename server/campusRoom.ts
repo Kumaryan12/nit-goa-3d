@@ -125,6 +125,12 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       const person: CampusPerson = { id: identity.id, ...metadata(identity), color: assignColor(identity), activity: 'overview', pose: null }
       members.set(identity.id, { person, preferredColor: preferredColor(identity), poseAt: 0, spawnAt: -Infinity }); return person
     },
+    locatorVisibility(id: string, visible: unknown): boolean {
+      const member = members.get(id)
+      if (!member || typeof visible !== 'boolean') return false
+      member.person.locatorVisible = visible
+      return true
+    },
     updateIdentity(identity: CampusIdentity) {
       const member = members.get(identity.id)
       if (member) {

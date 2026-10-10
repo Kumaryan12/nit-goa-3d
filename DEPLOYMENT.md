@@ -10,12 +10,12 @@ Production collection is lazy, skips local previews and browser Do Not Track/Glo
 
 - Campus: https://nitg-explored.onrender.com
 - Render service: `srv-db0tjepsrm7s7394b09g`, Singapore, free, one Docker instance.
-- Release branch: `deploy/firebase-community`. Render deployment history records the exact release commit.
+- Render branch: `main`; changes are reviewed from `deploy/firebase-community`. Render deployment history records the exact release commit.
 - Docker builds and live deployments succeeded on Render. Production map loading was verified in a fresh hosted browser session.
 - Real hosted Google sign-in completed and campus admission succeeded. Authenticated football joined with one player; OAT admission showed 1 / 24 visitors. Independent-account play and voice transmission still require rehearsal.
 - Firebase and moderation keys uploaded as private runtime files. Neither is in Git, browser code or the Docker image.
 - `/readyz` and the landing page return 200; anonymous admission/crowd requests are denied, and credential file URLs return 404.
-- Both GitHub verification jobs pass; 271 tests pass and the production dependency audit reports zero vulnerabilities.
+- The 10 October local release checks pass: 482 tests, production build and a production dependency audit with zero vulnerabilities. Hosted verification is recorded in the GitHub release notes.
 
 ## Provisioned Firebase project
 
@@ -45,7 +45,7 @@ The checked-in deployment requires the runtime secret in Render before `/readyz`
 
 ## Render setup
 
-1. Sign in to [Render](https://dashboard.render.com). Connect the campus repository, use the `deploy/firebase-community` branch, and create a Blueprint from `render.yaml` (or a Docker Web Service with the same settings).
+1. Sign in to [Render](https://dashboard.render.com). Connect the campus repository, use the `main` branch, and create a Blueprint from `render.yaml` (or a Docker Web Service with the same settings).
 2. Provide `VITE_FIREBASE_API_KEY` from local `.env.local`. Upload `firebase-admin.json` and `moderator-secret.key` as Render secret files. The latter contains 32 random bytes encoded as base64 and is read through `MODERATOR_SECRET_KEY_FILE`. Both filenames are excluded from the Docker build context. Preserve the moderation key across deployments: replacing it makes existing authenticator records unreadable and invalidates tickets.
 3. The server defaults to Render's assigned HTTPS origin through `RENDER_EXTERNAL_URL`. For a custom domain, set `SITE_URL` to its exact HTTPS origin, without any path or wildcard. Public `VITE_FIREBASE_*` settings must be present while Docker builds; the Dockerfile declares their build arguments.
 4. In Firebase Authentication → Settings → Authorized domains, add the exact assigned Render hostname. Keep `VITE_FIREBASE_AUTH_DOMAIN=nitg-explored-2026.firebaseapp.com` unless explicitly configuring a custom authentication domain.
@@ -53,6 +53,8 @@ The checked-in deployment requires the runtime secret in Render before `/readyz`
 6. Complete a real Google sign-in, create a profile, test public/private switching, then exercise live rooms with two independent Google accounts.
 
 Only one instance is supported in this release: campus presence/chat, game state, queues and uploaded concert audio are in memory. Profiles and moderation logs persist in Firestore. [Render WebSocket guidance](https://render.com/docs/websocket) applies to the live endpoints. A free Render service sleeps after inactivity and takes time to wake; it is suitable for validation, not uninterrupted scheduled concerts. Read [free-service limits](https://render.com/docs/free) before launch. No paid service or billing upgrade is authorized by this Blueprint.
+
+OAT microphone delivery across restrictive networks needs TURN. For the selected no-card Metered plan, add `OAT_METERED_DOMAIN` and `OAT_METERED_API_KEY` from a dedicated TURN credential to the server's private runtime environment. Its 500 MB monthly quota stops the relay when exhausted, with no overages. Cloudflare Realtime can alternatively use `OAT_TURN_KEY_ID` and `OAT_TURN_API_TOKEN` after activation. They are runtime settings, not Docker build arguments or public `VITE_` variables. The authenticated OAT socket delivers and refreshes validated ICE configuration. Metered configuration refresh does not change its underlying shared credential lifetime. See [OAT voice configuration and relay rehearsal](docs/oat-voice.md); provider activation and a passing forced-relay test must be verified separately from the build.
 
 ## Published map
 

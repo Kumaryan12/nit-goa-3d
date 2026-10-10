@@ -48,6 +48,8 @@ import { campusCenter, selectionForLocation } from './lib/locations'
 import SearchBar from './components/SearchBar'
 import NavigationMode from './components/NavigationMode'
 import MiniMap from './components/MiniMap'
+import CampusFinder from './components/CampusFinder'
+import { readFinderPreference } from './lib/peopleFinder'
 import { campusLocations } from './data/campus'
 import LoadingOverlay from './components/LoadingOverlay'
 import BuildingInfoPanel from './components/BuildingInfoPanel'
@@ -74,6 +76,10 @@ const readState = () => {
 export default function App({avatarStyle,accountControl,accountOpen=false,canEdit=false,publishedMap=import.meta.env.PROD}:{avatarStyle?:AvatarStyle;accountControl?:ReactNode;accountOpen?:boolean;canEdit?:boolean;publishedMap?:boolean}={}) {
   const loadingBoundary = useCampusLoadingBoundary()
   const explorer = useRef<HTMLElement>(null), [layout, setLayout] = useState(initialViewLayout)
+  const [finderEnabled, setFinderEnabled] = useState(() => { try { return readFinderPreference(localStorage.getItem('nit-goa:people-finder')) } catch { return true } })
+  const [finderTarget, setFinderTarget] = useState<string | null>(null)
+  const toggleFinder = () => setFinderEnabled(current => { const next = !current; try { localStorage.setItem('nit-goa:people-finder', next ? 'on' : 'off') } catch { /* Display still works without storage. */ } return next })
+  const findPerson = (id: string | null) => { setFinderTarget(id); if (id) { setFinderEnabled(true); try { localStorage.setItem('nit-goa:people-finder', 'on') } catch { /* Selection still works without storage. */ } } setCampusOpen(false); requestAnimationFrame(() => explorer.current?.querySelector('canvas')?.focus({ preventScroll: true })) }
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false)
   const changeLayout = (value: ViewLayout) => { setLayout(value); try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(value)) } catch { /* View changes work without storage. */ } }
   const revealPanels = useCallback(() => setLayout(previous => {
@@ -418,7 +424,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}
         onLocation={(id) => { setEditorLocationId(id); setPicking(null); setPicked(null) }} onPick={setPicking} onSave={saveCorrection} onReset={resetCorrection} onClose={closeEditor} /></Suspense>}
       {slopeEditorOpen && <Suspense fallback={<p className="scene-loading">Opening slope editor…</p>}><SlopeEditor settings={terrainSettings} picking={slopePicking} picked={slopePicked} onPick={setSlopePicking} onChange={applyTerrainSettings} onPreview={setSlopePreview} onView={viewSlopeSection} onClose={closeSlopeEditor} /></Suspense>}
-      <MiniMap avatarPosition={view === 'walk' ? avatarPosition : undefined} presentation={view === 'overview' ? presentation : null} travelerPosition={travelerPosition} twin={twin} selection={activeSelection} onSelect={(id) => {
+      <MiniMap finder={view === 'walk' ? { live: campusLive, pose: campusPose, landmarks: locations, enabled: finderEnabled && layout.minimap && !campusOpen, targetId: finderTarget, onFind: findPerson } : undefined} avatarPosition={view === 'walk' ? avatarPosition : undefined} presentation={view === 'overview' ? presentation : null} travelerPosition={travelerPosition} twin={twin} selection={activeSelection} onSelect={(id) => {
         const match = twin?.selections.find((item) => item.location.id === id)
         if (picking?.mode === 'building' && match) onSelectBuilding(match)
         else if (!picking && !slopeEditorOpen) chooseLocation(id)
@@ -471,7 +477,8 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
       </Suspense></ErrorBoundary>
       {view === 'walk' && <WalkControls compact={!layout.panels} campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
       {footballJoined && <FootballControls input={footballInput} status={footballStatus} connection={football.connection} players={football.players} selfId={football.session.current.id} paused={walkPaused} onLeave={() => { setFootballJoined(false); footballInput.current.actor = null }} onRetry={() => setFootballRetry(value => value + 1)} />}
-      <CampusSocial live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
+      {view === 'walk' && !campusOpen && !footballJoined && !oatOpen && <CampusFinder live={campusLive} pose={campusPose} landmarks={locations} enabled={finderEnabled} onToggle={toggleFinder} targetId={finderTarget} onFind={findPerson} onOpenPeople={() => setCampusOpen(true)} />}
+      <CampusSocial landmarks={locations} finderEnabled={finderEnabled} onToggleFinder={toggleFinder} targetId={finderTarget} onFind={findPerson} live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />
       <a className="map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
     </main>
     {!loadingBoundary && startupVisible && <CampusLoadingScreen {...loadingScreen} />}

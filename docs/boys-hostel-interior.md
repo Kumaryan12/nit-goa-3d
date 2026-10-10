@@ -1,13 +1,14 @@
 # Approximate Boys Hostel interior verification
 
-The campus owner confirmed ground + four upper floors and authorized an approximate interior. The mapped outer Talpona footprint is retained. The owner confirms two open courtyards and a badminton court in the southeast courtyard. Official NIT Goa aerial photographs guided exterior/courtyard context; the hostel facilities page provided furnishing context. These sources do not verify interior partitions, room numbers, stair positions or the entrance.
+The campus owner confirmed ground + four upper floors and authorized an approximate interior. The mapped outer Talpona footprint is retained. The owner confirms two open courtyards and a badminton court in the southeast courtyard. Official NIT Goa aerial photographs guided exterior/courtyard context; the hostel facilities page provided furnishing context. These sources do not verify interior partitions, room numbers or exact stair/lift coordinates. The October 10 layout follows the owner’s relative entrance walkthrough.
 
 ## Implemented behavior
 
 - Boys Hostel's card opens Avatar Walk directly inside, including when the avatar already has an outdoor position from an earlier session in Overview.
 - The approximate ground entrance can also be reached using Start near Boys Hostel; E or the entrance button enters.
-- Each floor has generated DEMO room labels, open doorways, beds, desks and cupboards. Verified metadata room arrays remain empty. The recorded footprint fits 30 sample rooms per level; this does not represent actual capacity.
-- Short movement substeps and furniture/wall clearance protect the avatar. Courtyards and exterior edges stay inaccessible from the indoor floors.
+- Each floor has generated DEMO room labels, open doorways, beds, desks and cupboards. Verified metadata room arrays remain empty. The current lobby and circulation layout fits 18 sample rooms per level; this does not represent actual capacity.
+- Short movement substeps and furniture/wall clearance protect the avatar. Both courtyards are accessible through ground-floor openings. Upper-floor courtyard edges and exterior edges remain protected.
+- Boys Hostel walks at 2.2 m/s and runs at 3.6 m/s, with the existing gradual acceleration and quick braking. This hostel-specific pacing applies on all five floors through the shared keyboard/touch controls. Gyan Mandir keeps its existing indoor pace; guided stair travel keeps its existing timing. The hostel speeds remain within the shared multiplayer walking limit.
 - Proximity-gated E/Upstairs/Downstairs actions walk the avatar along visible treads. The opening cannot be entered by ordinary movement. Pause, text entry, dialogs and hidden tabs suspend a stair journey.
 - Leave hostel returns to the ground-level outdoor entrance; Start near and Reset walk return to outdoor exploration. Overview restores the exterior and roofs with two corrected courtyard openings.
 - Camera clearance accounts for walls, stair treads and door lintels. Tight camera positions hide the avatar to preserve visibility. Stair arrivals face an open corridor.
@@ -26,7 +27,7 @@ The campus owner confirmed ground + four upper floors and authorized an approxim
 - [Official campus aerial photograph](https://www.nitgoa.ac.in/static/img1.jpeg)
 - [NIT Goa hostel facilities](https://nitgoa.ac.in/hostels/facilities.html)
 
-The room plan, entrance, staircase, dimensions and DEMO labels are a playable approximation. This iteration has no surveyed interiors, bathrooms/common-room allocation, real room numbering, residents or occupancy data. Replace the generated arrangement with a verified floor plan or walkthrough when available. Other buildings retain outdoor-only collision behavior.
+The room partitions, precise entrance/stair/lift coordinates, dimensions and DEMO labels are a playable approximation. The relative entrance layout now follows the owner’s walkthrough described below. There are no surveyed interiors, bathrooms/common-room allocation, real room numbering, residents or occupancy data. Replace the generated arrangement with a verified floor plan or walkthrough when available.
 
 
 ## October 4, 2026 courtyard correction
@@ -38,3 +39,17 @@ The satellite resolution does not establish badminton markings or precise court 
 The revised plan fits 30 demonstration rooms per floor. Regression checks cover two-hole roof/floor geometry, source preservation, unrelated buildings, southeast court/runoff containment, terrain foundations and on-foot connectivity to every room and staircase. Search now matches word prefixes, preventing “admin” from incorrectly matching inside “badminton”.
 
 Visitors can choose **View courtyards & badminton court** on the Boys Hostel card to switch to an elevated, north-up view. Chrome guest preview verified the two openings, marked southeast court and net from this view, and successful ground-floor interior entry. All 278 tests and the production build pass.
+
+## October 10, 2026 entrance walkthrough
+
+The owner described stairs ahead on entry, two lifts ahead beside the route to the courtyard without badminton, and two lifts to the right beside the badminton courtyard route. The four corridor branches are the early left turn, the far end of the plain-courtyard lift area, the right-hand route toward the south, and the far end of the badminton-courtyard lift area. These relative relationships guide `boysHostelLayout.ts`. A fresh north-up Esri level-18 mosaic and the official hostel aerial photograph were inspected for the two-wing exterior and entrance elbow; neither source establishes the interior partition positions.
+
+- Move the entrance from the generated southeast end to the elbow between the mapped wings. Place the staircase ahead of the lobby and reserve clear paths around it.
+- Add four solid, numbered lift enclosures in two pairs on all five floors. Walk near a lift to choose a floor in the keyboard/touch controls; floor changes are a local transition to that lift’s safe landing, with a new multiplayer relocation epoch. Animated cabin travel is not implemented in this pass.
+- Add four signed corridor branches with paving accents, sage and warm stone finishes, brushed lift doors and restrained lighting. Room generation yields 18 DEMO rooms per floor after reserving the lobby, shafts and access routes; this is not the hostel’s real room count or numbering.
+- Open two 2.4 m ground-floor courtyard entrances. Both courts are reachable on foot, with open-sky headroom. Courtyard perimeter walls remain solid elsewhere, upper-floor edges remain blocked, and the badminton net/posts stay solid. Surface height follows the court finish.
+- Keep Gyan Mandir’s plan separate, and retain the faster 2.2/3.6 m/s hostel movement from the preceding local change.
+
+The corridor labels, exact lift positions, openings and finishes are approximate and ready for owner review. Detailed room furnishings, bathrooms and common spaces still await the owner’s description.
+
+Local verification: all 465 regression tests and the production build pass. Recorded-map traversal checks every room, lift landing, corridor endpoint and stair landing on ground and upper floors, plus both ground-floor courtyards. Lift arrivals on floors G–4 are safe; remote/invalid floor requests, shafts, net, walls and upper courtyard edges remain blocked. Brave desktop review confirmed lobby entry, stair travel up and down, and day/night rendering. Lift cabin animation and a two-account live rehearsal were not tested in this local pass.

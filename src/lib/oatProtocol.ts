@@ -20,7 +20,7 @@ export interface OatSnapshot {
   performerId: string | null; queue: string[]; micOn: boolean; music: OatMusic; concertTitle: string
 }
 export interface OatIceCandidate { candidate: string; sdpMid?: string | null; sdpMLineIndex?: number | null }
-export type OatSignal = { kind: 'offer' | 'answer'; sdp: string } | { kind: 'ice'; candidate: OatIceCandidate }
+export type OatSignal = ({ kind: 'offer' | 'answer'; sdp: string } | { kind: 'ice'; candidate: OatIceCandidate }) & { connectionId?: string }
 export const oatName = (value: unknown) => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 32) : ''
 export function oatAudioURL(value: unknown): string | null {
   if (typeof value !== 'string' || value.length > 2048) return null
@@ -49,10 +49,12 @@ export function parseOatSnapshot(value: unknown): OatSnapshot | null {
 export function parseOatSignal(value: unknown): OatSignal | null {
   if (!value || typeof value !== 'object') return null
   const s = value as OatSignal
-  if ((s.kind === 'offer' || s.kind === 'answer') && typeof s.sdp === 'string' && s.sdp.length > 0 && s.sdp.length <= 24000) return { kind: s.kind, sdp: s.sdp }
+  if (s.connectionId !== undefined && (typeof s.connectionId !== 'string' || !/^[a-zA-Z0-9-]{1,64}$/.test(s.connectionId))) return null
+  const connection = s.connectionId === undefined ? {} : { connectionId: s.connectionId }
+  if ((s.kind === 'offer' || s.kind === 'answer') && typeof s.sdp === 'string' && s.sdp.length > 0 && s.sdp.length <= 24000) return { kind: s.kind, sdp: s.sdp, ...connection }
   if (s.kind !== 'ice' || !s.candidate || typeof s.candidate.candidate !== 'string' || s.candidate.candidate.length > 2048) return null
   const c = s.candidate
   if (c.sdpMid != null && (typeof c.sdpMid !== 'string' || c.sdpMid.length > 64)) return null
   if (c.sdpMLineIndex != null && (!Number.isInteger(c.sdpMLineIndex) || c.sdpMLineIndex < 0 || c.sdpMLineIndex > 16)) return null
-  return { kind: 'ice', candidate: { candidate: c.candidate, sdpMid: c.sdpMid, sdpMLineIndex: c.sdpMLineIndex } }
+  return { kind: 'ice', ...connection, candidate: { candidate: c.candidate, sdpMid: c.sdpMid, sdpMLineIndex: c.sdpMLineIndex } }
 }

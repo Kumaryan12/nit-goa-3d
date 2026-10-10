@@ -75,6 +75,7 @@ export default function WalkControls({ compact = false, campusLive, input, statu
     {status?.canEnterGyan && <button className="navigate-button walk-inspect" disabled={paused} onClick={()=>action('enter-gyan')}>Enter Gyan Mandir →</button>}
     {inside && <div className="walk-interior-actions">
       <p className="walk-demo-note">{inside.kind==='classroom'?'Classrooms · approximate interior layout':'Approximate interior · DEMO room labels'}</p>
+      {inside.lift&&<div className="walk-lift-floors" role="group" aria-label={`Lift ${inside.lift} · choose floor`}><span>Lift {inside.lift}</span>{Array.from({length:inside.levels??5},(_,floor)=><button key={floor} className="fly-button" disabled={paused||floor===inside.floor||inside.stairLowFloor!==null} onClick={()=>action(`lift-floor-${floor}`)}>{floor===0?'Ground':`Floor ${floor}`}</button>)}</div>}
       {inside.kind==='classroom'&&inside.floor===1&&<button className="fly-button" disabled={paused||inside.stairLowFloor!==null} onClick={()=>action('find-reading-room')}>Find reading room · north end ↗</button>}
       <button className="fly-button" disabled={paused || inside.stairLowFloor !== null} onClick={() => action('find-stairs')}>Jump to stair landing</button>
       <button className="fly-button" disabled={paused || !inside.canGoUp} onClick={() => action('stairs-up')}>Upstairs ↑</button>

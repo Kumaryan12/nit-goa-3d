@@ -1,9 +1,12 @@
 import { navigate } from '../lib/community'
 import './updates.css'
 
-export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/releases/tag/feedback-update-2026-10-09'
+export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/releases/tag/campus-update-2026-10-10'
 
 const updates = [
+  { kind: 'Improved', title: 'More at home in the hostel.', detail: 'Faster indoor movement, entrance stairs, four lifts and clearer corridor routes connect both Boys Hostel courtyards. The southeast court keeps its badminton space, with warmer lighting and more greenery.' },
+  { kind: 'Added', title: 'Find your people.', detail: 'In avatar mode, see campus friends on the map with direction, distance and floor. Hide your shared location, switch off markers or mute individual markers whenever you want.' },
+  { kind: 'Fixed', title: 'Let the OAT hear you.', detail: 'Live voice now uses a relay when direct connections fail, with input and received-audio meters, listener volume and mute controls, and automatic connection recovery.' },
   { kind: 'Fixed', title: 'Keep moving.', detail: 'WASD keeps responding after arrivals and control changes. Delayed multiplayer updates no longer reset movement, and bicycle and buggy turns preserve momentum.' },
   { kind: 'Fixed', title: 'Take a seat at the OAT.', detail: 'Actions → Sit gives clear guidance when you need to stop, dismount or move closer to a bench. Sitting requests resolve with feedback, and moving gets you back on your feet.' },
   { kind: 'Improved', title: 'Arrive at the entrance.', detail: 'Building arrivals place you outside accessible entrances. CSE and ECE arrivals face the OAT, keeping you out of enclosed courtyards.' },
@@ -21,7 +24,7 @@ export default function UpdatesPage() {
       <p className="updates-eyebrow">THE CAMPUS KEEPS GETTING BETTER</p>
       <h1 id="updates-title">You said it.<br /><em>We built on it.</em></h1>
       <p className="updates-description">Your feedback, brought into the campus.</p>
-      <div className="updates-release"><span>Feedback update</span><time dateTime="2026-10-09">8–9 October 2026</time></div>
+      <div className="updates-release"><span>Campus update</span><time dateTime="2026-10-10">8–10 October 2026</time></div>
     </header>
     <section className="updates-grid" aria-label="Changes in this update">
       {updates.map((update, index) => <article className="update-card" key={update.title}>

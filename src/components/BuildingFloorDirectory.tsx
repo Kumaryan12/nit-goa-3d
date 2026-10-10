@@ -10,6 +10,7 @@ export default function BuildingFloorDirectory({ details, plan, onEnter }: { det
   return <section className="panel-section building-floor-directory">
     <h3>Floor directory</h3>
     <p className="panel-muted">Ground + {details.floors.filter(item => item.level > 0).length} upper floors</p>
+    {plan?.lifts&&<p className="panel-muted">Stairs ahead of the entrance · four lifts · four corridor branches. Both courtyards are accessible on the ground floor; turn right for badminton.</p>}
     <label htmlFor={selectId}>Choose a floor</label>
     <select id={selectId} value={floor?.id ?? ''} onChange={event => setFloorId(event.target.value)}>
       {details.floors.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}

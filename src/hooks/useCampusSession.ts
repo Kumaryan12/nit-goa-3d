@@ -9,6 +9,7 @@ import type { CampusActivity, CampusChat, CampusPerson, CampusPose, CampusSessio
 import { isSocialAction, nearbySeat, SOCIAL_DURATION } from '../lib/social'
 import type { SocialAction, SocialSeat } from '../lib/social'
 import { defaultAvatarColor } from '../lib/profile'
+import { readFinderPreference } from '../lib/peopleFinder'
 export type CampusConnection = 'idle' | 'connecting' | 'reconnecting' | 'waiting' | 'live' | 'offline'
 export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusPose | null>, walking: boolean, activity: CampusActivity, preview = false, seats: SocialSeat[] = []) {
   const session = useRef<CampusSession>({ id: null, snapshot: null }), socket = useRef<WebSocket | null>(null)
@@ -16,6 +17,22 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
   const [connection, setConnection] = useState<CampusConnection>('idle'), [people, setPeople] = useState<CampusPerson[]>([])
   const [messages, setMessages] = useState<CampusChat[]>([]), [error, setError] = useState(''), [queue, setQueue] = useState(0), [retry, setRetry] = useState(0)
   const [rideError, setRideError] = useState('')
+  const [shareLocator, setShareLocatorState] = useState(() => { try { return readFinderPreference(localStorage.getItem('nit-goa:share-finder')) } catch { return true } })
+  const locatorPreference = useRef(shareLocator), [locatorError, setLocatorError] = useState('')
+  const locatorTimer = useRef<number | undefined>(undefined)
+  const sendLocatorPreference = useCallback((ws: WebSocket, visible: boolean) => {
+    clearTimeout(locatorTimer.current)
+    ws.send(JSON.stringify({ type: 'locator-visibility', visible }))
+    locatorTimer.current = window.setTimeout(() => setLocatorError('Your marker setting has not been confirmed. Reconnect before relying on it.'), 5000)
+  }, [])
+  useEffect(() => () => clearTimeout(locatorTimer.current), [])
+  locatorPreference.current = shareLocator
+  const setShareLocator = useCallback((visible: boolean) => {
+    locatorPreference.current = visible; setShareLocatorState(visible); setLocatorError('')
+    try { localStorage.setItem('nit-goa:share-finder', visible ? 'on' : 'off') } catch { /* Preference still works for this visit. */ }
+    const ws = socket.current
+    if (ws?.readyState === WebSocket.OPEN && session.current.id) sendLocatorPreference(ws, visible)
+  }, [sendLocatorPreference])
   const recoveryAttempt = useRef(0)
   const [socialError, setSocialError] = useState(''), [socialPending, setSocialPending] = useState(false)
   const socialTimer = useRef<number | undefined>(undefined), socialSendTimer = useRef<number | undefined>(undefined), socialWaiting = useRef(false), lastPublishedAt = useRef(-Infinity)
@@ -29,7 +46,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       // Keep its gestures local so the same controls can be checked offline.
       const person: CampusPerson = { id: 'local-preview', name: 'Preview', handle: null, color: defaultAvatarColor('local-preview'), activity: 'walk', pose: null }
       let sequence = 0, origin: CampusPose | null = null, lastAction = 0
-      const publish = (roster = false) => { session.current = { id: person.id, snapshot: { type: 'campus-state', sequence: ++sequence, serverTime: Date.now(), people: [{ ...person }] } }; if (roster) setPeople([{ ...person }]) }
+      const publish = (roster = false) => { session.current = { id: person.id, snapshotReceivedAt: performance.now(), snapshot: { type: 'campus-state', sequence: ++sequence, serverTime: Date.now(), people: [{ ...person }] } }; if (roster) setPeople([{ ...person }]) }
       const stop = () => { if (origin) { person.pose = { ...origin, epoch: Math.max(origin.epoch, person.pose?.epoch ?? 0) + 1 }; pose.current = person.pose; origin = null } delete person.social; publish(true) }
       previewAction.current = (action, seatId) => {
         setSocialError('')
@@ -48,7 +65,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       const timer = window.setInterval(() => {
         if (person.social && (Date.now() >= person.social.until || !mode.current.walking || document.hidden || person.social.action !== 'sit' && (pose.current?.moving || pose.current?.airborne))) stop()
         if (person.social?.action !== 'sit') person.pose = pose.current ? { ...pose.current, visible: mode.current.walking } : null
-        person.activity = mode.current.activity; publish()
+        person.activity = mode.current.activity; person.locatorVisible = locatorPreference.current; publish()
       }, 100)
       return () => { clearInterval(timer); previewAction.current = null; session.current = { id: null, snapshot: null }; setPeople([]) }
     }
@@ -73,6 +90,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       try { value = JSON.parse(event.data) } catch { return }
       if (!value || typeof value !== 'object') return
       if (value.type === 'waiting' && Number.isInteger(value.position) && value.position > 0 && value.position <= 100) { clearTimeout(timeout); setQueue(value.position); setConnection('waiting'); return }
+      if (value.type === 'locator-result') { if (value.visible === locatorPreference.current) clearTimeout(locatorTimer.current); if (value.ok !== true) setLocatorError('Your marker setting was not saved. Try again after reconnecting.'); return }
       if (value.type === 'buggy-result') { setRideError(typeof value.error === 'string' ? value.error.slice(0, 240) : ''); return }
       if (value.type === 'social-result') { clearSocialPending(); setSocialError(typeof value.error === 'string' ? value.error.slice(0, 240) : ''); return }
       if (value.type === 'error' || value.type === 'notice') { if (typeof value.message === 'string') setError(value.message.slice(0, 240)); return }
@@ -80,6 +98,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         watchdog.received()
         if (Number.isInteger(value.spawnSlot) && value.spawnSlot >= 0 && value.spawnSlot < 32) { session.current.spawnSlot = value.spawnSlot; session.current.spawnPending = true }
         session.current.id = value.id; initialized = true; recoveryAttempt.current = 0; clearTimeout(timeout); setConnection('live'); setQueue(0); setError('')
+        setLocatorError(''); sendLocatorPreference(ws, locatorPreference.current)
         setMessages(value.history.map(parseCampusChat).filter((m: CampusChat | null): m is CampusChat => !!m && m.scope === 'campus'))
         return
       }
@@ -97,16 +116,16 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (!snapshot || (session.current.snapshot && snapshot.sequence <= session.current.snapshot.sequence)) return
       const ownImpact = snapshot.people.find(p => p.id === session.current.id)?.impact
       if (ownImpact) receiveImpact(ownImpact, snapshot.serverTime)
-      session.current.snapshot = snapshot
+      session.current.snapshot = snapshot; session.current.snapshotReceivedAt = performance.now()
       watchdog.received(); session.current.motion?.push(snapshot, performance.now())
       session.current.peopleById = new Map(snapshot.people.map(person => [person.id, person]))
       // Per-frame poses stay in a ref; names/activity update React only as needed.
-      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.name, p.handle, p.color, p.avatarStyle, p.activity, p.pose?.space, p.pose?.visible, p.pose?.vehicle, p.ride?.driverId, p.ride?.seat, p.social?.action, p.social?.startedAt, p.social?.seatId]))
+      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.locatorVisible, p.name, p.handle, p.color, p.avatarStyle, p.activity, p.pose?.space, p.pose?.visible, p.pose?.vehicle, p.ride?.driverId, p.ride?.seat, p.social?.action, p.social?.startedAt, p.social?.seatId]))
       if (key !== rosterKey) { rosterKey = key; setPeople(snapshot.people) }
     }
     ws.onerror = () => { if (active) setError('The live connection was interrupted. Checking connection…') }
     ws.onclose = event => {
-      clearTimeout(timeout); stopAuth(); watchdog.stop()
+      clearTimeout(locatorTimer.current); clearTimeout(timeout); stopAuth(); watchdog.stop()
       if (!active) return
       setPeople([]); clearSocialPending(); session.current = { id: null, snapshot: null }
       const delay = liveRetryDelay(event.code, recoveryAttempt.current)
@@ -124,8 +143,8 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }
     const timer = window.setInterval(publish, 100)
     window.addEventListener('blur', publish); window.addEventListener('focus', publish); window.addEventListener('pageshow', publish); document.addEventListener('visibilitychange', publish)
-    return () => { active = false; clearSocialPending(); stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
-  }, [enabled, retry, pose, preview, clearSocialPending])
+    return () => { active = false; clearTimeout(locatorTimer.current); clearSocialPending(); stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
+  }, [enabled, retry, pose, preview, clearSocialPending, sendLocatorPreference])
   const sendChat = useCallback((text: string, scope: 'campus' | 'nearby') => {
     const clean = chatText(text), ws = socket.current
     if (!clean || !session.current.id || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) { setError('Connect to the live campus and write a message to send.'); return false }
@@ -162,6 +181,6 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }, 5000)
     return true
   }, [pose, clearSocialPending])
-  return { socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
+  return { shareLocator, setShareLocator, locatorError, socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
 }
 export type CampusLiveSession = ReturnType<typeof useCampusSession>

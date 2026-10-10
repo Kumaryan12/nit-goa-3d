@@ -448,6 +448,8 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .oat-input-row button { flex-shrink: 0; }
 .oat-mic { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 16px; }
 .oat-mic p { margin: 8px 0 0; color: var(--muted); font-size: 10px; }
+.oat-input-meter { margin-top: 10px; display: grid; gap: 6px; font-size: 10px; }
+.oat-input-meter meter { width: 100%; height: 8px; accent-color: var(--accent); }
 .oat-mic-live { border-color: #b87157; background: #b8715710; }
 .oat-mic-live p { color: #ad533c; }
 .oat-wide { width: 100%; margin-top: 10px; }
@@ -526,6 +528,9 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .walk-controls-compact .walk-inspect { margin-bottom: 8px; }
 .walk-controls-compact .walk-interior-actions { margin-bottom: 8px; }
 .walk-controls-compact .walk-interior-actions p { display: none; }
+.walk-lift-floors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; flex-basis: 100%; }
+.walk-lift-floors > span { grid-column: 1 / -1; font-size: 12px; font-weight: 600; }
+.walk-lift-floors button { min-height: 44px; min-width: 0; padding: 8px 6px; }
 @media (min-width: 761px) {
   .explorer .building-info-panel { max-height: calc(100dvh - 438px); }
 }
