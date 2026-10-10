@@ -109,7 +109,14 @@ function Preview() {
     } catch { setResult(`Bare WebRTC failed: ${a.connectionState}/${a.iceConnectionState} ↔ ${b.connectionState}/${b.iceConnectionState}`) }
     finally { a.close(); b.close(); source.stop(); output.stream.getTracks().forEach(t => t.stop()); audio.close() }
   }
-  return <main><h1>OAT audio rehearsal</h1><p>Local only. Synthetic tone; no microphone capture. Join both, take stage as performer, start microphone. Check Received voice level moves, then mute/retry/end turn.</p><button onClick={() => void direct()}>Check bare WebRTC</button><button onClick={() => void run()}>Start two-person audio rehearsal</button><p role="status">{result}</p><div className="voice-columns"><Person name="performer"/><Person name="listener"/></div><style>{`
+  const cutoff = async () => {
+    try {
+      await fetch('http://127.0.0.1:4193/fixture/quota', { method: 'POST' })
+      await until(() => handles.performer.session.mic === 'off' && handles.listener.session.snapshot?.voiceAvailability === 'quota' && pcs.performer.every(pc => pc.connectionState === 'closed') && pcs.listener.every(pc => pc.connectionState === 'closed'))
+      setResult('PASS: quota cutoff stopped capture and closed both peers; concert remains connected')
+    } catch { setResult('FAIL: quota cutoff did not complete') }
+  }
+  return <main><h1>OAT audio rehearsal</h1><p>Local only. Synthetic tone; no microphone capture. Join both, take stage as performer, start microphone. Check Received voice level moves, then mute/retry/end turn.</p><button onClick={() => void direct()}>Check bare WebRTC</button><button onClick={() => void run()}>Start two-person audio rehearsal</button>{new URLSearchParams(location.search).has('quota') && <button onClick={() => void cutoff()}>Simulate quota cutoff</button>}<p role="status">{result}</p><div className="voice-columns"><Person name="performer"/><Person name="listener"/></div><style>{`
     html, body, #root { width:auto; height:auto; overflow:visible; }
     body { background: #e7ede5; color: #22473d; font-family: system-ui; margin: 24px; }
     .voice-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:24px; }

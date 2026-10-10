@@ -140,7 +140,7 @@ oat = attachOatServer(
 const campus = attachCampusServer(server, origin, verify)
 crowd = createCrowdAPI(football.access, oat.access, oat.endStage, verify, () =>
   profiles.changed(),
-  undefined, campus,
+  undefined, campus, oat.voiceUsage,
 )
 server.on('upgrade', (request, socket) => {
   if (!['/football', '/oat', '/presence'].includes(request.url?.split('?')[0] || ''))

@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
         oat.endStage,
         verify,
         () => profiles.changed(),
-        undefined, campus,
+        undefined, campus, oat.voiceUsage,
       )
     server.middlewares.use((req, res, next) => {
       if (

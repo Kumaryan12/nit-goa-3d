@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import ModeratorVerification from './ModeratorVerification'
 import { campusAPI } from '../lib/firebase'
+import { oatVoiceNotice } from '../lib/oatUsage'
+import type { OatUsageStatus } from '../lib/oatUsage'
 interface Room {
   capacity: number
   occupancy: number
   waiting: number
   people: { id: string; name: string; role: string; waiting: boolean }[]
+  voiceUsage?: OatUsageStatus | null
 }
 export default function CrowdDesk({ role }: { role: string }) {
   const [verified, setVerified] = useState(false)
@@ -96,6 +99,16 @@ export default function CrowdDesk({ role }: { role: string }) {
         {Object.entries(rooms).map(([name, room]) => (
           <section key={name} className="crowd-room">
             <h2>{name === 'oat' ? 'Open Air Theatre' : name === 'campus' ? 'Shared campus' : 'Football ground'}</h2>
+            {room.voiceUsage && <section aria-label="OAT voice allowance">
+              <h3>Live voice · Cloudflare</h3>
+              <p>{room.voiceUsage.usedBytes === null ? 'Waiting for a validated usage reading.' : `${(room.voiceUsage.usedBytes / 1e9).toFixed(2)} / 1,000 GB used across this account’s TURN relays`}</p>
+              <progress aria-label="Monthly TURN usage" max={1000} value={(room.voiceUsage.usedBytes ?? 0) / 1e9} />
+              <p>Warnings at 700 and 850 GB · voice pauses at 900 GB.</p>
+              {room.voiceUsage.checkedAt && <small>Checked {new Date(room.voiceUsage.checkedAt).toLocaleString()} · period ends {new Date(room.voiceUsage.cycleEnd!).toLocaleDateString()}</small>}
+              {room.voiceUsage.availability !== 'available' ? <p className="community-notice" role="alert">{oatVoiceNotice(room.voiceUsage.availability)}</p>
+                : room.voiceUsage.warningLevel > 0 && <p className="community-notice" role="alert">{room.voiceUsage.warningLevel === 2 ? 'Urgent: voice is approaching its 900 GB cutoff.' : 'Voice usage has reached the first warning threshold.'}</p>}
+              <p><small>Reported usage can lag. This protection is not a provider billing cap. Other Cloudflare Realtime products can also use the free allowance.</small></p>
+            </section>}
             <p>
               {room.occupancy} / {room.capacity} inside · {room.waiting} waiting
             </p>

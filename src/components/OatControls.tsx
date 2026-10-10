@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
 import type { OatSession } from '../hooks/useOatSession'
 import { OAT_BACKING_TRACK, OAT_CAPACITY, oatInviteURL } from '../lib/oatProtocol'
+import { oatVoiceNotice } from '../lib/oatUsage'
 
 const timestamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 export default function OatControls({ session, joined, onJoin, onRetry, onClose }: {
@@ -11,6 +12,7 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
   const [title, setTitle] = useState(''), [trackURL, setTrackURL] = useState(''), [trackTitle, setTrackTitle] = useState(''), [copied, setCopied] = useState(false)
   const { snapshot: room, selfId, connection, mic, error } = session
   const live = connection === 'live', onStage = !!selfId && room?.performerId === selfId
+  const voicePaused = !!room?.voiceAvailability && room.voiceAvailability !== 'available'
   const performer = room?.participants.find(p => p.id === room.performerId), queueIndex = selfId ? room?.queue.indexOf(selfId) ?? -1 : -1
   const invite = oatInviteURL(window.location.href)
   return <aside className={`oat-controls ${collapsed ? 'panel-collapsed' : ''}`} aria-label="OAT concert controls" aria-labelledby={collapsed ? undefined : "oat-title"}>
@@ -25,6 +27,7 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
       <p className="oat-muted">Join as a listener. Your microphone stays off until you take the stage and turn it on.</p>
     </> : <>
       <p className="oat-status" role="status">{live ? `${room?.participants.length ?? 0} / ${OAT_CAPACITY} people here` : connection === 'waiting' ? `Theatre full · you’re ${session.queuePosition} in the waiting queue. You’ll enter automatically.` : connection === 'connecting' ? 'Joining the concert…' : 'Connection lost. Your microphone is off.'}</p>
+      {voicePaused && <p className="oat-muted" role="status">{oatVoiceNotice(room!.voiceAvailability!)}</p>}
       {!live && connection !== 'connecting' && connection !== 'waiting' && <button className="navigate-button" onClick={onRetry}>Reconnect to concert</button>}
       <section className="oat-section" aria-label="My concert sound">
         <h3>My sound</h3>
@@ -50,7 +53,7 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
             <div className="oat-input-row"><input id="oat-concert-title" maxLength={32} value={title} placeholder={room?.concertTitle} onChange={event => setTitle(event.target.value)} /><button className="fly-button" disabled={!live || !title.trim()}>Set title</button></div>
           </form>
           <div className={`oat-mic ${mic === 'live' ? 'oat-mic-live' : ''}`}>
-            <button className="navigate-button" disabled={!live} onClick={() => mic === 'off' ? void session.startMic() : session.stopMic()}>
+            <button className="navigate-button" disabled={!live || (voicePaused && mic === 'off')} onClick={() => mic === 'off' ? void session.startMic() : session.stopMic()}>
               {mic === 'live' ? '● Stop live microphone' : mic === 'requesting' ? 'Cancel microphone request' : mic === 'connecting' ? 'Cancel microphone connection' : '🎤 Start live microphone'}
             </button>
             <p>{mic === 'live' ? 'Microphone enabled. Check the input meter and listener connection below.' : mic === 'requesting' ? 'Allow microphone access in your browser to sing.' : mic === 'connecting' ? 'Connecting your microphone to the concert…' : 'Your voice will be heard by everyone in this concert. Use headphones when singing over music.'}</p>

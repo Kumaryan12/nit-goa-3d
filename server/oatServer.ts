@@ -5,9 +5,11 @@ import type { EventEmitter } from 'node:events'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
 import { createOatRoom } from './oatRoom.ts'
-import { createOatIceProvider } from './oatIce.ts'
-import { createMeteredIceProvider } from './oatMeteredIce.ts'
 import type { OatIceProvider } from './oatIce.ts'
+import { createOatVoiceService } from './oatVoiceService.ts'
+import type { OatVoiceService } from './oatVoiceService.ts'
+import { OAT_USAGE_POLL_MS } from './oatUsage.ts'
+import { oatVoiceNotice } from '../src/lib/oatUsage.ts'
 import {
   OAT_CAPACITY,
   OAT_UPLOAD_LIMIT,
@@ -49,8 +51,9 @@ export function attachOatServer(
   server: EventEmitter,
   origin?: string,
   verify?: VerifyAccess,
-  iceProvider: OatIceProvider | undefined = createMeteredIceProvider() ?? createOatIceProvider(),
+  relay: OatIceProvider | OatVoiceService | undefined = createOatVoiceService(),
 ) {
+  const { iceProvider, budget } = typeof relay === 'function' ? { iceProvider: relay, budget: undefined } : relay ?? {}
   const room = createOatRoom(),
     peers = new Map<string, OatSocket>(),
     assets = new Map<string, AudioAsset>(),
@@ -73,9 +76,25 @@ export function attachOatServer(
       ws.send(JSON.stringify(message))
   }
   const broadcast = () => {
-    const state = room.snapshot()
+    const state = { ...room.snapshot(), ...(budget ? { voiceAvailability: budget.snapshot().availability } : {}) }
     for (const peer of peers.values()) send(peer.ws, state)
   }
+  let lastAvailability = budget?.snapshot().availability
+  const enforceBudget = () => {
+    if (!budget) return
+    lastAvailability = budget.snapshot().availability
+    if (!budget.allowed()) {
+      room.pauseMicrophone()
+      // Closing browser peers stops normal traffic; revoke previously issued
+      // credentials too. Failed revocations are retried on the next poll.
+      void iceProvider?.revokeAll?.()
+    }
+    broadcast()
+  }
+  const stopBudget = budget?.subscribe(enforceBudget)
+  void budget?.refresh()
+  const usageTimer = budget ? setInterval(() => { void budget.refresh() }, OAT_USAGE_POLL_MS) : undefined
+  usageTimer?.unref()
   const access = attachLiveAccess(
     server,
     wss,
@@ -107,8 +126,12 @@ export function attachOatServer(
     const configureIce = () => {
       if (!iceProvider || Date.now() - peer.iceRequestedAt < 30000) return
       peer.iceRequestedAt = Date.now()
-      void iceProvider(id).then(configuration => {
-        if (peers.get(id) === peer) send(ws, { type: 'ice-config', ...configuration })
+      void (async () => {
+        await budget?.refresh()
+        if (budget && !budget.allowed()) throw new Error('Live voice is paused')
+        return iceProvider(id)
+      })().then(configuration => {
+        if (peers.get(id) === peer && (!budget || budget.allowed())) send(ws, { type: 'ice-config', ...configuration })
       }).catch(() => {
         // Provider errors can contain secret headers; never forward or log them.
         if (peers.get(id) === peer) send(ws, { type: 'ice-config', unavailable: true })
@@ -128,6 +151,12 @@ export function attachOatServer(
         return
       }
       if (msg.type === 'name' || msg.type === 'authenticate') return // Verified by the access gate.
+      if (msg.type === 'mic' && msg.enabled === true && budget && !budget.allowed()) {
+        const error = oatVoiceNotice(budget.snapshot().availability)
+        send(ws, { type: 'mic-result', requestId: Number.isSafeInteger(msg.requestId) ? msg.requestId : null, enabled: false, error })
+        send(ws, { type: 'error', message: error })
+        return
+      }
       if (msg.type === 'ice-refresh') { configureIce(); return }
       if (msg.type === 'clock' && Number.isFinite(msg.clientTime)) {
         send(ws, {
@@ -155,6 +184,7 @@ export function attachOatServer(
           !target ||
           msg.to === id ||
           !signal ||
+          (budget && !budget.allowed()) ||
           !state.micOn ||
           (state.performerId !== id && state.performerId !== msg.to)
         )
@@ -197,6 +227,7 @@ export function attachOatServer(
     })
   })
   const timer = setInterval(() => {
+    if (budget && budget.snapshot().availability !== lastAvailability) enforceBudget()
     if (peers.size) broadcast()
     const current = room.snapshot().music.url
     for (const [url, asset] of assets)
@@ -220,6 +251,10 @@ export function attachOatServer(
     closed = true
     clearInterval(timer)
     clearInterval(heartbeat)
+    if (usageTimer) clearInterval(usageTimer)
+    stopBudget?.()
+    budget?.close()
+    void iceProvider?.revokeAll?.()
     access.close()
     assets.clear()
   }
@@ -374,6 +409,7 @@ export function attachOatServer(
     room,
     handleRequest,
     access,
+    voiceUsage: () => budget?.snapshot() ?? null,
     endStage(id: string) {
       room.handle(id, { type: 'leave-stage' })
       broadcast()
