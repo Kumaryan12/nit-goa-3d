@@ -8,6 +8,7 @@ import { createOatIceProvider } from '../server/oatIce.ts'
 import { attachOatServer } from '../server/oatServer.ts'
 import { createOatVoiceService } from '../server/oatVoiceService.ts'
 import { parseOatSnapshot } from '../src/lib/oatProtocol.ts'
+import { parseOatUsageStatus, oatUsageAmount } from '../src/lib/oatUsage.ts'
 
 const GB = 1e9, account = 'a'.repeat(32)
 const relay = username => [{ urls: ['turns:turn.cloudflare.com:443?transport=tcp'], username, credential: 'private-password' }]
@@ -110,7 +111,7 @@ const wait = async predicate => {
   while (Date.now() < end) { const value = predicate(); if (value) return value; await new Promise(resolve => setTimeout(resolve, 10)) }
   throw new Error('Timed out')
 }
-test('real OAT sockets stop an active microphone and reject further voice while keeping the stage and music usable', async () => {
+test('performers and listeners receive shared usage, warnings and cutoff while stage and music stay usable', async () => {
   let bytes = 0, fail = false, revoked = 0
   const budget = createOatUsageMonitor('2026-10-11', async () => { if (fail) throw new Error('provider failure'); return bytes }, memoryStore(), () => Date.parse('2026-10-11T01:00:00Z'))
   const iceProvider = Object.assign(async () => ({ iceServers: relay('test'), expiresAt: Date.now() + 600000 }), { revokeAll: async () => { revoked++ } })
@@ -119,25 +120,69 @@ test('real OAT sockets stop an active microphone and reject further voice while 
   const origin = `http://127.0.0.1:${http.address().port}`, messages = []
   const ws = new WebSocket(origin.replace('http:', 'ws:') + '/oat', { origin })
   ws.on('message', bytes => messages.push(JSON.parse(bytes.toString())))
+  const listenerMessages = [], listener = new WebSocket(origin.replace('http:', 'ws:') + '/oat', { origin })
+  listener.on('message', bytes => listenerMessages.push(JSON.parse(bytes.toString())))
+  const listenerOpen = once(listener, 'open')
   const send = value => ws.send(JSON.stringify(value))
   try {
     await once(ws, 'open'); send({ type: 'authenticate', token: 'performer' })
-    await wait(() => messages.find(m => m.type === 'state' && m.voiceAvailability === 'available'))
+    const initial = await wait(() => messages.find(m => m.type === 'state' && m.voiceAvailability === 'available'))
+    assert.equal(initial.voiceUsage.usedBytes, 0)
+    await listenerOpen; listener.send(JSON.stringify({ type: 'authenticate', token: 'listener' }))
+    const joined = await wait(() => listenerMessages.find(m => m.type === 'state' && m.participants.length === 2))
+    assert.deepEqual(joined.voiceUsage, initial.voiceUsage)
+    assert.ok(parseOatSnapshot(joined))
     send({ type: 'stage' }); await wait(() => messages.find(m => m.performerId === 'performer'))
     send({ type: 'mic', enabled: true, requestId: 1 }); await wait(() => messages.find(m => m.type === 'state' && m.micOn))
+    for (const [amount, level] of [[750 * GB, 1], [860 * GB, 2]]) {
+      bytes = amount; await budget.refresh(true)
+      const performerState = await wait(() => messages.find(m => m.voiceUsage?.usedBytes === amount))
+      const listenerState = await wait(() => listenerMessages.find(m => m.voiceUsage?.usedBytes === amount))
+      assert.deepEqual(performerState.voiceUsage, listenerState.voiceUsage)
+      assert.equal(listenerState.voiceUsage.warningLevel, level)
+      assert.equal(listenerState.voiceUsage.cutoffBytes, 900 * GB)
+      assert.deepEqual(listenerState.voiceUsage.warningBytes, [700 * GB, 850 * GB])
+      assert.equal(listenerState.micOn, true)
+      assert.ok(parseOatSnapshot(listenerState))
+    }
     fail = true; await budget.refresh(true)
     const unavailable = await wait(() => messages.find(m => m.type === 'state' && m.voiceAvailability === 'unavailable'))
     assert.equal(unavailable.micOn, false); assert.equal(unavailable.performerId, 'performer'); assert.ok(revoked > 0)
+    assert.equal(unavailable.voiceUsage.usedBytes, 860 * GB)
+    const listenerOffline = await wait(() => listenerMessages.find(m => m.voiceAvailability === 'unavailable'))
+    assert.deepEqual(listenerOffline.voiceUsage, unavailable.voiceUsage)
     fail = false; bytes = 901 * GB; await budget.refresh(true)
     const paused = await wait(() => messages.find(m => m.type === 'state' && m.voiceAvailability === 'quota'))
     assert.ok(parseOatSnapshot(paused)); assert.equal(paused.micOn, false)
+    const listenerPaused = await wait(() => listenerMessages.find(m => m.voiceAvailability === 'quota'))
+    assert.deepEqual(listenerPaused.voiceUsage, paused.voiceUsage)
     send({ type: 'mic', enabled: true, requestId: 2 }); const result = await wait(() => messages.find(m => m.type === 'mic-result' && m.requestId === 2))
     assert.equal(result.enabled, false); assert.match(result.error, /allowance/)
     send({ type: 'track', url: '/audio/oat-backing.wav', title: 'Still available', playing: true })
     const music = await wait(() => messages.find(m => m.type === 'state' && m.music?.title === 'Still available'))
     assert.equal(music.music.playing, true); assert.equal(music.micOn, false)
     assert.equal(parseOatSnapshot({ ...paused, voiceAvailability: 'fake' }), null)
-  } finally { ws.terminate(); oat.close(); await new Promise(resolve => http.close(resolve)) }
+    assert.equal(parseOatSnapshot({ ...paused, voiceUsage: { ...paused.voiceUsage, availability: 'available' } }), null)
+  } finally { ws.terminate(); listener.terminate(); oat.close(); await new Promise(resolve => http.close(resolve)) }
+})
+
+test('public usage rejects malformed values and preserves small reported amounts instead of rounding to zero GB', () => {
+  const monitor = createOatUsageMonitor('2026-10-11', async () => 0, memoryStore(), () => Date.parse('2026-10-11T01:00:00Z'))
+  const status = monitor.snapshot()
+  assert.deepEqual(parseOatUsageStatus(status), status)
+  assert.equal(parseOatUsageStatus({ ...status, privateToken: 'not-public' }).privateToken, undefined)
+  for (const patch of [
+    { usedBytes: -1 }, { usedBytes: '100' }, { usedBytes: 1.2 }, { usedBytes: Infinity },
+    { cutoffBytes: 0 }, { cutoffBytes: status.allowanceBytes + 1 },
+    { warningBytes: [850 * GB, 700 * GB] }, { warningBytes: [700 * GB] }, { warningBytes: [700 * GB, 950 * GB] },
+    { cycleEnd: '2026-99-99' }, { cycleEnd: status.cycleStart }, { cycleEnd: null },
+    { checkedAt: -1 }, { warningLevel: 3 }, { availability: 'fake' }, { availability: 'available' },
+  ]) assert.equal(parseOatUsageStatus({ ...status, ...patch }), null)
+  assert.equal(oatUsageAmount(271092), '271.09 KB')
+  assert.equal(oatUsageAmount(1250000), '1.25 MB')
+  assert.equal(oatUsageAmount(850e9), '850 GB')
+  assert.equal(oatUsageAmount(0), '0 B')
+  monitor.close()
 })
 
 test('selecting Cloudflare without monitoring configuration is closed and never silently falls back to Metered', async () => {

@@ -47,6 +47,10 @@ For a controlled local test, run the loopback fixture with `OAT_FIXTURE_QUOTA=1`
 
 See [TURN analytics](https://developers.cloudflare.com/realtime/turn/analytics/), [TURN pricing and expiry](https://developers.cloudflare.com/realtime/turn/faq/), [credential revocation](https://developers.cloudflare.com/realtime/turn/generate-credentials/) and [budget alerts do not cap usage](https://developers.cloudflare.com/billing/manage/budget-alerts/).
 
+### Participant usage display
+
+Every admitted concert participant sees **Shared voice usage** in the OAT controls, including a small summary when the controls are minimized. It shows the account-wide reported total, progress toward the 900 GB application cutoff, renewal date, and the same 700/850 GB warnings and monitoring/paused state as the admin. These are shared totals, not individual listener consumption. Reconnecting visitors see the last reported amount with a reconnecting status. Only aggregate counters and period information are broadcast; analytics tokens and permanent TURN keys stay on the server. Visitors cannot change the limit or reset usage.
+
 ### Cloudflare credential delivery
 
 The original integration remains available for accounts with Realtime activated. Set these **server-only** variables using a Cloudflare Realtime TURN key:

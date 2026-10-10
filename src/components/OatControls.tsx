@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import type { OatSession } from '../hooks/useOatSession'
 import { OAT_BACKING_TRACK, OAT_CAPACITY, oatInviteURL } from '../lib/oatProtocol'
 import { oatVoiceNotice } from '../lib/oatUsage'
+import OatUsageMeter from './OatUsageMeter'
 
 const timestamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
 export default function OatControls({ session, joined, onJoin, onRetry, onClose }: {
@@ -18,6 +19,7 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
   return <aside className={`oat-controls ${collapsed ? 'panel-collapsed' : ''}`} aria-label="OAT concert controls" aria-labelledby={collapsed ? undefined : "oat-title"}>
     <div className="oat-heading"><span className="eyebrow">OAT concert{mic === 'live' ? ' · Mic live' : ''}</span><div className="panel-heading-actions"><button className="panel-collapse" aria-expanded={!collapsed} aria-controls={contentId} aria-label={collapsed ? 'Expand concert controls' : 'Minimize concert controls'} onClick={() => setCollapsed(value => !value)}>{collapsed ? 'Expand' : '−'}</button><button className="panel-close" aria-label="Leave OAT concert" onClick={onClose}>×</button></div></div>
     {collapsed && mic !== 'off' && <button className="navigate-button oat-collapsed-mic" onClick={session.stopMic}>{mic === 'live' ? '● Stop live microphone' : 'Cancel microphone request'}</button>}
+    {collapsed && joined && room?.voiceUsage && <OatUsageMeter usage={room.voiceUsage} connected={live} compact />}
     <div id={contentId} hidden={collapsed}>
     <h2 id="oat-title">{room?.concertTitle ?? 'Concerts at the OAT'}</h2>
     {!joined ? <>
@@ -27,6 +29,7 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
       <p className="oat-muted">Join as a listener. Your microphone stays off until you take the stage and turn it on.</p>
     </> : <>
       <p className="oat-status" role="status">{live ? `${room?.participants.length ?? 0} / ${OAT_CAPACITY} people here` : connection === 'waiting' ? `Theatre full · you’re ${session.queuePosition} in the waiting queue. You’ll enter automatically.` : connection === 'connecting' ? 'Joining the concert…' : 'Connection lost. Your microphone is off.'}</p>
+      {room?.voiceUsage && <OatUsageMeter usage={room.voiceUsage} connected={live} />}
       {voicePaused && <p className="oat-muted" role="status">{oatVoiceNotice(room!.voiceAvailability!)}</p>}
       {!live && connection !== 'connecting' && connection !== 'waiting' && <button className="navigate-button" onClick={onRetry}>Reconnect to concert</button>}
       <section className="oat-section" aria-label="My concert sound">

@@ -19,6 +19,7 @@ export interface OatSnapshot {
   type: 'state'; sequence: number; serverTime: number; participants: OatParticipant[]
   performerId: string | null; queue: string[]; micOn: boolean; music: OatMusic; concertTitle: string
   voiceAvailability?: OatVoiceAvailability
+  voiceUsage?: OatUsageStatus
 }
 export interface OatIceCandidate { candidate: string; sdpMid?: string | null; sdpMLineIndex?: number | null }
 export type OatSignal = ({ kind: 'offer' | 'answer'; sdp: string } | { kind: 'ice'; candidate: OatIceCandidate }) & { connectionId?: string }
@@ -41,12 +42,14 @@ export function parseOatSnapshot(value: unknown): OatSnapshot | null {
   if (!value || typeof value !== 'object') return null
   const s = value as OatSnapshot, m = s.music
   if (s.voiceAvailability !== undefined && !['available', 'checking', 'unavailable', 'quota'].includes(s.voiceAvailability)) return null
+  const usage = s.voiceUsage === undefined ? undefined : parseOatUsageStatus(s.voiceUsage)
+  if (usage === null || (usage && usage.availability !== s.voiceAvailability)) return null
   if (s.type !== 'state' || !Number.isSafeInteger(s.sequence) || s.sequence < 0 || !Number.isFinite(s.serverTime) || !Array.isArray(s.participants) || s.participants.length > OAT_CAPACITY || !Array.isArray(s.queue) || typeof s.micOn !== 'boolean' || !oatName(s.concertTitle) || s.concertTitle !== oatName(s.concertTitle)) return null
   if (!s.participants.every(p => p && typeof p.id === 'string' && p.id.length <= 64 && !!oatName(p.name) && p.name === oatName(p.name))) return null
   const ids = new Set(s.participants.map(p => p.id))
   if (ids.size !== s.participants.length || (s.performerId !== null && !ids.has(s.performerId)) || s.queue.some(id => !ids.has(id) || id === s.performerId) || new Set(s.queue).size !== s.queue.length || (s.micOn && !s.performerId)) return null
   if (!m || (m.url !== '' && oatAudioURL(m.url) !== m.url) || typeof m.title !== 'string' || m.title.length > 120 || typeof m.playing !== 'boolean' || ![m.position, m.updatedAt, m.duration].every(Number.isFinite) || m.position < 0 || m.duration < 0 || m.duration > 14400 || (m.playing && !m.url)) return null
-  return s
+  return usage ? { ...s, voiceUsage: usage } : s
 }
 export function parseOatSignal(value: unknown): OatSignal | null {
   if (!value || typeof value !== 'object') return null
@@ -60,4 +63,5 @@ export function parseOatSignal(value: unknown): OatSignal | null {
   if (c.sdpMLineIndex != null && (!Number.isInteger(c.sdpMLineIndex) || c.sdpMLineIndex < 0 || c.sdpMLineIndex > 16)) return null
   return { kind: 'ice', ...connection, candidate: { candidate: c.candidate, sdpMid: c.sdpMid, sdpMLineIndex: c.sdpMLineIndex } }
 }
-import type { OatVoiceAvailability } from './oatUsage.ts'
+import { parseOatUsageStatus } from './oatUsage.ts'
+import type { OatVoiceAvailability, OatUsageStatus } from './oatUsage.ts'
