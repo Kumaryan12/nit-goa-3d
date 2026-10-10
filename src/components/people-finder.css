@@ -1,0 +1,41 @@
+.people-finder { position: absolute; top: 164px; right: 24px; z-index: 35; width: 230px; padding: 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--glass); color: var(--ink); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 8px 28px #10282012; }
+.finder-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.people-finder button { border: 0; background: none; color: inherit; cursor: pointer; }
+.finder-open { font-size: 12px; font-weight: 650; padding: 4px 0; }
+.finder-open span { color: var(--muted); margin-left: 5px; }
+.finder-toggle { font-size: 10px; padding: 6px 10px; border-radius: 8px; background: var(--wash) !important; }
+.finder-toggle[aria-pressed=true] { color: var(--accent); }
+.people-finder select { width: 100%; min-width: 0; margin-top: 7px; padding: 9px; border-radius: 9px; border: 1px solid var(--border); background: var(--wash); color: var(--ink); font: inherit; font-size: 11px; }
+.finder-target { display: flex; align-items: center; gap: 9px; margin-top: 9px; }
+.finder-arrow { flex-shrink: 0; display: grid; place-items: center; width: 28px; height: 28px; background: var(--wash); border-radius: 50%; font-size: 22px; transition: transform .2s ease; }
+.finder-target > div { flex: 1; min-width: 0; }
+.finder-target strong, .finder-target span:not(.finder-arrow), .finder-target small { display: block; overflow-wrap: anywhere; font-size: 10px; line-height: 1.5; }
+.finder-target small, .finder-empty { color: var(--muted); font-size: 10px; margin: 6px 0 0; }
+.finder-settings { display: grid; gap: 7px; margin: 9px 0; }
+.finder-settings label { display: flex; align-items: center; gap: 7px; min-height: 30px; font-size: 11px; }
+.finder-settings input { accent-color: var(--accent); }
+.campus-find { border: 1px solid var(--border); background: var(--wash); color: var(--ink); border-radius: 7px; padding: 6px 8px; font-size: 10px; }
+.campus-person-actions { display: flex; align-items: center; gap: 4px; }
+.finder-map-marker { cursor: pointer; }
+.finder-map-marker:focus-visible { outline: none; stroke: var(--accent); stroke-width: 4px; }
+.finder-map-marker .finder-hit { fill: transparent; stroke: none; }
+.social-open .people-finder, .football-mode .people-finder, .oat-mode .people-finder { display: none; }
+.toolbar-hidden .people-finder { top: 12px; }
+.panels-hidden.minimap-hidden.toolbar-hidden .people-finder { display: none; }
+@media (max-width: 760px) {
+  .people-finder { top: 146px; right: max(12px, env(safe-area-inset-right)); width: min(184px, calc(100vw - 24px)); padding: 8px; }
+  .people-finder button, .people-finder select, .campus-find, .finder-settings label { min-height: 44px; }
+  .people-finder select { font-size: 12px; }
+  .walk-mode:has(.people-finder) .campus-minimap { top: calc(158px + var(--people-finder-height, 180px)); }
+  .toolbar-hidden.walk-mode:has(.people-finder) .campus-minimap { top: calc(24px + var(--people-finder-height, 180px)); }
+  .mobile-tools-open ~ .people-finder { top: 214px; }
+  .walk-mode:has(.mobile-tools-open):has(.people-finder) .campus-minimap { top: calc(226px + var(--people-finder-height, 180px)); }
+  .campus-person-row { flex-wrap: wrap; }
+  .campus-person-actions { margin-left: auto; }
+}
+@media (max-height: 540px) and (max-width: 1000px) {
+  .people-finder { top: 112px; width: 184px; max-height: calc(100dvh - 195px); overflow-y: auto; }
+  .toolbar-hidden .people-finder { top: 12px; }
+  .walk-mode:has(.people-finder:not(.finder-muted)) .campus-minimap { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .finder-arrow { transition: none; } }

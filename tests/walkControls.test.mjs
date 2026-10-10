@@ -41,6 +41,36 @@ test('short walking taps allow fine positioning and key release brakes within te
   assert.ok(releasedDistance < .1, 'full walking speed also stops precisely')
 })
 
+test('hostel pacing is brisker, stays frame-rate independent and stops within doorway clearance', () => {
+  for (const running of [false, true]) {
+    const cap = walkSpeed(running, true, 'boys-hostel')
+    assert.ok(cap > walkSpeed(running, true, 'gyan-mandir'))
+    assert.ok(cap <= walkSpeed(running, false))
+    assert.equal(walkSpeed(running, true, 'gyan-mandir'), walkSpeed(running, true))
+    assert.equal(walkSpeed(running, false, 'boys-hostel'), walkSpeed(running, false))
+    const results = [30, 60, 144].map(fps => {
+      const state = freshLocomotion(); let distance = 0, stoppingDistance = 0
+      const tap = advanceLocomotion(state, { x: 1, z: 0 }, cap, .1)
+      assert.ok(tap.speed * tap.delta < .05, 'brief taps still allow fine positioning')
+      state.velocity = { x: 0, z: 0 }
+      for (let i = 0; i < fps * 5; i++) {
+        const frame = advanceLocomotion(state, { x: 1, z: 1 }, cap, 1 / fps)
+        distance += frame.speed * frame.delta
+        assert.ok(frame.speed <= cap + 1e-8, 'diagonals cannot exceed the cap')
+      }
+      assert.ok(Math.abs(Math.hypot(state.velocity.x, state.velocity.z) - cap) < 1e-8)
+      for (let i = 0; i < fps; i++) {
+        const frame = advanceLocomotion(state, { x: 0, z: 0 }, cap, 1 / fps)
+        stoppingDistance += frame.speed * frame.delta
+      }
+      assert.deepEqual(state.velocity, { x: 0, z: 0 })
+      assert.ok(stoppingDistance < .13, 'release stops within thirteen centimetres even when running')
+      return distance
+    })
+    for (const distance of results) assert.ok(Math.abs(distance - results[0]) < 1e-8)
+  }
+})
+
 test('walking and running continue gaining speed until their caps, then stay capped', () => {
   for (const running of [false, true]) for (const fps of [30, 60, 144]) {
     const state = freshLocomotion(), cap = walkSpeed(running, false)

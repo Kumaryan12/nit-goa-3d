@@ -28,6 +28,7 @@ const Floor = memo(function Floor({ plan:rootPlan,level }: {plan:HostelPlan;leve
     ...plan.walls.filter(w=>w.kind!=='rail').map(wall=> {const length=Math.hypot(wall.b.x-wall.a.x,wall.b.z-wall.a.z);return {x:(wall.a.x+wall.b.x)/2,z:(wall.a.z+wall.b.z)/2,y:y+1.35,width:length,height:2.7,depth:.18,angle:-Math.atan2(wall.b.z-wall.a.z,wall.b.x-wall.a.x)}}),
     ...[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].map(room=>({x:room.door.x,z:room.door.z,y:y+2.4,width:1.44,height:.6,depth:.18,angle:-Math.atan2(room.along.z,room.along.x)})),
     {x:plan.entrance.point.x,z:plan.entrance.point.z,y:y+(level===0?2.4:1.35),width:2.2,height:level===0?.6:2.7,depth:.18,angle:-Math.atan2(plan.entrance.along.z,plan.entrance.along.x)},
+    ...(plan.courtyardWalkable?plan.courtyards??[]:[]).map(c=>({x:c.point.x,z:c.point.z,y:y+2.4,width:c.width,height:.6,depth:.18,angle:-Math.atan2(c.along.z,c.along.x)})),
   ],[plan,y,level])
   const rails=useMemo(()=>plan.walls.filter(w=>w.kind==='rail').map(wall=>({x:(wall.a.x+wall.b.x)/2,z:(wall.a.z+wall.b.z)/2,y:y+.55,width:Math.hypot(wall.b.x-wall.a.x,wall.b.z-wall.a.z),height:1.1,depth:.1,angle:-Math.atan2(wall.b.z-wall.a.z,wall.b.x-wall.a.x)})),[plan,y])
   const furnishings=useMemo(()=> {
@@ -46,10 +47,40 @@ const Floor = memo(function Floor({ plan:rootPlan,level }: {plan:HostelPlan;leve
     <Boxes boxes={walls} color="#efe6d4" /><Boxes boxes={rails} color="#718a80" />
     <Boxes boxes={furnishings.rugs} color="#d6ded4" /><Boxes boxes={furnishings.frame} color="#ac855b" /><Boxes boxes={furnishings.mattress} color="#668f91" /><Boxes boxes={furnishings.pillows} color="#faf2df" /><Boxes boxes={furnishings.desks} color="#c69d6a" /><Boxes boxes={furnishings.wardrobes} color="#a08464" />
     {plan.kind==='classroom'&&<ClassroomFitout plan={plan} y={y} />}
+    {plan.lifts&&<HostelLobbyFitout plan={plan} y={y} level={level}/>}
     {[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].map(room=><Plaque key={room.id} text={interiorRoomLabel(plan,level,room.id)} point={{x:room.door.x+room.inward.x*.11,z:room.door.z+room.inward.z*.11}} normal={room.inward} y={y+2.35} />)}
     <Plaque text={plan.kind==='classroom'?(level===0?'GYAN MANDIR · EXIT':`FLOOR ${level} · ${level===1?'16–45':'46–75'}`):level===0?'TALPONA · EXIT':`FLOOR ${level} · DEMO`} point={{x:plan.entrance.point.x+plan.entrance.inward.x*.12,z:plan.entrance.point.z+plan.entrance.inward.z*.12}} normal={plan.entrance.inward} y={y+2.35} width={2.2} />
   </group>
 })
+function HostelLobbyFitout({plan,y,level}:{plan:HostelPlan;y:number;level:number}) {
+  const fittings=useMemo(()=>{
+    const bodies:Box[]=[],doors:Box[]=[],frames:Box[]=[],buttons:Box[]=[],paths:Box[]=[],lights:Box[]=[]
+    for(const lift of plan.lifts??[]) {
+      const angle=-Math.atan2(lift.along.z,lift.along.x),front={x:lift.center.x+lift.facing.x*(lift.depth/2+.025),z:lift.center.z+lift.facing.z*(lift.depth/2+.025)}
+      bodies.push({...lift.center,y:y+1.4,width:lift.width,height:2.8,depth:lift.depth,angle})
+      for(const side of [-1,1])doors.push({x:front.x+lift.along.x*side*.38,z:front.z+lift.along.z*side*.38,y:y+1.12,width:.74,height:2.24,depth:.035,angle})
+      frames.push({...front,y:y+2.35,width:1.72,height:.14,depth:.1,angle})
+      buttons.push({x:front.x+lift.along.x*.9,z:front.z+lift.along.z*.9,y:y+1.15,width:.12,height:.25,depth:.06,angle})
+      lights.push({...front,y:y+2.65,width:1.5,height:.05,depth:.08,angle})
+    }
+    for(const corridor of plan.corridors??[])for(let i=1;i<corridor.points.length;i++) {
+      const a=corridor.points[i-1],b=corridor.points[i],length=Math.hypot(b.x-a.x,b.z-a.z),angle=-Math.atan2(b.z-a.z,b.x-a.x)
+      paths.push({x:(a.x+b.x)/2,z:(a.z+b.z)/2,y:y+.008,width:length,height:.012,depth:corridor.width,angle})
+      lights.push({x:(a.x+b.x)/2,z:(a.z+b.z)/2,y:y+2.85,width:1.1,height:.035,depth:.3,angle})
+    }
+    return {bodies,doors,frames,buttons,paths,lights}
+  },[plan,y])
+  return <group name="hostel-lobby-four-lifts-and-corridors">
+    <Boxes boxes={fittings.paths} color="#cad7ce"/>
+    <Boxes boxes={fittings.bodies} color="#e2d9c6"/><Boxes boxes={fittings.doors} color="#849698"/><Boxes boxes={fittings.frames} color="#3d5b56"/><Boxes boxes={fittings.buttons} color="#d8bf7b" glow/><Boxes boxes={fittings.lights} color="#fff3d0" glow/>
+    {(plan.lifts??[]).map(lift=><Plaque key={lift.id} text={`LIFT ${lift.id} · ${level===0?'G':level}`} point={{x:lift.center.x+lift.facing.x*1.06,z:lift.center.z+lift.facing.z*1.06}} normal={lift.facing} y={y+2.52} width={1.5}/>)}
+    {(plan.corridors??[]).map(c=>{
+      const a=c.points[0],b=c.points[1],length=Math.hypot(b.x-a.x,b.z-a.z),normal={x:(a.x-b.x)/length,z:(a.z-b.z)/length}
+      return <Plaque key={c.id} text={c.name.toUpperCase()} point={a} normal={normal} y={y+2.55} width={2.6}/>
+    })}
+    {plan.courtyardWalkable&&(plan.courtyards??[]).map(c=><Plaque key={c.id} text={c.id==='plain'?'OPEN COURTYARD':'BADMINTON COURTYARD'} point={{x:c.point.x-c.inward.x*.12,z:c.point.z-c.inward.z*.12}} normal={{x:-c.inward.x,z:-c.inward.z}} y={y+2.4} width={c.width}/>)}
+  </group>
+}
 function ClassroomFitout({plan,y}:{plan:HostelPlan;y:number}) {
   const furniture=useMemo(()=> {
     const wood:Box[]=[],metal:Box[]=[],seats:Box[]=[],shelves:Box[]=[],books:Box[]=[]
@@ -85,7 +116,7 @@ function StairFlight({plan,level}:{plan:HostelPlan;level:number}) {
 }
 function InteriorNightLights({root,floor}:{root:HostelPlan;floor:number}) {
   const plan=interiorFloorPlan(root,floor), lights=useRef<(PointLight|null)[]>([]),elapsed=useRef(1)
-  const panels=useMemo(()=>[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].map(room=>({x:room.center.x,z:room.center.z,y:plan.base+(floor+1)*plan.floorHeight-.07,width:1.1,height:.035,depth:.35,angle:-Math.atan2(room.along.z,room.along.x)})),[plan,floor])
+  const panels=useMemo(()=>[...[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].map(room=>({x:room.center.x,z:room.center.z,y:plan.base+(floor+1)*plan.floorHeight-.07,width:1.1,height:.035,depth:.35,angle:-Math.atan2(room.along.z,room.along.x)})),...(plan.lifts??[]).map(lift=>({x:lift.landing.x,z:lift.landing.z,y:plan.base+(floor+1)*plan.floorHeight-.07,width:1.1,height:.035,depth:.35,angle:0}))],[plan,floor])
   const sources=useMemo(()=>[...panels,{...plan.entrance.inside,y:plan.base+(floor+1)*plan.floorHeight-.07},{...plan.stairs.start,y:plan.base+(floor+1)*plan.floorHeight-.07}], [panels,plan,floor])
   useFrame(({camera},delta)=>{elapsed.current+=delta;if(elapsed.current<.2)return;elapsed.current=0
     const closest=[...sources].sort((a,b)=>Math.hypot(a.x-camera.position.x,a.z-camera.position.z)-Math.hypot(b.x-camera.position.x,b.z-camera.position.z)).slice(0,2)

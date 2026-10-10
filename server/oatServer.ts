@@ -5,6 +5,9 @@ import type { EventEmitter } from 'node:events'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
 import { createOatRoom } from './oatRoom.ts'
+import { createOatIceProvider } from './oatIce.ts'
+import { createMeteredIceProvider } from './oatMeteredIce.ts'
+import type { OatIceProvider } from './oatIce.ts'
 import {
   OAT_CAPACITY,
   OAT_UPLOAD_LIMIT,
@@ -15,6 +18,8 @@ interface OatSocket {
   ws: WebSocket
   token: string
   signalCount: number
+  voiceReadyAt: number
+  iceRequestedAt: number
   signalWindow: number
 }
 interface AudioAsset {
@@ -44,6 +49,7 @@ export function attachOatServer(
   server: EventEmitter,
   origin?: string,
   verify?: VerifyAccess,
+  iceProvider: OatIceProvider | undefined = createMeteredIceProvider() ?? createOatIceProvider(),
 ) {
   const room = createOatRoom(),
     peers = new Map<string, OatSocket>(),
@@ -90,13 +96,26 @@ export function attachOatServer(
       ws,
       token: randomUUID(),
       signalCount: 0,
+      voiceReadyAt: 0,
+      iceRequestedAt: 0,
       signalWindow: Date.now(),
     }
     peers.set(id, peer)
     alive.add(ws)
     ws.on('pong', () => alive.add(ws))
     ws.on('error', () => undefined)
-    send(ws, { type: 'welcome', id, uploadToken: peer.token })
+    const configureIce = () => {
+      if (!iceProvider || Date.now() - peer.iceRequestedAt < 30000) return
+      peer.iceRequestedAt = Date.now()
+      void iceProvider(id).then(configuration => {
+        if (peers.get(id) === peer) send(ws, { type: 'ice-config', ...configuration })
+      }).catch(() => {
+        // Provider errors can contain secret headers; never forward or log them.
+        if (peers.get(id) === peer) send(ws, { type: 'ice-config', unavailable: true })
+      })
+    }
+    send(ws, { type: 'welcome', id, uploadToken: peer.token, micAcknowledgements: true, icePending: !!iceProvider })
+    configureIce()
     broadcast()
     ws.on('message', (bytes, binary) => {
       if (ws.readyState !== WebSocket.OPEN) return
@@ -109,6 +128,7 @@ export function attachOatServer(
         return
       }
       if (msg.type === 'name' || msg.type === 'authenticate') return // Verified by the access gate.
+      if (msg.type === 'ice-refresh') { configureIce(); return }
       if (msg.type === 'clock' && Number.isFinite(msg.clientTime)) {
         send(ws, {
           type: 'clock',
@@ -118,6 +138,8 @@ export function attachOatServer(
         return
       }
       if (msg.type === 'voice-ready') {
+        if (Date.now() - peer.voiceReadyAt < 800) return
+        peer.voiceReadyAt = Date.now()
         const state = room.snapshot(),
           performer = state.performerId ? peers.get(state.performerId) : null
         if (performer && state.micOn && state.performerId !== id)
@@ -163,6 +185,7 @@ export function attachOatServer(
         return
       }
       const error = room.handle(id, msg)
+      if (msg.type === 'mic') send(ws, { type: 'mic-result', requestId: Number.isSafeInteger(msg.requestId) ? msg.requestId : null, enabled: !error && msg.enabled === true, error: error || null })
       if (error) send(ws, { type: 'error', message: error })
       else broadcast()
     })

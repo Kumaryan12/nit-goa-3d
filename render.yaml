@@ -4,7 +4,7 @@ services:
     name: nitg-explored
     runtime: docker
     repo: https://github.com/Kumaryan12/nit-goa-3d
-    branch: deploy/firebase-community
+    branch: main
     region: singapore
     plan: free
     numInstances: 1
@@ -34,3 +34,7 @@ services:
         value: /etc/secrets/moderator-secret.key
       - key: VITE_OVERPASS_ENDPOINT
         value: https://overpass-api.de/api/interpreter
+      - key: OAT_METERED_DOMAIN
+        sync: false
+      - key: OAT_METERED_API_KEY
+        sync: false

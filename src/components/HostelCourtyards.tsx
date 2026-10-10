@@ -19,8 +19,8 @@ function HostelCourtyards({ building }: { building: BuildingFootprint }) {
   }, [])
   const base = building.baseElevation ?? 0
   return <group name="talpona-two-courtyards">
-    {surfaces.map((shape, i) => <mesh key={i} position={[0, base + .035, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><shapeGeometry args={[shape]} /><meshStandardMaterial color="#d4c9b4" roughness={.95} side={DoubleSide} /></mesh>)}
-    {court && <group name="southeast-courtyard-badminton" position={[court.center.x, base + .06, court.center.z]} rotation={[0, Math.atan2(court.along.x, court.along.z), 0]}>
+    {surfaces.map((shape, i) => <mesh key={i} position={[0, base + .14, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow><shapeGeometry args={[shape]} /><meshStandardMaterial color="#d4c9b4" roughness={.95} side={DoubleSide} /></mesh>)}
+    {court && <group name="southeast-courtyard-badminton" position={[court.center.x, base + .14, court.center.z]} rotation={[0, Math.atan2(court.along.x, court.along.z), 0]}>
       <mesh position={[0, .015, 0]} receiveShadow><boxGeometry args={[court.width + 4, .03, court.length + 4]} /><meshStandardMaterial color="#357f78" roughness={.9} /></mesh>
       <mesh position={[0, .034, 0]} receiveShadow><boxGeometry args={[court.width, .008, court.length]} /><meshStandardMaterial color="#4b9485" roughness={.9} /></mesh>
       {[-3.05, -2.59, 2.59, 3.05].map(x => <mesh key={`side${x}`} position={[x, .045, 0]}><boxGeometry args={[.04, .012, 13.4]} /><meshStandardMaterial color="#fff9e5" /></mesh>)}
