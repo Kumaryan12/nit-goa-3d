@@ -215,6 +215,15 @@ test('live buggy boarding follows a driver, rejects position spoofing, and frees
   rider.ws.send(JSON.stringify({ type: 'buggy-ride', driverId: 'alice', seat: 0, sender: 'alice' }))
   const boarded = await waitFor(() => driver.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'bob' && p.ride)))
   const seated = boarded.people.find(p => p.id === 'bob'); assert.equal(seated.ride.driverId, 'alice'); assert.equal(seated.ride.seat, 1)
+  // A scheduled walking heartbeat may reach the server after the boarding
+  // request but before the browser's next render adopts the new seat epoch.
+  await new Promise(resolve => setTimeout(resolve, 80))
+  rider.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ x: 1, vehicle: 'walk' }) }))
+  await new Promise(resolve => setTimeout(resolve, 100))
+  for (const visitor of [driver, rider]) {
+    const state = visitor.messages.filter(m => m.type === 'campus-state').at(-1)
+    assert.equal(state.people.find(p => p.id === 'bob').ride?.driverId, 'alice', 'in-flight pose must not eject the passenger')
+  }
   await new Promise(resolve => setTimeout(resolve, 120))
   driver.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose: pose({ vehicle: 'buggy', z: -.5 }) }))
   const moved = await waitFor(() => rider.messages.find(m => m.type === 'campus-state' && m.people.some(p => p.id === 'bob' && p.pose?.z < -.8)))

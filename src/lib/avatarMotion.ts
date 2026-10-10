@@ -1,7 +1,7 @@
 import type { LocalCoordinate } from './geo.ts'
 import type { SocialState } from './social.ts'
 
-export interface AvatarMotion { phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; verticalVelocity?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; impactStrength?: number; impactAge?: number; social?: SocialState; seated?: boolean }
+export interface AvatarMotion { passenger?: boolean; phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; verticalVelocity?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; impactStrength?: number; impactAge?: number; social?: SocialState; seated?: boolean }
 export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0
@@ -82,11 +82,11 @@ export function joystickInput(x: number, y: number, radius: number) {
   return { forward: length ? -y / length * response : 0, side: length ? x / length * response : 0, x: length ? x / length * Math.min(radius, length) : 0, y: length ? y / length * Math.min(radius, length) : 0 }
 }
 
-export function ridingPose(kind: 'bicycle' | 'buggy', phase: number, speed: number) {
+export function ridingPose(kind: 'bicycle' | 'buggy', phase: number, speed: number, passenger = false) {
   const cycling = kind === 'bicycle', pedal = cycling ? Math.sin(phase) * Math.min(1, speed / .8) : 0
   const hips = cycling ? [.8 + pedal * .25, .8 - pedal * .25] : [1.2, 1.2]
   const knees = cycling ? [-1.25 - pedal * .35, -1.25 + pedal * .35] : [-1.4, -1.4]
-  return { hips, knees, ankles: hips.map((hip, i) => -hip - knees[i]), arms: [.85, .85], elbows: [.35, .35], rootY: cycling ? .15 : -.26, lean: cycling ? -.18 : 0, sway: 0, bank: 0 }
+  return { hips, knees, ankles: hips.map((hip, i) => -hip - knees[i]), arms: passenger && !cycling ? [.18, .18] : [.85, .85], elbows: passenger && !cycling ? [.45, .45] : [.35, .35], rootY: cycling ? .15 : -.26, lean: cycling ? -.18 : 0, sway: 0, bank: 0 }
 }
 
 export interface SocialPose extends ReturnType<typeof avatarPose> { armY: number[]; armZ: number[]; weight: number }
