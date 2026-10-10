@@ -7,6 +7,7 @@ import { OatVoiceRecovery } from '../lib/oatVoiceRecovery'
 import { parseOatIceConfiguration, parseOatIceServers } from '../lib/oatIce'
 import { liveRetryDelay } from '../lib/liveRecovery'
 import { watchLiveConnection } from '../lib/liveWatchdog'
+import { oatVoiceNotice } from '../lib/oatUsage'
 
 interface VoicePeer { connectionId: string; createdAt: number; pc: RTCPeerConnection; timeout: ReturnType<typeof setTimeout>; candidates: RTCIceCandidateInit[]; chain: Promise<void> }
 export type OatConnection = 'idle' | 'connecting' | 'waiting' | 'live' | 'offline'
@@ -45,6 +46,7 @@ export function useOatSession(joined: boolean, name: string, retry: number, runt
   const capturedMic = useRef<MediaStream | null>(null), mixer = useRef<OatAudio | null>(null), voiceConnected = useRef(false)
   const peers = useRef(new Map<string, VoicePeer>()), enabled = useRef(false), gain = useRef(.7), micAttempt = useRef(0), upload = useRef<AbortController | null>(null)
   const micAcknowledgements = useRef(false), micPending = useRef(false), micTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const capturePending = useRef(false)
   const audioChanged = useRef<() => void>(() => {}), retryVoice = useRef<(peerId: string) => void>(() => {})
   const recovery = useRef<OatVoiceRecovery | null>(null)
   if (!recovery.current) recovery.current = new OatVoiceRecovery(peerId => retryVoice.current(peerId), () => setVoiceStatus('Voice could not connect. Tap Retry voice connection. Some networks require a TURN relay.'))
@@ -64,7 +66,7 @@ export function useOatSession(joined: boolean, name: string, retry: number, runt
   const send = useCallback((message: unknown) => { if (socket.current?.readyState === WebSocket.OPEN && id.current) { socket.current.send(JSON.stringify(message)); return true } return false }, [])
   const closePeer = useCallback((peerId: string) => { const peer = peers.current.get(peerId); if (peer) { clearTimeout(peer.timeout); peer.pc.close(); peers.current.delete(peerId) } }, [])
   const stopMic = useCallback(() => {
-    micAttempt.current++; micPending.current = false; clearTimeout(micTimeout.current); setMicLevel(0); recovery.current?.reset(); capturedMic.current?.getTracks().forEach(track => track.stop()); capturedMic.current = null
+    micAttempt.current++; micPending.current = false; capturePending.current = false; clearTimeout(micTimeout.current); setMicLevel(0); recovery.current?.reset(); capturedMic.current?.getTracks().forEach(track => track.stop()); capturedMic.current = null
     stream.current?.getTracks().forEach(track => track.stop()); stream.current = null
     mixer.current?.stopMicrophone()
     for (const peerId of peers.current.keys()) closePeer(peerId)
@@ -223,9 +225,10 @@ export function useOatSession(joined: boolean, name: string, retry: number, runt
     }).catch(() => { if (peers.current.get(from) === target) { closePeer(from); voiceConnected.current = false; setVoiceStatus('Reconnecting live voice…'); recovery.current?.schedule(from); syncMusic() } })
   }
   const startMic = useCallback(async () => {
-    if (!id.current || state.current?.performerId !== id.current || stream.current || capturedMic.current) return
+    if (!id.current || state.current?.performerId !== id.current || stream.current || capturedMic.current || capturePending.current) return
+    if (state.current.voiceAvailability && state.current.voiceAvailability !== 'available') { setError(oatVoiceNotice(state.current.voiceAvailability)); return }
     if (!navigator.mediaDevices?.getUserMedia) { setError('Live singing needs HTTPS or localhost and a browser with microphone support.'); return }
-    const attempt = ++micAttempt.current; setMic('requesting'); setError('')
+    const attempt = ++micAttempt.current; capturePending.current = true; setMic('requesting'); setError('')
     try {
       const graph = ensureAudio()
       // Unlock before getUserMedia yields; Safari may discard activation after the prompt.
@@ -237,7 +240,7 @@ export function useOatSession(joined: boolean, name: string, retry: number, runt
       if (attempt !== micAttempt.current || state.current?.performerId !== id.current || !capturedMic.current) { media.getTracks().forEach(track => track.stop()); return }
       stream.current = graph.startMicrophone(media)
       for (const track of media.getAudioTracks()) track.onended = () => stopMic()
-      micPending.current = true; setMic('connecting')
+      capturePending.current = false; micPending.current = true; setMic('connecting')
       if (!send({ type: 'mic', enabled: true, requestId: attempt })) throw new Error('The concert disconnected. Rejoin before starting your microphone.')
       micTimeout.current = setTimeout(() => {
         if (micPending.current) { stopMic(); setError('The concert did not confirm your microphone. Try starting it again.') }
@@ -294,7 +297,8 @@ export function useOatSession(joined: boolean, name: string, retry: number, runt
             try { peer.pc.setConfiguration({ ...peer.pc.getConfiguration(), iceServers: ice.current }); if (peer.pc.connectionState !== 'connected') recovery.current?.schedule(peerId) }
             catch { recovery.current?.schedule(peerId) }
           }
-          iceTimer = window.setTimeout(() => send({ type: 'ice-refresh' }), Math.max(30000, configuration.expiresAt - Date.now() - 600000))
+          const remaining = configuration.expiresAt - Date.now()
+          iceTimer = window.setTimeout(() => send({ type: 'ice-refresh' }), Math.max(30000, remaining - Math.min(600000, remaining / 2)))
         } else {
           setVoiceStatus('Relay unavailable. Trying a direct voice connection…')
           iceTimer = window.setTimeout(() => send({ type: 'ice-refresh' }), 30000)
@@ -323,6 +327,10 @@ export function useOatSession(joined: boolean, name: string, retry: number, runt
       if (!next || !id.current || (state.current && next.sequence < state.current.sequence)) return
       watchdog.received()
       const previous = state.current; state.current = next; setSnapshot(next)
+      if ((next.voiceAvailability && next.voiceAvailability !== 'available') || (previous?.micOn && !next.micOn && next.performerId === id.current)) {
+        if (stream.current || capturedMic.current || micPending.current || capturePending.current) stopMic()
+        pendingSignals.current = []
+      }
       if (!micAcknowledgements.current && micPending.current && next.performerId === id.current && next.micOn && stream.current) {
         micPending.current = false; clearTimeout(micTimeout.current); setMic('live')
       }

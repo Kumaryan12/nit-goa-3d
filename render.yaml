@@ -38,3 +38,15 @@ services:
         sync: false
       - key: OAT_METERED_API_KEY
         sync: false
+      - key: OAT_RELAY_PROVIDER
+        sync: false
+      - key: OAT_TURN_KEY_ID
+        sync: false
+      - key: OAT_TURN_API_TOKEN
+        sync: false
+      - key: OAT_CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: OAT_CLOUDFLARE_ANALYTICS_TOKEN
+        sync: false
+      - key: OAT_TURN_CYCLE_ANCHOR
+        sync: false

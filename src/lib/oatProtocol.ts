@@ -18,6 +18,7 @@ export interface OatMusic { url: string; title: string; position: number; playin
 export interface OatSnapshot {
   type: 'state'; sequence: number; serverTime: number; participants: OatParticipant[]
   performerId: string | null; queue: string[]; micOn: boolean; music: OatMusic; concertTitle: string
+  voiceAvailability?: OatVoiceAvailability
 }
 export interface OatIceCandidate { candidate: string; sdpMid?: string | null; sdpMLineIndex?: number | null }
 export type OatSignal = ({ kind: 'offer' | 'answer'; sdp: string } | { kind: 'ice'; candidate: OatIceCandidate }) & { connectionId?: string }
@@ -39,6 +40,7 @@ export function oatMusicPosition(music: OatMusic, serverNow: number): number {
 export function parseOatSnapshot(value: unknown): OatSnapshot | null {
   if (!value || typeof value !== 'object') return null
   const s = value as OatSnapshot, m = s.music
+  if (s.voiceAvailability !== undefined && !['available', 'checking', 'unavailable', 'quota'].includes(s.voiceAvailability)) return null
   if (s.type !== 'state' || !Number.isSafeInteger(s.sequence) || s.sequence < 0 || !Number.isFinite(s.serverTime) || !Array.isArray(s.participants) || s.participants.length > OAT_CAPACITY || !Array.isArray(s.queue) || typeof s.micOn !== 'boolean' || !oatName(s.concertTitle) || s.concertTitle !== oatName(s.concertTitle)) return null
   if (!s.participants.every(p => p && typeof p.id === 'string' && p.id.length <= 64 && !!oatName(p.name) && p.name === oatName(p.name))) return null
   const ids = new Set(s.participants.map(p => p.id))
@@ -58,3 +60,4 @@ export function parseOatSignal(value: unknown): OatSignal | null {
   if (c.sdpMLineIndex != null && (!Number.isInteger(c.sdpMLineIndex) || c.sdpMLineIndex < 0 || c.sdpMLineIndex > 16)) return null
   return { kind: 'ice', ...connection, candidate: { candidate: c.candidate, sdpMid: c.sdpMid, sdpMLineIndex: c.sdpMLineIndex } }
 }
+import type { OatVoiceAvailability } from './oatUsage.ts'

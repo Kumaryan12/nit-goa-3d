@@ -5,6 +5,7 @@ import type { attachLiveAccess } from './liveAccess.ts'
 import { firebaseAdmin } from './firebaseAdmin.ts'
 import { createModeratorService, createModerationStore } from './moderation.ts'
 import { readJSON, sendJSON } from './httpUtils.ts'
+import type { OatUsageStatus } from '../src/lib/oatUsage.ts'
 type Access = ReturnType<typeof attachLiveAccess>
 export function createCrowdAPI(
   football: Access,
@@ -20,6 +21,7 @@ export function createCrowdAPI(
     }
   },
   campus?: { access: Access; removeMessages: (id: string) => void },
+  voiceUsage: () => OatUsageStatus | null = () => null,
 ) {
   let busy = 0,
     services: ReturnType<typeof provider> | null = null
@@ -54,7 +56,7 @@ export function createCrowdAPI(
       if (path === '/api/crowd' && req.method === 'GET') {
         sendJSON(res, 200, {
           football: football.snapshot(),
-          oat: oat.snapshot(),
+          oat: { ...oat.snapshot(), voiceUsage: voiceUsage() },
           ...(campus ? { campus: campus.access.snapshot() } : {}),
         })
         return

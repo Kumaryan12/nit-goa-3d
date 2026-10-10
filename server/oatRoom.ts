@@ -24,6 +24,7 @@ export function createOatRoom() {
       sequence++
     },
     isPerformer: (id: string) => performerId === id && participants.has(id),
+    pauseMicrophone() { if (micOn) { micOn = false; sequence++ } },
     handle(id: string, value: unknown, now = Date.now()): string | null {
       const participant = participants.get(id)
       if (!participant || !value || typeof value !== 'object') return 'Join the OAT first.'
