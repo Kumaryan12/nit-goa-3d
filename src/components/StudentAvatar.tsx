@@ -144,7 +144,7 @@ export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77
     if ((state.kick ?? 0) !== lastKick.current) { lastKick.current = state.kick ?? 0; kickTime.current = .45 }
     kickTime.current = Math.max(0, kickTime.current - dt)
     const riding = !!state.vehicle && state.vehicle !== 'walk'
-    const pose = riding ? ridingPose(state.vehicle as 'bicycle' | 'buggy', state.phase, visual.speed) : avatarPose(state.phase, visual.speed, visual.run, reducedMotion.current ? 0 : clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0, false, undefined, visual.landing)
+    const pose = riding ? ridingPose(state.vehicle as 'bicycle' | 'buggy', state.phase, visual.speed, state.passenger) : avatarPose(state.phase, visual.speed, visual.run, reducedMotion.current ? 0 : clock.current, state.turn, kickTime.current > 0 ? 1 - kickTime.current / .45 : 0, false, undefined, visual.landing)
     if (!riding && visual.air > .001) {
       const jump = avatarPose(state.phase, visual.speed, visual.run, reducedMotion.current ? 0 : clock.current, state.turn, 0, true, state.verticalVelocity)
       for (const key of ['hips', 'knees', 'ankles', 'arms', 'elbows'] as const) pose[key] = pose[key].map((value, i) => value + (jump[key][i] - value) * visual.air)

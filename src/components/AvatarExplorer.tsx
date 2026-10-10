@@ -22,6 +22,7 @@ import { cameraWheelStep, smoothLookAngle, walkSpeed, WALK_CONTROLS } from '../l
 import { bindCameraGestures } from '../lib/cameraGestures'
 import { PRESENCE_SPEED_LIMITS } from '../lib/movementLimits'
 import type { CampusPose, CampusSession } from '../lib/campusProtocol'
+import { nearbyCampusBuggies, sampleCampusPerson } from '../lib/buggyRide'
 import { canUseStairs, interiorFloorPlan, interiorLocationId, interiorRoomLabel, interiorSpace, interiorCameraFraction, interiorJumpCeiling, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
 import { nearestHostelLift, hostelLiftArrival, hostelAreaLabel, hostelCourtSurface } from '../lib/boysHostelLayout'
@@ -172,6 +173,11 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
       if (event.code === 'KeyF' && !event.repeat) {
         if (ridingPassenger.current) { event.preventDefault(); onBuggyRide(null) }
         else if (ride.current !== 'walk') { event.preventDefault(); input.current.vehicle = 'walk' }
+        else if (actionContext.current?.canRide) {
+          const session = campusSession.current
+          const buggy = nearbyCampusBuggies(session.snapshot, session.id, position.current).find(p => !p.pose?.moving && (session.snapshot?.people.filter(rider => rider.ride?.driverId === p.id).length ?? 0) < 3)
+          if (buggy) { event.preventDefault(); clear(); onBuggyRide(buggy.id) }
+        }
       }
       if (event.code === 'KeyE' && !event.repeat) {
         event.preventDefault(); clear()
@@ -189,7 +195,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     const hidden = () => { if (document.hidden) clear() }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear); document.addEventListener('visibilitychange', hidden)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
-  }, [paused, input, onInspect, act, activePlan, interiorPose, position, footballPitch, footballLive, footballControls, onBuggyRide])
+  }, [paused, input, onInspect, act, activePlan, interiorPose, position, footballPitch, footballLive, footballControls, onBuggyRide, campusSession])
   useEffect(() => {
     if (paused) return
     const distance = (value: number) => { lookTarget.current.distance = Math.max(3, Math.min(12, value)) }
@@ -250,7 +256,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
       position.current = findVehicleDismount(position.current, vehicle.current.yaw, ride.current, world) ?? position.current
       ride.current = 'walk'; setRideMode('walk'); vehicle.current.speed = 0; jump.current = freshJump(); locomotion.current = freshLocomotion()
     }
-    const passengerPose = self?.ride ? self.pose : null
+    const passengerPose = self?.ride ? sampleCampusPerson(live, self, performance.now()) : null
     if (!!passengerPose !== ridingPassenger.current) {
       const wasPassenger = ridingPassenger.current
       ridingPassenger.current = !!passengerPose; setPassengerView(!!passengerPose)
@@ -328,12 +334,10 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
       next = { x: sitting.x, z: sitting.z }; surfaceY = sitting.y
       avatar.current.rotation.set(0, sitting.yaw, 0); jump.current = freshJump()
     } else if (passengerPose) {
-      const blend = 1 - Math.exp(-delta * 15)
-      next = { x: before.x + (passengerPose.x - before.x) * blend, z: before.z + (passengerPose.z - before.z) * blend }
-      surfaceY = avatar.current.position.y + (passengerPose.y - avatar.current.position.y) * blend
+      next = { x: passengerPose.x, z: passengerPose.z }
+      surfaceY = passengerPose.y
       avatar.current.rotation.order = 'YXZ'
-      avatar.current.rotation.x += ((passengerPose.pitch ?? 0) - avatar.current.rotation.x) * blend
-      avatar.current.rotation.y += Math.atan2(Math.sin(passengerPose.yaw - avatar.current.rotation.y), Math.cos(passengerPose.yaw - avatar.current.rotation.y)) * blend
+      avatar.current.rotation.set(passengerPose.pitch ?? 0, passengerPose.yaw, 0)
       yaw.current += Math.atan2(Math.sin(passengerPose.yaw - yaw.current), Math.cos(passengerPose.yaw - yaw.current)) * (1 - Math.exp(-delta * 3)); lookTarget.current.yaw = yaw.current
     } else if (ride.current !== 'walk') {
       const result = advanceVehicle(vehicle.current, before, ride.current, forward, side - turn, !!input.current.brake || !!key('Space'), delta, world, twin.roads, allowed)
@@ -377,6 +381,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     motion.current.impactAge = vehicle.current.impactAge ?? 2
     motion.current.driveSpeed = ride.current === 'buggy' && delta > 0 ? (-(next.x-before.x)*Math.sin(vehicle.current.yaw)-(next.z-before.z)*Math.cos(vehicle.current.yaw))/delta : vehicle.current.speed
     motion.current.vehicle = passengerPose ? 'buggy' : ride.current
+    motion.current.passenger = !!passengerPose
     motion.current.running = !passengerPose && ride.current === 'walk' && running
     motion.current.paused = !allowed
     motion.current.airborne = !jump.current.grounded

@@ -29,6 +29,23 @@ test('passenger coordinates and orientation derive from the driver, including ro
  assert.equal(room.pose('alice',pose({epoch:2,vehicle:'buggy'}),'walk',1400),false,'a passenger cannot drive another vehicle')
  assert.match(room.ride('alice',null,1500).error,/stop/)
 })
+test('pre-boarding walking heartbeats cannot cancel a newly assigned seat',()=>{
+ const room=fixture();assert.deepEqual(room.ride('alice','driver',1100),{ok:true})
+ for(const time of [1180,1260,1340]) {
+  assert.equal(room.updatePose('alice',pose({x:1,epoch:1}),'walk',time),'throttled')
+  const rider=person(room,'alice',time);assert.equal(rider.ride.driverId,'driver');assert.equal(rider.pose.epoch,2)
+ }
+ assert.ok(room.pose('alice',pose({epoch:2,x:80}),'walk',1420))
+ assert.equal(person(room,'alice',1420).ride.seat,1,'acknowledged passenger coordinates still come from the driver')
+ room.pose('alice',pose({epoch:2,visible:false}),'overview',1500)
+ assert.equal(person(room,'alice',1500).ride,undefined,'leaving avatar mode still releases the seat')
+})
+test('a visible parked buggy accepts riders while its driver pauses; airborne riders cannot board',()=>{
+ const room=fixture();assert.ok(room.pose('driver',pose({vehicle:'buggy',active:false}),'walk',1200))
+ assert.deepEqual(room.ride('alice','driver',1300),{ok:true})
+ assert.ok(room.pose('bob',pose({x:1,y:.2,airborne:true}),'walk',1200))
+ assert.match(room.ride('bob','driver',1300).error,/Walk within/)
+})
 test('boarding rejects remote, stale, moving, indoor, inactive and non-walking users',()=>{
  for(const variant of ['far','stale','moving','indoor','inactive','bicycle','football']){
   const room=fixture()

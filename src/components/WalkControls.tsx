@@ -5,6 +5,7 @@ import type { HostelAction } from '../lib/hostelInterior'
 import { instantControlPress, WalkTouchInput } from '../lib/walkTouchInput'
 import type { WalkDirection } from '../lib/walkTouchInput'
 import { MOVEMENT_SPEEDS } from '../lib/movementLimits'
+import { nearbyCampusBuggies } from '../lib/buggyRide'
 import type { WalkInput, WalkStatus } from '../lib/walking'
 import type { CampusLocation } from '../types/campus'
 
@@ -20,7 +21,7 @@ export default function WalkControls({ compact = false, campusLive, input, statu
   const snapshot = campusLive.session.current.snapshot, selfId = campusLive.session.current.id
   const self = snapshot?.people.find(p => p.id === selfId), passenger = self?.ride
   const driver = snapshot?.people.find(p => p.id === passenger?.driverId)
-  const nearbyBuggies = snapshot?.people.filter(p => p.id !== selfId && !p.ride && p.pose?.vehicle === 'buggy' && p.pose.active && p.pose.visible && status && Math.hypot(p.pose.x - status.position.x, p.pose.z - status.position.z) <= 4) ?? []
+  const nearbyBuggies = nearbyCampusBuggies(snapshot, selfId, status?.position ?? null)
   const occupants = 1 + (snapshot?.people.filter(p => p.ride?.driverId === (passenger?.driverId ?? selfId)).length ?? 0)
   const riding = !!passenger || !!status?.vehicle && status.vehicle !== 'walk'
   const inputDisabled = paused || !ready || !!status?.error || !!passenger
@@ -63,11 +64,12 @@ export default function WalkControls({ compact = false, campusLive, input, statu
     </div>
     {!passenger && status?.vehicle === 'buggy' && <p className="walk-note">Bump another buggy to send it rolling. Faster hits push harder; glancing hits slide sideways.</p>}
     {(passenger || status?.vehicle === 'buggy') && <p className="walk-note" role="status">{occupants}/4 seats occupied{passenger ? ` · Passenger seat ${passenger.seat}` : ' · You are driving'}</p>}
-    {passenger && <button className="navigate-button walk-board" disabled={paused || !!driver?.pose?.moving} onClick={() => campusLive.rideBuggy(null)}>{driver?.pose?.moving ? 'Get out when stopped' : 'Get out of buggy · F'}</button>}
+    {passenger && <button className="navigate-button walk-board" disabled={paused || campusLive.ridePending || !!driver?.pose?.moving} onClick={() => { clearControls(); campusLive.rideBuggy(null) }}>{campusLive.ridePending ? 'Updating your seat…' : driver?.pose?.moving ? 'Get out when stopped' : 'Get out of buggy · F'}</button>}
     {!passenger && status?.canRide && (status.vehicle ?? 'walk') === 'walk' && nearbyBuggies.map(buggy => {
       const count = 1 + (snapshot?.people.filter(p => p.ride?.driverId === buggy.id).length ?? 0)
-      return <button key={buggy.id} className="fly-button walk-board" disabled={paused || count >= 4 || !!buggy.pose?.moving} onClick={() => campusLive.rideBuggy(buggy.id)}>Hop into {buggy.name}’s buggy · {count}/4{buggy.pose?.moving ? ' · wait for stop' : ''}</button>
+      return <button key={buggy.id} className="fly-button walk-board" disabled={paused || campusLive.ridePending || count >= 4 || !!buggy.pose?.moving} onClick={() => { clearControls(); campusLive.rideBuggy(buggy.id) }}>Hop into {buggy.name}’s buggy · {count}/4{buggy.pose?.moving ? ' · wait for stop' : ' · F'}</button>
     })}
+    {campusLive.ridePending && !passenger && <p className="walk-note" role="status">Confirming your buggy seat…</p>}
     {campusLive.rideError && <p className="walk-note walk-notice" role="status">{campusLive.rideError}</p>}
     {status?.rideMessage && <p className="walk-note walk-notice" role="status">{status.rideMessage}</p>}
     {compact && (status?.error || paused || !ready) && <p className="walk-notice" role="status">{status?.error ?? (paused ? 'Walk paused' : 'Preparing campus…')}</p>}

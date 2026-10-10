@@ -12,28 +12,32 @@ import type { CrowdChoice } from '../lib/crowdRendering'
 import { motionDelta, stridePhase } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
 import { CAMPUS_COLORS } from '../lib/campusProtocol'
+import { sampleCampusPerson } from '../lib/buggyRide'
 import { PRESENCE_SPEED_LIMITS } from '../lib/movementLimits'
-import type { CampusChat, CampusPerson, CampusSession } from '../lib/campusProtocol'
+import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib/campusProtocol'
 
-function Visitor({ person, session, messages, space, walking, detailed, label }: { person: CampusPerson; session: React.RefObject<CampusSession>; messages: CampusChat[]; space: string; walking: boolean; detailed: boolean; label: boolean }) {
+function Visitor({ person, session, localPose, messages, space, walking, detailed, label }: { person: CampusPerson; session: React.RefObject<CampusSession>; localPose?: React.RefObject<CampusPose | null>; messages: CampusChat[]; space: string; walking: boolean; detailed: boolean; label: boolean }) {
   const root = useRef<Group>(null), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0 }), epoch = useRef(-1), bubble = useRef<HTMLSpanElement>(null)
   const camera = useThree(state => state.camera)
   const message = useMemo(() => [...messages].reverse().find(m => m.sender === person.id && m.scope === 'nearby'), [messages, person.id])
   useFrame((_, delta) => {
     const group = root.current, currentPerson = session.current.peopleById?.get(person.id) ?? session.current.snapshot?.people.find(p => p.id === person.id)
-    const pose = session.current.motion?.sample(person.id, performance.now()) ?? currentPerson?.pose
+    const pose = currentPerson ? sampleCampusPerson(session.current, currentPerson, performance.now(), localPose?.current) : null
     if (!group || !pose) { if (group) group.visible = false; return }
     const allowedSpace = walking ? pose.space === space : pose.space === 'outdoors'
     const dt = motionDelta(delta), blend = 1 - Math.exp(-dt * 15), beforeX = group.position.x, beforeZ = group.position.z, beforeY = group.position.y, beforeYaw = group.rotation.y
     const snap = epoch.current !== pose.epoch || Math.hypot(group.position.x - pose.x, group.position.z - pose.z) > 8
     if (snap) { group.position.set(pose.x, pose.y, pose.z); group.rotation.y = pose.yaw; epoch.current = pose.epoch }
-    else if (session.current.motion) { group.position.set(pose.x, pose.y, pose.z) }
+    else if (session.current.motion || currentPerson?.ride) { group.position.set(pose.x, pose.y, pose.z) }
     else { group.position.x += (pose.x - group.position.x) * blend; group.position.y += (pose.y - group.position.y) * blend; group.position.z += (pose.z - group.position.z) * blend }
     group.visible = pose.visible && allowedSpace && camera.position.distanceToSquared(group.position) < (walking ? 160 ** 2 : 1200 ** 2)
     motion.current.paused = !group.visible
     group.rotation.order = 'YXZ'
-    group.rotation.x += ((pose.pitch ?? 0) - group.rotation.x) * blend
-    group.rotation.y += Math.atan2(Math.sin(pose.yaw - group.rotation.y), Math.cos(pose.yaw - group.rotation.y)) * blend
+    if (session.current.motion || currentPerson?.ride) group.rotation.set(pose.pitch ?? 0, pose.yaw, 0)
+    else {
+      group.rotation.x += ((pose.pitch ?? 0) - group.rotation.x) * blend
+      group.rotation.y += Math.atan2(Math.sin(pose.yaw - group.rotation.y), Math.cos(pose.yaw - group.rotation.y)) * blend
+    }
     const distance = snap ? 0 : Math.hypot(group.position.x - beforeX, group.position.z - beforeZ)
     motion.current.moving = pose.active && distance > .001; motion.current.running = pose.running; motion.current.speed = motion.current.moving && dt ? Math.min(PRESENCE_SPEED_LIMITS[currentPerson?.ride ? 'buggy' : pose.vehicle ?? 'walk'], distance / dt) : 0
     const forwardTravel = -(group.position.x - beforeX) * Math.sin(pose.yaw) - (group.position.z - beforeZ) * Math.cos(pose.yaw)
@@ -42,6 +46,7 @@ function Visitor({ person, session, messages, space, walking, detailed, label }:
     motion.current.impactStrength = impact?.strength ?? 0
     motion.current.impactAge = impact ? Math.max(0, ((session.current.motion?.renderTime(performance.now()) ?? session.current.snapshot?.serverTime ?? impact.until) - impact.startedAt) / 1000) : 2
     motion.current.vehicle = currentPerson?.ride ? 'buggy' : pose.vehicle ?? 'walk'
+    motion.current.passenger = !!currentPerson?.ride
     motion.current.phase = stridePhase(motion.current.phase, distance, pose.running)
     motion.current.social = currentPerson?.social; motion.current.airborne = pose.airborne
     motion.current.verticalVelocity = !snap && dt && pose.airborne ? Math.max(-4.4, Math.min(4.4, (group.position.y - beforeY) / dt)) : undefined
@@ -56,7 +61,7 @@ function Visitor({ person, session, messages, space, walking, detailed, label }:
     </Html>}
   </group>
 }
-export default function CampusPeopleScene({ people, session, messages, excludedIds, space, walking }: { people: CampusPerson[]; session: React.RefObject<CampusSession>; messages: CampusChat[]; excludedIds: string[]; space: string; walking: boolean }) {
+export default function CampusPeopleScene({ people, session, localPose, messages, excludedIds, space, walking }: { people: CampusPerson[]; session: React.RefObject<CampusSession>; localPose?: React.RefObject<CampusPose | null>; messages: CampusChat[]; excludedIds: string[]; space: string; walking: boolean }) {
   const profile = useContext(GraphicsContext), elapsed = useRef(1), key = useRef(''), [choices, setChoices] = useState<CrowdChoice[]>([])
   useFrame(({ camera }, delta) => {
     elapsed.current += delta
@@ -66,5 +71,5 @@ export default function CampusPeopleScene({ people, session, messages, excludedI
     const nextKey = next.map(person => `${person.id}:${person.detailed}:${person.label}`).join('|')
     if (nextKey !== key.current) { key.current = nextKey; setChoices(next) }
   })
-  return <>{choices.map(choice => { const person = people.find(person => person.id === choice.id); return person && <Visitor key={person.id} person={person} session={session} messages={messages} space={space} walking={walking} detailed={choice.detailed} label={choice.label} /> })}</>
+  return <>{choices.map(choice => { const person = people.find(person => person.id === choice.id); return person && <Visitor key={person.id} person={person} session={session} localPose={localPose} messages={messages} space={space} walking={walking} detailed={choice.detailed} label={choice.label} /> })}</>
 }

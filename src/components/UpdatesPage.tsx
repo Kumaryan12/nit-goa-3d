@@ -1,9 +1,10 @@
 import { navigate } from '../lib/community'
 import './updates.css'
 
-export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/releases/tag/campus-update-2026-10-10'
+export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/releases/tag/buggy-rides-2026-10-10'
 
 const updates = [
+  { kind: 'Fixed', title: 'Bring your friends along.', detail: 'A buggy carries its driver and three passengers. Walk up to a stopped buggy and choose Hop in or press F. Confirmed seats survive delayed updates, and riders stay seated together through turns and slopes.' },
   { kind: 'Improved', title: 'More at home in the hostel.', detail: 'Faster indoor movement, entrance stairs, four lifts and clearer corridor routes connect both Boys Hostel courtyards. The southeast court keeps its badminton space, with warmer lighting and more greenery.' },
   { kind: 'Added', title: 'Find your people.', detail: 'In avatar mode, see campus friends on the map with direction, distance and floor. Hide your shared location, switch off markers or mute individual markers whenever you want.' },
   { kind: 'Fixed', title: 'Let the OAT hear you.', detail: 'Live voice now uses a relay when direct connections fail, with input and received-audio meters, listener volume and mute controls, and automatic connection recovery.' },

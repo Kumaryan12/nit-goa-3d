@@ -43,6 +43,7 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
       if (msg.type === 'buggy-ride') {
         const result = room.ride(identity.id, msg.driverId)
         send(ws, { type: 'buggy-result', ...result })
+        if ('ok' in result) send(ws, campusSnapshotForViewer(room.snapshot(), identity.id))
       }
       if (msg.type === 'chat') {
         const result = room.chat(identity.id, msg.text, msg.scope)

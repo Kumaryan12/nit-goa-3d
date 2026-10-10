@@ -166,6 +166,9 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
         return 'accepted'
       }
       if (member.person.ride) {
+        // A walking heartbeat may already be in flight when the server assigns
+        // the next seat epoch. It must not undo a successful boarding request.
+        if (previous && pose.epoch < previous.epoch && activity === 'walk' && pose.visible && pose.space === 'outdoors') return 'throttled'
         if (throttled) return 'throttled'
         if (activity !== 'walk' || !pose.visible || pose.space !== 'outdoors' || pose.epoch !== previous?.epoch) release(id, now)
         else {
@@ -245,8 +248,8 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       if (!campusId(driverId) || driverId === id || member.person.ride) return { error: 'Choose another nearby buggy while on foot.' }
       if (member.person.social?.action === 'sit') return { error: 'Stand up before boarding a buggy.' }
       const driver = members.get(driverId), p = driver?.person.pose, own = member.person.pose
-      if (!driver || driver.person.ride || driver.person.activity !== 'walk' || !p?.active || !p.visible || p.vehicle !== 'buggy' || p.space !== 'outdoors' || now - driver.poseAt > 2000) return { error: 'That buggy is no longer available.' }
-      if (!own?.active || !own.visible || own.space !== 'outdoors' || (own.vehicle ?? 'walk') !== 'walk' || member.person.activity !== 'walk' || now - member.poseAt > 2000 || Math.hypot(own.x - p.x, own.y - p.y, own.z - p.z) > 4) return { error: 'Walk within four metres of the buggy to board.' }
+      if (!driver || driver.person.ride || driver.person.activity !== 'walk' || !p || !p.visible || p.vehicle !== 'buggy' || p.space !== 'outdoors' || now - driver.poseAt > 2000) return { error: 'That buggy is no longer available.' }
+      if (!own?.active || !own.visible || own.airborne || own.space !== 'outdoors' || (own.vehicle ?? 'walk') !== 'walk' || member.person.activity !== 'walk' || now - member.poseAt > 2000 || Math.hypot(own.x - p.x, own.y - p.y, own.z - p.z) > 4) return { error: 'Walk within four metres of the buggy to board.' }
       if (p.moving) return { error: 'Wait for the buggy to stop before boarding.' }
       const occupied = new Set([...members.values()].filter(m => m.person.ride?.driverId === driverId).map(m => m.person.ride!.seat))
       const seat = ([1, 2, 3] as BuggyRide['seat'][]).find(s => !occupied.has(s))
