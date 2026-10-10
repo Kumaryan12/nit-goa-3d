@@ -49,12 +49,13 @@ function Visitor({ person, session, localPose, messages, space, walking, detaile
     motion.current.passenger = !!currentPerson?.ride
     motion.current.phase = stridePhase(motion.current.phase, distance, pose.running)
     motion.current.social = currentPerson?.social; motion.current.airborne = pose.airborne
+    motion.current.seated = currentPerson?.concert?.role === 'audience'
     motion.current.verticalVelocity = !snap && dt && pose.airborne ? Math.max(-4.4, Math.min(4.4, (group.position.y - beforeY) / dt)) : undefined
     motion.current.turn = !snap && dt ? Math.atan2(Math.sin(group.rotation.y - beforeYaw), Math.cos(group.rotation.y - beforeYaw)) / dt : 0
     if (bubble.current) bubble.current.hidden = !message || Date.now() - message.time > 8000
   })
   return <group ref={root} position={person.pose ? [person.pose.x, person.pose.y, person.pose.z] : [0, 0, 0]} name="shared-campus-visitor">
-    {!detailed ? <CrowdAvatar style={person.avatarStyle} motion={motion} color={CAMPUS_COLORS[person.color]} seated={person.social?.action === 'sit' || !!person.ride} passenger={!!person.ride} vehicle={person.ride ? 'walk' : person.pose?.vehicle ?? 'walk'} /> : person.ride ? <StudentAvatar style={person.avatarStyle} motion={motion} jersey={CAMPUS_COLORS[person.color]} /> : <CampusVehicle style={person.avatarStyle} mode={person.pose?.vehicle ?? 'walk'} motion={motion} jersey={CAMPUS_COLORS[person.color]} />}
+    {!detailed ? <CrowdAvatar style={person.avatarStyle} motion={motion} color={CAMPUS_COLORS[person.color]} seated={person.concert?.role === 'audience' || person.social?.action === 'sit' || !!person.ride} passenger={!!person.ride} vehicle={person.ride ? 'walk' : person.pose?.vehicle ?? 'walk'} /> : person.ride ? <StudentAvatar style={person.avatarStyle} motion={motion} jersey={CAMPUS_COLORS[person.color]} /> : <CampusVehicle style={person.avatarStyle} mode={person.pose?.vehicle ?? 'walk'} motion={motion} jersey={CAMPUS_COLORS[person.color]} />}
     {label && <SocialBubble session={session} personId={person.id} />}
     {label && <Html center position={[0, 2.25, 0]} zIndexRange={[20, 0]} distanceFactor={12}>
       <div className="campus-avatar-caption"><span ref={bubble} className="campus-speech" hidden>{message?.text}</span>{person.handle ? <a href={`/people/${person.handle}`} target="_blank" rel="noopener noreferrer" className="campus-avatar-name" onPointerDown={event => event.stopPropagation()}>{person.name}</a> : <span className="campus-avatar-name">{person.name}</span>}</div>

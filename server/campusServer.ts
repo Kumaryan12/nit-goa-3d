@@ -8,12 +8,16 @@ import { CAMPUS_CAPACITY, parseCampusPose } from '../src/lib/campusProtocol.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
 import { publishedSocialSeats } from './socialSeats.ts'
 import type { SocialSeat } from '../src/lib/social.ts'
+import { seatConcertVisitors } from './concertSeating.ts'
+import type { ConcertLayout } from '../src/lib/concertSeating.ts'
+import type { OatSnapshot } from '../src/lib/oatProtocol.ts'
 
-export function attachCampusServer(server: EventEmitter, origin?: string, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats()) {
+export function attachCampusServer(server: EventEmitter, origin?: string, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats(), concert?: { snapshot: () => OatSnapshot; layout: ConcertLayout }) {
   const room = createCampusRoom(boundary, seats), sockets = new Map<string, WebSocket>(), spawnSlots = new Map<string, number>()
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384, perMessageDeflate: false })
   const access = attachLiveAccess(server, wss, '/presence', origin, CAMPUS_CAPACITY, verify)
   const send = (ws: WebSocket, value: unknown) => { if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(JSON.stringify(value)) }
+  const snapshot = () => concert ? seatConcertVisitors(room.snapshot(), concert.snapshot(), concert.layout) : room.snapshot()
   access.onAdmit((ws, identity) => {
     if (!room.add(identity)) { ws.close(1013, 'Campus full'); return }
     sockets.set(identity.id, ws)
@@ -21,7 +25,7 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
     while ([...spawnSlots.values()].includes(spawnSlot)) spawnSlot++
     spawnSlots.set(identity.id, spawnSlot)
     send(ws, { type: 'campus-welcome', id: identity.id, spawnSlot, history: room.history() })
-    send(ws, campusSnapshotForViewer(room.snapshot(), identity.id))
+    send(ws, campusSnapshotForViewer(snapshot(), identity.id))
     let correctedAt = 0
     ws.on('message', (bytes, binary) => {
       if (binary || ws.readyState !== WebSocket.OPEN || !access.isAdmitted(ws)) return
@@ -43,7 +47,7 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
       if (msg.type === 'buggy-ride') {
         const result = room.ride(identity.id, msg.driverId)
         send(ws, { type: 'buggy-result', ...result })
-        if ('ok' in result) send(ws, campusSnapshotForViewer(room.snapshot(), identity.id))
+        if ('ok' in result) send(ws, campusSnapshotForViewer(snapshot(), identity.id))
       }
       if (msg.type === 'chat') {
         const result = room.chat(identity.id, msg.text, msg.scope)
@@ -56,8 +60,8 @@ export function attachCampusServer(server: EventEmitter, origin?: string, verify
   const timer = setInterval(() => {
     for (const [id, ws] of sockets) { const identity = access.identity(ws); if (identity) room.updateIdentity(identity); else { room.remove(id); sockets.delete(id); spawnSlots.delete(id) } }
     if (!sockets.size) return
-    const state = room.snapshot(), snapshot = JSON.stringify(state), privateMarkers = state.people.some(p => p.locatorVisible === false)
-    for (const [id, ws] of sockets) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(privateMarkers ? JSON.stringify(campusSnapshotForViewer(state, id)) : snapshot)
+    const state = snapshot(), encoded = JSON.stringify(state), privateMarkers = state.people.some(p => p.locatorVisible === false)
+    for (const [id, ws] of sockets) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(privateMarkers ? JSON.stringify(campusSnapshotForViewer(state, id)) : encoded)
   }, 100)
   timer.unref()
   let closed = false

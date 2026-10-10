@@ -11,7 +11,7 @@ export const CAMPUS_COLORS = PROFILE_COLOR_HEX
 export type CampusActivity = 'walk' | 'overview' | 'football' | 'concert'
 export interface CampusPose { impactAck?: number; airborne?: boolean; pitch?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; x: number; y: number; z: number; yaw: number; moving: boolean; running: boolean; active: boolean; visible: boolean; space: string; epoch: number }
 export interface BuggyRide { driverId: string; seat: 1 | 2 | 3 }
-export interface CampusPerson { locatorVisible?: boolean; impact?: BuggyImpact; avatarStyle?: AvatarStyle; social?: SocialState; ride?: BuggyRide; id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
+export interface CampusPerson { concert?: { seat: number; role: 'audience' | 'performer' }; locatorVisible?: boolean; impact?: BuggyImpact; avatarStyle?: AvatarStyle; social?: SocialState; ride?: BuggyRide; id: string; name: string; handle: string | null; color: CampusProfile['avatar_color']; activity: CampusActivity; pose: CampusPose | null }
 export interface CampusSnapshot { type: 'campus-state'; sequence: number; serverTime: number; people: CampusPerson[] }
 export interface CampusChat { type: 'chat'; id: string; sender: string; name: string; scope: 'campus' | 'nearby'; text: string; time: number }
 export interface CampusSession { snapshotReceivedAt?: number; id: string | null; snapshot: CampusSnapshot | null; correction?: CampusPose; impact?: ReceivedBuggyImpact; motion?: RemoteMotionBuffer; peopleById?: Map<string, CampusPerson>; spawnSlot?: number; spawnPending?: boolean }
@@ -49,12 +49,13 @@ export function parseCampusSnapshot(value: unknown): CampusSnapshot | null {
     if (p.avatarStyle !== undefined && !isAvatarStyle(p.avatarStyle)) return null
     const pose = p.pose === null ? null : parseCampusPose(p.pose)
     if (p.pose !== null && !pose) return null
+    if (p.concert !== undefined && (!p.concert || !Number.isInteger(p.concert.seat) || p.concert.seat < 0 || p.concert.seat >= 24 || !['audience', 'performer'].includes(p.concert.role) || p.activity !== 'concert' || !pose || pose.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk' || pose.airborne || p.ride || p.impact)) return null
     if (p.ride !== undefined && (!p.ride || !campusId(p.ride.driverId) || p.ride.driverId === p.id || ![1, 2, 3].includes(p.ride.seat) || !pose || pose.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk')) return null
     const impact = p.impact === undefined ? undefined : parseBuggyImpact(p.impact)
     if (p.impact !== undefined && (!impact || !pose || pose.vehicle !== 'buggy' || pose.epoch !== impact.anchor.epoch || p.ride)) return null
     const social = p.social === undefined ? undefined : parseSocialState(p.social)
     if (p.social !== undefined && (!social || p.ride || !pose || pose.airborne || (pose.vehicle ?? 'walk') !== 'walk' || p.activity === 'football' || social.action === 'sit' && (p.activity !== 'walk' || pose.space !== 'outdoors'))) return null
-    ids.add(p.id); people.push({ ...(p.locatorVisible === undefined ? {} : { locatorVisible: p.locatorVisible }), ...(impact ? { impact } : {}), ...(social ? { social } : {}), ...(p.ride ? { ride: { driverId: p.ride.driverId, seat: p.ride.seat } } : {}), ...(p.avatarStyle ? { avatarStyle: p.avatarStyle } : {}), id: p.id, name: p.name, handle: p.handle, color: p.color, activity: p.activity, pose })
+    ids.add(p.id); people.push({ ...(p.concert ? { concert: { seat: p.concert.seat, role: p.concert.role } } : {}), ...(p.locatorVisible === undefined ? {} : { locatorVisible: p.locatorVisible }), ...(impact ? { impact } : {}), ...(social ? { social } : {}), ...(p.ride ? { ride: { driverId: p.ride.driverId, seat: p.ride.seat } } : {}), ...(p.avatarStyle ? { avatarStyle: p.avatarStyle } : {}), id: p.id, name: p.name, handle: p.handle, color: p.color, activity: p.activity, pose })
   }
   const seats = new Set<string>()
   const socialSeats = new Set<string>()

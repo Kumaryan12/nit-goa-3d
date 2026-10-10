@@ -11,7 +11,7 @@ export function campusSnapshotForViewer(snapshot: CampusSnapshot, viewerId: stri
   }).map(p => p.id))
   return { ...snapshot, people: snapshot.people.map(person => {
     if (hidden.has(person.id)) {
-      const { ride: _ride, impact: _impact, social: _social, ...metadata } = person
+      const { concert: _concert, ride: _ride, impact: _impact, social: _social, ...metadata } = person
       return { ...metadata, pose: null }
     }
     if (person.ride && hidden.has(person.ride.driverId)) {

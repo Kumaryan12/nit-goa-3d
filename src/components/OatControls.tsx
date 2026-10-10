@@ -30,6 +30,7 @@ export default function OatControls({ session, joined, onJoin, onRetry, onClose 
     </> : <>
       <p className="oat-status" role="status">{live ? `${room?.participants.length ?? 0} / ${OAT_CAPACITY} people here` : connection === 'waiting' ? `Theatre full · you’re ${session.queuePosition} in the waiting queue. You’ll enter automatically.` : connection === 'connecting' ? 'Joining the concert…' : 'Connection lost. Your microphone is off.'}</p>
       {room?.voiceUsage && <OatUsageMeter usage={room.voiceUsage} connected={live} />}
+      {live && selfId && <p className="oat-muted" role="status">{onStage ? 'You’re on the OAT stage. End your turn to return to your seat.' : `You’re seated in the audience${room?.participants.find(p => p.id === selfId)?.seat !== undefined ? ` · Row ${Math.floor(room.participants.find(p => p.id === selfId)!.seat! / 8) + 1}` : ''}. Take the stage to perform, or leave the concert to walk.`}</p>}
       {voicePaused && <p className="oat-muted" role="status">{oatVoiceNotice(room!.voiceAvailability!)}</p>}
       {!live && connection !== 'connecting' && connection !== 'waiting' && <button className="navigate-button" onClick={onRetry}>Reconnect to concert</button>}
       <section className="oat-section" aria-label="My concert sound">

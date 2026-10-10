@@ -4,6 +4,7 @@ import { resolve, extname, sep } from 'node:path'
 import { attachFootballServer } from './footballServer.ts'
 import { attachOatServer } from './oatServer.ts'
 import { attachCampusServer } from './campusServer.ts'
+import { publishedConcertLayout } from './concertSeating.ts'
 import { createAccessVerifier } from './access.ts'
 import { firebaseProject, firebaseAdmin } from './firebaseAdmin.ts'
 import { createProfileAPI } from './profileApi.ts'
@@ -137,7 +138,7 @@ oat = attachOatServer(
   origin ?? process.env.OAT_ORIGIN ?? process.env.FOOTBALL_ORIGIN,
   verify,
 )
-const campus = attachCampusServer(server, origin, verify)
+const campus = attachCampusServer(server, origin, verify, undefined, undefined, { snapshot: () => oat.room.snapshot(), layout: publishedConcertLayout() })
 crowd = createCrowdAPI(football.access, oat.access, oat.endStage, verify, () =>
   profiles.changed(),
   undefined, campus, oat.voiceUsage,
