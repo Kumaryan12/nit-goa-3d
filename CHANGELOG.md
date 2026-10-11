@@ -9,10 +9,11 @@ Public update log: [What’s new](https://nitg-explored.onrender.com/updates).
 - Smooth the shared ball with buffered snapshots, bounded prediction and explicit kickoff resets. Fixed-rate server physics, measured-speed dribbling and short buffered presses improve ball contacts.
 - Use accepted pose progress to avoid false corrections during healthy network delay. Give teams separate spawn slots facing the proper goal, and share accepted kick animations.
 - Budget detailed football avatars by distance and graphics quality; other players retain light team-coloured models and smooth motion.
+- Celebrate shared goals with team-coloured confetti and a short score banner. Keep the burst within the kickoff countdown, avoid replaying it on reconnect and respect reduced-motion preferences.
 - Automatically seat concert audience avatars, reserve their places through stage turns, and show seated participants to nearby visitors. Leaving restores walking at the OAT entrance.
 - Display shared monitored voice usage to concert participants, including minimized controls.
 
-Validation: 516 regression tests and production build; includes 24 authenticated loopback football peers and phone layout rehearsal. Physical-device latency depends on the connection and hardware.
+Validation: 520 regression tests and production build; includes 24 authenticated loopback football peers, goal celebration timing/reconnect checks and phone portrait/landscape layout rehearsal. Physical-device latency depends on the connection and hardware.
 
 ## Feedback update — 8–9 October 2026
 

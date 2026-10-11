@@ -41,7 +41,7 @@ function Rehearsal({ twin }: {twin:DigitalTwin}) {
       if(a && now-poseAt>=50) {
         const p=footballToLocal(a.position,pitch),d=footballToLocal(a.direction,{...pitch,center:{x:0,z:0}})
         room.handle('you',{type:'pose',sequence:++sequence,...p,dx:d.x,dz:d.z,active:a.active,running:a.running});poseAt=now
-        if(kick!==football.current.kick){kick=football.current.kick;room.handle('you',{type:'kick',mode:football.current.action,dx:d.x,dz:d.z})}
+        if(kick!==football.current.kick){kick=football.current.kick;room.handle('you',{type:'kick',mode:football.current.action,running:a.running,dx:d.x,dz:d.z})}
       }
       if(reset!==football.current.reset){reset=football.current.reset;room.handle('you',{type:'reset'})}
       accumulator+=Math.min(.1,(now-previous)/1000);previous=now
@@ -63,6 +63,11 @@ function Rehearsal({ twin }: {twin:DigitalTwin}) {
     <FootballControls input={football} status={status} connection="live" players={players} selfId="you" paused={paused} onLeave={()=>setPaused(true)} onRetry={()=>{}}/>
     <WalkControls compact football={{input:football,live:true,restarting:!!status?.countdown}} campusLive={campusLive as unknown as React.ComponentProps<typeof WalkControls>['campusLive']} input={input} status={walk} paused={paused} ready locations={twin.locations} onPause={()=>setPaused(p=>!p)} onSpawn={()=>{}} onInspect={()=>{}} onOverview={()=>{}}/>
     <button type="button" onClick={()=>setLatency(p=>!p)} style={{position:'absolute',top:12,left:12,zIndex:50,padding:12}}>Delay packets: {latency?'180 ms':'off'}</button>
+    <button type="button" onClick={()=>{
+      const friend=room.snapshot().players.find(p=>p.id==='friend')!
+      room.handle('friend',{type:'pose',sequence:(friend.poseSequence ?? 0)+1,x:1.4,z:0,dx:-1,dz:0,active:true,running:true})
+      if(room.handle('friend',{type:'kick',mode:'shot',running:true}))for(let i=0;i<300;i++) {room.tick(1/60);if(room.snapshot().ball.event==='gold-goal')break}
+    }} style={{position:'absolute',top:90,left:12,zIndex:50,padding:8}}>Preview goal</button>
     <output style={{position:'absolute',top:62,left:12,zIndex:50,fontSize:12,color:'#234638'}}>Ball {session.current.snapshot?.ball.x.toFixed(2)}, {session.current.snapshot?.ball.z.toFixed(2)} · {football.current.actor?.active?'active':'inactive'} · avatar {walk?.position.x.toFixed(1)}, {walk?.position.z.toFixed(1)}</output>
   </main>
 }
