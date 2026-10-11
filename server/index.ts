@@ -11,6 +11,7 @@ import { createProfileAPI } from './profileApi.ts'
 import { createAccessAPI } from './accessApi.ts'
 import { createReadiness } from './readiness.ts'
 import { createCrowdAPI } from './crowdApi.ts'
+import { configuredOrigins, handleCampusCors } from './siteOrigins.ts'
 const project = firebaseProject(),
   production = process.env.NODE_ENV === 'production'
 const site = process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL
@@ -23,6 +24,8 @@ if (site && (new URL(site).username || new URL(site).password))
 const ready = createReadiness()
 const origin = site ? new URL(site).origin : undefined,
   verify = createAccessVerifier()
+const origins = configuredOrigins(site, process.env.FRONTEND_ORIGINS)
+const frontend = configuredOrigins(process.env.FRONTEND_URL)?.[0]
 const liveOrigin = origin?.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:') || ''
 let oat: ReturnType<typeof attachOatServer>,
   crowd: ReturnType<typeof createCrowdAPI>
@@ -67,6 +70,7 @@ const server = createServer((request, response) => {
   )
   if (production)
     response.setHeader('Strict-Transport-Security', 'max-age=31536000')
+  if (handleCampusCors(request, response, origins)) return
   if (request.url === '/healthz' || request.url === '/readyz') {
     void (request.url === '/healthz' ? Promise.resolve(true) : ready()).then(
       (ok) => {
@@ -117,6 +121,14 @@ const server = createServer((request, response) => {
     path === '/' ||
     ['/campus', '/student', '/admin', '/admin/campus', '/admin/crowd', '/me', '/manage', '/people', '/updates'].includes(path) ||
     /^\/people\/[a-z][a-z0-9_]{2,23}$/.test(path)
+  if (spa && frontend) {
+    response.writeHead(302, {
+      Location: frontend + path + new URL(request.url ?? '/', 'http://localhost').search,
+      'Cache-Control': 'no-store',
+    })
+    response.end()
+    return
+  }
   const file = resolve(root, spa ? 'index.html' : '.' + path)
   if (!file.startsWith(root + sep)) {
     response.writeHead(403)
@@ -130,15 +142,15 @@ server.headersTimeout = 10000
 server.maxHeadersCount = 50
 const football = attachFootballServer(
   server,
-  origin ?? process.env.FOOTBALL_ORIGIN,
+  origins ?? process.env.FOOTBALL_ORIGIN,
   verify,
 )
 oat = attachOatServer(
   server,
-  origin ?? process.env.OAT_ORIGIN ?? process.env.FOOTBALL_ORIGIN,
+  origins ?? process.env.OAT_ORIGIN ?? process.env.FOOTBALL_ORIGIN,
   verify,
 )
-const campus = attachCampusServer(server, origin, verify, undefined, undefined, { snapshot: () => oat.room.snapshot(), layout: publishedConcertLayout() })
+const campus = attachCampusServer(server, origins, verify, undefined, undefined, { snapshot: () => oat.room.snapshot(), layout: publishedConcertLayout() })
 crowd = createCrowdAPI(football.access, oat.access, oat.endStage, verify, () =>
   profiles.changed(),
   undefined, campus, oat.voiceUsage,

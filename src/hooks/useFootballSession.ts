@@ -1,4 +1,5 @@
 import { authenticateLiveSocket } from '../lib/liveAuth'
+import { liveServerURL } from '../lib/serverURL'
 import { useEffect, useRef, useState } from 'react'
 import { createFootballState, footballToLocal, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch } from '../lib/football'
@@ -22,9 +23,7 @@ export function useFootballSession(joined: boolean, retry: number, controls: Rea
     let socket: WebSocket
     setConnection('connecting'); session.current = { id: null, snapshot: null, motion: new RemoteMotionBuffer(), ballMotion:new FootballMotionBuffer() }; setPlayers([])
     try {
-      const url = new URL(import.meta.env.VITE_FOOTBALL_URL || '/football', window.location.href)
-      if (url.protocol === 'http:') url.protocol = 'ws:'; if (url.protocol === 'https:') url.protocol = 'wss:'
-      if (!['ws:','wss:'].includes(url.protocol)) throw new Error('Invalid football server URL')
+      const url = liveServerURL('/football', window.location.href, import.meta.env.VITE_CAMPUS_SERVER_URL, import.meta.env.VITE_FOOTBALL_URL)
       socket = new WebSocket(url)
     } catch { setConnection('offline'); return }
     let kick = controls.current.kick, reset = controls.current.reset, poseAt = -Infinity, poseSequence=0

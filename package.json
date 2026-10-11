@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && node --experimental-strip-types scripts/build-social-seats.mjs && node scripts/compress-assets.mjs",
+    "build:pages": "npm run build && node --env-file-if-exists=.env.local --experimental-strip-types scripts/prepare-pages.mjs",
     "typecheck": "tsc -b",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "preview": "vite preview",
