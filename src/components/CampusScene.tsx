@@ -53,12 +53,12 @@ import type { LocalCoordinate } from '../lib/geo'
 import CampusPeopleScene from './CampusPeopleScene'
 import HostelCourtyards from './HostelCourtyards'
 import ScenePerformance, { GraphicsContext } from './ScenePerformance'
-import { adaptGraphics, graphicsProfile, initialGraphics } from '../lib/graphics'
+import { adaptGraphics, frameBudgetFps, graphicsProfile, initialGraphics } from '../lib/graphics'
 import { footballGraphicsProfile, footballTrees } from '../lib/footballRendering'
 import type { GraphicsMode } from '../lib/graphics'
 import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib/campusProtocol'
 
-export interface SceneMetrics { fps: number; calls: number; triangles: number; peakCalls?:number; peakTriangles?:number }
+export interface SceneMetrics { fps: number; calls: number; triangles: number; peakCalls?:number; peakTriangles?:number; p95Ms?:number; worstMs?:number; slowFrames?:number }
 interface CampusSceneProps {
   overviewDrag?: OverviewDrag
   scenePrepared?: boolean
@@ -192,15 +192,16 @@ function Navigation({ twin, request, facades, drag }: { twin: DigitalTwin | null
 }
 
 function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => void }) {
-  const elapsed = useRef(0), frames = useRef(0),calls=useRef(0),triangles=useRef(0),peakCalls=useRef(0),peakTriangles=useRef(0)
+  const elapsed = useRef(0), frames = useRef(0),calls=useRef(0),triangles=useRef(0),peakCalls=useRef(0),peakTriangles=useRef(0), frameTimes=useRef<number[]>([])
   useFrame(({ gl }, delta) => {
-    elapsed.current += delta; frames.current++
+    elapsed.current += delta; frames.current++; frameTimes.current.push(delta*1000)
     calls.current+=gl.info.render.calls;triangles.current+=gl.info.render.triangles
     peakCalls.current=Math.max(peakCalls.current,gl.info.render.calls);peakTriangles.current=Math.max(peakTriangles.current,gl.info.render.triangles)
     if (elapsed.current >= 2) {
-      onMetrics({ fps: Math.round(frames.current / elapsed.current), calls:Math.round(calls.current/frames.current),triangles:Math.round(triangles.current/frames.current),peakCalls:peakCalls.current,peakTriangles:peakTriangles.current })
+      const times=frameTimes.current.sort((a,b)=>a-b)
+      onMetrics({ p95Ms:times[Math.max(0,Math.ceil(times.length*.95)-1)],worstMs:times.at(-1),slowFrames:times.filter(t=>t>34).length,fps: Math.round(frames.current / elapsed.current), calls:Math.round(calls.current/frames.current),triangles:Math.round(triangles.current/frames.current),peakCalls:peakCalls.current,peakTriangles:peakTriangles.current })
       elapsed.current = 0; frames.current = 0
-      calls.current=triangles.current=peakCalls.current=peakTriangles.current=0
+      calls.current=triangles.current=peakCalls.current=peakTriangles.current=0;frameTimes.current=[]
     }
   })
   return null
@@ -215,7 +216,7 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
   const reportMetrics = useCallback((metrics: SceneMetrics) => {
     onMetrics?.(metrics)
     if (graphicsMode !== 'auto' || document.hidden || !document.hasFocus()) return
-    adaptation.current = adaptGraphics(adaptation.current, metrics.fps, 2, compact,footballJoined?1:2)
+    adaptation.current = adaptGraphics(adaptation.current, frameBudgetFps(metrics.fps,metrics.p95Ms), 2, compact,footballJoined?1:2,footballJoined||compact?-1:0)
     setQualityLevel(adaptation.current.level)
   }, [graphicsMode, compact, onMetrics,footballJoined])
   const concertLayout = useMemo(() => twin ? createConcertLayout(twin.theatre) : null, [twin])

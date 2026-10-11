@@ -26,7 +26,7 @@ export default function ScenePerformance({ dynamicShadows, revision }: { dynamic
   const profile = useContext(GraphicsContext)
   const shadowElapsed = useRef(0)
   useFrame((_, delta) => {
-    if (!dynamicShadows) return
+    if (!dynamicShadows || profile.shadowRate <= 0) return
     shadowElapsed.current += delta
     if (shadowElapsed.current >= 1 / profile.shadowRate) {
       shadowElapsed.current %= 1 / profile.shadowRate

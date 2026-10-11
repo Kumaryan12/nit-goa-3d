@@ -27,7 +27,7 @@ import type { SceneMetrics } from '../../src/components/CampusScene'
 import '../../src/styles.css'
 
 const noop=()=>{},emptyList=[],spawn={sequence:0,locationId:'sports-ground',football:true},playback={status:'stopped',sequence:0,speed:1} as const,cameraRequest={sequence:0,locationId:null}
-const fullScene=new URLSearchParams(location.search).has('full')
+const fullScene=new URLSearchParams(location.search).has('full'),movingPeers=new URLSearchParams(location.search).has('moving')
 
 function Rehearsal({ twin }: {twin:DigitalTwin}) {
   const pitch=useMemo(()=>footballPitch(twin.locations.find(p=>p.id==='sports-ground')!),[twin])
@@ -36,17 +36,20 @@ function Rehearsal({ twin }: {twin:DigitalTwin}) {
   const room=useMemo(()=>{const r=createFootballRoom();const self=r.add('you')!;r.add('friend');for(let i=2;i<Math.min(24,Number(new URLSearchParams(location.search).get('players') ?? 2));i++)r.add(`peer-${i}`);position.current=footballToWorld(self,pitch);football.current.arrivalDirection=footballToWorld({x:self.dx,z:self.dz},{...pitch,center:{x:0,z:0}});return r},[pitch])
   const [status,setStatus]=useState<FootballStatus|null>(null),[walk,setWalk]=useState<WalkStatus|null>(null),[paused,setPaused]=useState(false),[latency,setLatency]=useState(false)
   const [metrics,setMetrics]=useState<SceneMetrics|null>(null)
-  const peakSpeed=useRef(0)
+  const peakSpeed=useRef(0),[visibility,setVisibility]=useState<string>(document.visibilityState)
+  useEffect(()=>{const t=setInterval(()=>setVisibility(`${document.visibilityState} / ${document.hasFocus()?'focused':'unfocused'}`),1000);return()=>clearInterval(t)},[])
   const reportMetrics=useCallback((m:SceneMetrics)=>setMetrics(m),[])
   const reportFootball=useCallback((s:FootballStatus)=>setStatus(p=>p&&p.blue===s.blue&&p.gold===s.gold&&p.canKick===s.canKick&&p.event===s.event&&p.countdown===s.countdown?p:s),[])
   const reportWalk=useCallback((s:WalkStatus)=>setWalk(p=>p&&p.position.x===s.position.x&&p.position.z===s.position.z&&p.blocked===s.blocked&&p.canJump===s.canJump&&p.error===s.error?p:s),[])
   const players=useMemo(()=>room.snapshot().players,[room])
   useEffect(()=>{
     let kick=football.current.kick,reset=football.current.reset,sequence=room.snapshot().players.find(p=>p.id==='you')?.poseSequence ?? 0,poseAt=0,broadcastAt=0,previous=performance.now(),accumulator=0
+    const origins=room.snapshot().players.filter(p=>p.id!=='you'),started=performance.now();let peerAt=0,peerSequence=0
     const deliveries:{at:number;snapshot:ReturnType<typeof room.snapshot>}[]=[]
     const timer=setInterval(()=>{
       const now=performance.now(),a=football.current.actor
       peakSpeed.current=Math.max(peakSpeed.current,a?.speed ?? 0)
+      if(movingPeers&&now-peerAt>=100){peerAt=now;peerSequence++;const t=(now-started)/1000;origins.forEach((p,i)=>{const phase=i*.7,v=t+phase;room.handle(p.id,{type:'pose',sequence:peerSequence,x:p.x+2*(Math.cos(v)-Math.cos(phase)),z:p.z+2*(Math.sin(v)-Math.sin(phase)),dx:-Math.sin(v),dz:Math.cos(v),active:true,running:true})})}
       if(a && now-poseAt>=50) {
         const p=footballToLocal(a.position,pitch),d=footballToLocal(a.direction,{...pitch,center:{x:0,z:0}})
         room.handle('you',{type:'pose',sequence:++sequence,...p,dx:d.x,dz:d.z,active:a.active,running:a.running});poseAt=now
@@ -77,7 +80,7 @@ function Rehearsal({ twin }: {twin:DigitalTwin}) {
       room.handle('friend',{type:'pose',sequence:(friend.poseSequence ?? 0)+1,x:1.4,z:0,dx:-1,dz:0,active:true,running:true})
       if(room.handle('friend',{type:'kick',mode:'shot',running:true}))for(let i=0;i<300;i++) {room.tick(1/60);if(room.snapshot().ball.event==='gold-goal')break}
     }} style={{position:'absolute',top:90,left:12,zIndex:50,padding:8}}>Preview goal</button>
-    <output style={{position:'absolute',top:62,left:12,zIndex:50,fontSize:12,color:'#234638'}}>Ball {session.current.snapshot?.ball.x.toFixed(2)}, {session.current.snapshot?.ball.z.toFixed(2)} · {football.current.actor?.active?'active':'inactive'} · avatar {walk?.position.x.toFixed(1)}, {walk?.position.z.toFixed(1)} · peak speed {peakSpeed.current.toFixed(1)}{metrics && ` · ${metrics.fps} fps · ${metrics.calls} avg calls · ${metrics.triangles} avg triangles · ${metrics.peakCalls} peak calls · ${metrics.peakTriangles} peak triangles`}</output>
+    <output style={{position:'absolute',top:62,left:12,zIndex:50,fontSize:12,color:'#234638'}}>Ball {session.current.snapshot?.ball.x.toFixed(2)}, {session.current.snapshot?.ball.z.toFixed(2)} · {football.current.actor?.active?'active':'inactive'} · avatar {walk?.position.x.toFixed(1)}, {walk?.position.z.toFixed(1)} · visibility {visibility} · peak speed {peakSpeed.current.toFixed(1)}{metrics && ` · ${metrics.fps} fps · p95 ${metrics.p95Ms?.toFixed(1)} ms · worst ${metrics.worstMs?.toFixed(1)} ms · slow ${metrics.slowFrames} · ${metrics.calls} avg calls · ${metrics.triangles} avg triangles · ${metrics.peakCalls} peak calls · ${metrics.peakTriangles} peak triangles`}</output>
   </main>
 }
 async function run() {

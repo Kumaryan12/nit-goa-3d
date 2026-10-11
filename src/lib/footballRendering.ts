@@ -6,7 +6,7 @@ import type { TreeInstance } from './vegetation.ts'
 // automatic football rendering into the most expensive campus quality tier.
 export function footballGraphicsProfile(profile:GraphicsProfile,joined:boolean,mode:GraphicsMode):GraphicsProfile {
   if(!joined || mode==='detailed')return profile
-  return {...profile,dpr:Math.min(profile.dpr,1.15),shadowSize:Math.min(profile.shadowSize,1024),shadowRate:Math.min(profile.shadowRate,6),detailDistance:Math.min(profile.detailDistance,120)}
+  return {...profile,dpr:Math.min(profile.dpr,.9),shadowSize:Math.min(profile.shadowSize,512),shadowRate:0,avatarShadows:false,detailDistance:Math.min(profile.detailDistance,120)}
 }
 
 // The player and follow camera stay on the pitch. Keep generous surrounding

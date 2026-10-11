@@ -27,7 +27,7 @@ function CampusMeadow({ chunks }: { chunks: MeadowChunk[] }) {
       if (mesh.boundingSphere) mesh.boundingSphere.radius += .06
     })
     elapsed.current = 1
-  }, [chunks, profile])
+  }, [chunks])
   useFrame(({ camera }, delta) => {
     elapsed.current += delta
     if (elapsed.current < .25) return

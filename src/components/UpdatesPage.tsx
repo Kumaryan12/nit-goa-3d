@@ -4,7 +4,7 @@ import './updates.css'
 export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/blob/main/CHANGELOG.md'
 
 const updates = [
-  { kind: 'Improved', title: 'A smoother game.', detail: 'Quicker movement, controlled passes and stronger running shots. Lighter graphics and a steadier camera keep running responsive on a busy pitch. Move, run and shoot with separate fingers on phones. Shared goals get team-coloured confetti and a score celebration.' },
+  { kind: 'Improved', title: 'A smoother game.', detail: 'Quicker movement, controlled passes and stronger running shots. Steady shadows, lighter animated opponents and a closer camera reduce stutters while running on a busy pitch. Move, run and shoot with separate fingers on phones. Shared goals get team-coloured confetti and a score celebration.' },
   { kind: 'Added', title: 'Your seat at the concert.', detail: 'Join the OAT audience and your avatar takes a seat facing the stage. Perform, then return to your reserved place. Everyone in the concert can also see the shared voice usage indicator.' },
   { kind: 'Fixed', title: 'Bring your friends along.', detail: 'A buggy carries its driver and three passengers. Walk up to a stopped buggy and choose Hop in or press F. Confirmed seats survive delayed updates, and riders stay seated together through turns and slopes.' },
   { kind: 'Improved', title: 'More at home in the hostel.', detail: 'Faster indoor movement, entrance stairs, four lifts and clearer corridor routes connect both Boys Hostel courtyards. The southeast court keeps its badminton space, with warmer lighting and more greenery.' },
