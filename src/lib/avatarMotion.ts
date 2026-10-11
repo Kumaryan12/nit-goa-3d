@@ -8,7 +8,7 @@ export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(
 
 // Holding movement builds speed; short taps stay precise. Integrate the ramp
 // and its capped remainder exactly so rendering frequency cannot change travel.
-export function advanceLocomotion(state: Locomotion, direction: LocalCoordinate, maxSpeed: number, delta: number, enabled = true) {
+export function advanceLocomotion(state: Locomotion, direction: LocalCoordinate, maxSpeed: number, delta: number, enabled = true, acceleration = 1.2) {
   const dt = motionDelta(delta), length = Math.hypot(direction.x, direction.z)
   const valid = enabled && Number.isFinite(length) && Number.isFinite(maxSpeed) && maxSpeed > 0
   if (!valid) { state.velocity = { x: 0, z: 0 }; return { direction: { x: 0, z: 0 }, speed: 0, delta: dt } }
@@ -25,7 +25,7 @@ export function advanceLocomotion(state: Locomotion, direction: LocalCoordinate,
     const dx = target.x - previous.x, dz = target.z - previous.z, difference = Math.hypot(dx, dz)
     const currentSpeed = Math.hypot(previous.x, previous.z), dot = previous.x * target.x + previous.z * target.z
     const slowing = currentSpeed > speed, turning = currentSpeed > .02 && dot < currentSpeed * speed * .995
-    const rate = slowing || turning ? 10 : 1.2 * amount
+    const rate = slowing || turning ? 10 : (Number.isFinite(acceleration) ? Math.max(.5,Math.min(12,acceleration)) : 1.2) * amount
     const ramp = Math.min(dt, difference / rate), fraction = difference ? Math.min(1, rate * dt / difference) : 1
     state.velocity = { x: previous.x + dx * fraction, z: previous.z + dz * fraction }
     const weight = dt ? ramp / (2 * dt) : 0

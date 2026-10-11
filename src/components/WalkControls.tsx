@@ -8,9 +8,12 @@ import { MOVEMENT_SPEEDS } from '../lib/movementLimits'
 import { nearbyCampusBuggies } from '../lib/buggyRide'
 import type { WalkInput, WalkStatus } from '../lib/walking'
 import type { CampusLocation } from '../types/campus'
+import { requestFootballAction } from '../lib/football'
+import type { FootballControls } from '../lib/football'
 
-export default function WalkControls({ compact = false, campusLive, input, status, paused, ready, locations, onPause, onSpawn, onInspect, onOverview }: {
+export default function WalkControls({ compact = false, football, campusLive, input, status, paused, ready, locations, onPause, onSpawn, onInspect, onOverview }: {
   compact?: boolean
+  football?: { input:React.RefObject<FootballControls>; live:boolean; restarting:boolean }
   campusLive: CampusLiveSession; input: React.RefObject<WalkInput>; status: WalkStatus | null; paused: boolean; ready: boolean; locations: CampusLocation[];
   onPause: () => void; onSpawn: (id: string) => void; onInspect: (id: string) => void; onOverview: () => void
 }) {
@@ -24,7 +27,7 @@ export default function WalkControls({ compact = false, campusLive, input, statu
   const nearbyBuggies = nearbyCampusBuggies(snapshot, selfId, status?.position ?? null)
   const occupants = 1 + (snapshot?.people.filter(p => p.ride?.driverId === (passenger?.driverId ?? selfId)).length ?? 0)
   const riding = !!passenger || !!status?.vehicle && status.vehicle !== 'walk'
-  const inputDisabled = paused || !ready || !!status?.error || !!passenger
+  const inputDisabled = paused || !ready || !!status?.error || !!passenger || !!football && !football.live
   const inside = status?.interior
   const resetKnob = () => { if (knob.current) knob.current.style.transform = 'translate(-50%, -50%)' }
   const clearControls = () => { controls.clear(); resetKnob(); setJog(false) }
@@ -38,7 +41,7 @@ export default function WalkControls({ compact = false, campusLive, input, statu
     return () => { clear(); window.removeEventListener('pointerup', release); window.removeEventListener('pointercancel', release); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
   }, [paused, input, ready, !!status?.error, !!passenger, status?.vehicle, controls])
   const moveStick = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (passenger || paused || !ready || status?.error) return
+    if (inputDisabled) return
     const bounds = event.currentTarget.getBoundingClientRect(), radius = Math.min(bounds.width, bounds.height) * .32
     const value = controls.moveStick(event.pointerId, event.clientX - bounds.left - bounds.width / 2, event.clientY - bounds.top - bounds.height / 2, radius)
     if (!value) return
@@ -48,13 +51,13 @@ export default function WalkControls({ compact = false, campusLive, input, statu
   const startPress = (event: React.PointerEvent<HTMLElement>) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId) }
   const button = (direction: WalkDirection, label: string, symbol: string) => {
     const keyboardId = -2 - ['forward','back','left','right','turn-left','turn-right'].indexOf(direction)
-    return <button type="button" className={`walk-direction walk-${direction}`} aria-label={label} disabled={paused || !ready || !!status?.error || !!passenger}
+    return <button type="button" className={`walk-direction walk-${direction}`} aria-label={label} disabled={inputDisabled}
     onPointerDown={event => { if (inputDisabled || event.button !== 0) return; startPress(event); controls.holdDirection(event.pointerId, direction) }}
     onPointerUp={releaseStick} onPointerCancel={releaseStick} onLostPointerCapture={releaseStick}
     onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); controls.holdDirection(keyboardId, direction) } }}
     onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') { controls.release(keyboardId) } }} onBlur={() => controls.release(keyboardId)}>{symbol}</button>
   }
-  return <aside className={`walk-controls ${compact ? 'walk-controls-compact' : ''}`} aria-label="Avatar exploration controls">
+  return <aside className={`walk-controls ${compact ? 'walk-controls-compact' : ''} ${football ? 'football-movement' : ''}`} aria-label={football ? 'Football movement and touch controls' : 'Avatar exploration controls'}>
     <div className="walk-heading"><div><span className="eyebrow">Walk the campus</span><h2>{inside ? inside.kind==='classroom'?'Gyan Mandir, on foot':'Talpona, on foot' : passenger ? 'Ride with ' + (driver?.name ?? 'your campus friend') : riding ? status?.vehicle === 'buggy' ? 'Drive the campus buggy' : 'Cycle the campus' : 'Your campus, on foot'}</h2></div><button className="text-button" onClick={onOverview}>Overview ↗</button></div>
     <p className="walk-help">{passenger ? 'Enjoy the ride. Wait for the driver to stop, then choose Get out or press F.' : riding ? 'W / ↑ to accelerate · S / ↓ to brake (hold to reverse the buggy) · A/D or ←→ to steer · Space to brake · F to dismount.' : <>Hold WASD / ↑↓ to build speed · ←→ or drag to look · Shift to run · Space / J to jump (J during football) · E to inspect, enter, or use stairs.</>}</p>
     <p className="walk-location" role="status">{status?.error ? status.error : !ready ? 'Waiting for campus geometry…' : paused ? 'Walk paused' : inside ? `${inside.kind==='classroom'?(inside.floor===0?'Ground floor':`Floor ${inside.floor}`):boysHostelDetails.floors[inside.floor]?.label ?? 'Hostel'} · ${inside.stairLowFloor !== null ? 'Using stairs…' : inside.room ?? 'Corridor'}` : nearest ? `Near ${nearest.name} · ${status!.distance.toFixed(1)} m` : 'Explore the paths and open spaces'}{status?.blocked && !paused && ' · Path blocked'}</p>
@@ -86,15 +89,18 @@ export default function WalkControls({ compact = false, campusLive, input, statu
     </div>}
     {nearest && !inside && <button className="fly-button walk-inspect" onClick={() => onInspect(nearest.id)}>Explore {nearest.name} →</button>}
     <div className="walk-start"><label htmlFor="walk-start-location">Start at</label><select id="walk-start-location" value={startId} onChange={event => setStartId(event.target.value)}>{locations.filter(location => location.name !== 'Unnamed campus building').map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select><button className="fly-button" disabled={!ready || !!passenger} onClick={() => { clearControls(); onSpawn(startId) }}>Go</button></div>
-    <div className="walk-input-row"><div className="walk-movement"><div className="walk-joystick" role="group" aria-label={riding ? 'Drag forward to accelerate, backward to brake, sideways to steer' : 'Drag to walk; drag farther to move faster'} aria-disabled={paused || !ready || !!status?.error || !!passenger}
-      onPointerDown={event => { if (event.button !== 0 || passenger || paused || !ready || status?.error || !controls.beginStick(event.pointerId)) return; startPress(event); moveStick(event) }}
+    <div className="walk-input-row"><div className="walk-movement"><div className="walk-joystick" role="group" aria-label={riding ? 'Drag forward to accelerate, backward to brake, sideways to steer' : 'Drag to walk; drag farther to move faster'} aria-disabled={inputDisabled}
+      onPointerDown={event => { if (event.button !== 0 || inputDisabled || !controls.beginStick(event.pointerId)) return; startPress(event); moveStick(event) }}
       onPointerMove={moveStick} onPointerUp={releaseStick} onPointerCancel={releaseStick} onLostPointerCapture={releaseStick}><span className="walk-stick-cross">✦</span><span ref={knob} className="walk-stick-knob" /><span className="walk-stick-label">MOVE</span></div><div className="walk-pad" aria-label="Touch movement controls">{button('forward', riding ? 'Accelerate' : 'Walk forward', '↑')}{button('left', riding ? 'Steer left' : 'Step left', '←')}{button('back', riding ? 'Brake or reverse' : 'Walk backward', '↓')}{button('right', riding ? 'Steer right' : 'Step right', '→')}</div></div><div className="walk-look">{button('turn-left', riding ? 'Steer left' : 'Look left', '↶')}{button('turn-right', riding ? 'Steer right' : 'Look right', '↷')}{riding && !passenger && <button type="button" className="fly-button" disabled={paused || !ready || !!status?.error}
         onPointerDown={event => { if (inputDisabled || event.button !== 0) return; startPress(event); controls.holdBrake(event.pointerId) }}
         onPointerUp={releaseStick} onPointerCancel={releaseStick} onLostPointerCapture={releaseStick}
         onKeyDown={event => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); controls.holdBrake(-20) } }}
         onKeyUp={event => { if (event.key === ' ' || event.key === 'Enter') controls.release(-20) }} onBlur={() => controls.release(-20)}>Brake</button>}
       {!riding && <>
-        <button type="button" className="fly-button walk-jump" disabled={inputDisabled || status?.canJump === false} {...instantControlPress(() => controls.jump(), !inputDisabled && status?.canJump !== false)}>Jump ↑ <small>J</small></button>
+        {football ? <>
+          <button type="button" className="fly-button football-touch-action" disabled={inputDisabled || football.restarting} {...instantControlPress(()=>requestFootballAction(football.input.current,'pass'),!inputDisabled&&!football.restarting)}>Pass <small>Q</small></button>
+          <button type="button" className="navigate-button football-touch-action" disabled={inputDisabled || football.restarting} {...instantControlPress(()=>requestFootballAction(football.input.current),!inputDisabled&&!football.restarting)}>Shoot <small>Space</small></button>
+        </> : <button type="button" className="fly-button walk-jump" disabled={inputDisabled || status?.canJump === false} {...instantControlPress(() => controls.jump(), !inputDisabled && status?.canJump !== false)}>Jump ↑ <small>J</small></button>}
         <button type="button" className="fly-button" disabled={inputDisabled} aria-pressed={jog} {...instantControlPress(() => setJog(controls.toggleRun()), !inputDisabled)}>{jog ? 'Running' : 'Run'}</button>
       </>}
       <button type="button" className="fly-button" aria-pressed={paused} {...instantControlPress(onPause)}>{paused ? 'Resume' : 'Pause'}</button></div></div>

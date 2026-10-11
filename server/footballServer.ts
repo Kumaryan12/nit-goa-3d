@@ -41,12 +41,14 @@ export function attachFootballServer(
     })
     ws.on('close', () => room.remove(id))
   })
-  let lastTick = performance.now()
+  let lastTick = performance.now(), accumulator=0, broadcastAt=0
   const timer = setInterval(() => {
     const now = performance.now()
-    room.tick((now - lastTick) / 1000)
+    accumulator+=Math.min(.1,Math.max(0,(now-lastTick)/1000))
+    while(accumulator>=1/60) {room.tick(1/60);accumulator-=1/60}
     lastTick = now
-    if (!wss.clients.size) return
+    if (!wss.clients.size || now-broadcastAt<50) return
+    broadcastAt=now-(now-broadcastAt)%50
     const message = JSON.stringify(room.snapshot())
     for (const ws of wss.clients)
       if (
@@ -55,7 +57,7 @@ export function attachFootballServer(
         ws.bufferedAmount < 65536
       )
         ws.send(message)
-  }, 50)
+  }, 1000/60)
   const heartbeat = setInterval(() => {
     for (const ws of wss.clients) {
       if (!alive.has(ws)) ws.terminate()

@@ -38,6 +38,8 @@ export default function GestureGuide({ view, drag, onDrag, vehicle, football, on
     ['Left-drag', drag === 'pan' ? 'Move view' : 'Rotate view'], ['Right-drag', 'Rotate view'],
     ['Scroll / pinch', 'Zoom in / out'], ['Click a building', 'Explore'],
   ]
+  if(football && walking && touch) rows.push(['Pass / Shoot + move pad','Kick while moving'])
+  if(football && walking && !touch) rows.push(['Q','Short pass'])
   return <aside className="gesture-guide" id="campus-gesture-guide" aria-label="Campus gesture guide">
     <div className="gesture-guide-heading"><span>Controls <small>{walking ? riding ? 'Riding' : 'Walking' : 'Overview'}</small></span><button type="button" onClick={onClose} aria-label="Hide controls guide">×</button></div>
     <div className="gesture-devices" role="group" aria-label="Input device">

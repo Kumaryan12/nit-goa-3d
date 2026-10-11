@@ -1,9 +1,11 @@
 import { navigate } from '../lib/community'
 import './updates.css'
 
-export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/releases/tag/buggy-rides-2026-10-10'
+export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/blob/main/CHANGELOG.md'
 
 const updates = [
+  { kind: 'Improved', title: 'A smoother game.', detail: 'Quicker football movement, controlled passes and stronger running shots. A clearer camera and aim arrow keep the ball in sight. On phones, move, run and shoot with separate fingers while the shared ball moves smoothly.' },
+  { kind: 'Added', title: 'Your seat at the concert.', detail: 'Join the OAT audience and your avatar takes a seat facing the stage. Perform, then return to your reserved place. Everyone in the concert can also see the shared voice usage indicator.' },
   { kind: 'Fixed', title: 'Bring your friends along.', detail: 'A buggy carries its driver and three passengers. Walk up to a stopped buggy and choose Hop in or press F. Confirmed seats survive delayed updates, and riders stay seated together through turns and slopes.' },
   { kind: 'Improved', title: 'More at home in the hostel.', detail: 'Faster indoor movement, entrance stairs, four lifts and clearer corridor routes connect both Boys Hostel courtyards. The southeast court keeps its badminton space, with warmer lighting and more greenery.' },
   { kind: 'Added', title: 'Find your people.', detail: 'In avatar mode, see campus friends on the map with direction, distance and floor. Hide your shared location, switch off markers or mute individual markers whenever you want.' },
@@ -25,7 +27,7 @@ export default function UpdatesPage() {
       <p className="updates-eyebrow">THE CAMPUS KEEPS GETTING BETTER</p>
       <h1 id="updates-title">You said it.<br /><em>We built on it.</em></h1>
       <p className="updates-description">Your feedback, brought into the campus.</p>
-      <div className="updates-release"><span>Campus update</span><time dateTime="2026-10-10">8–10 October 2026</time></div>
+      <div className="updates-release"><span>Campus update</span><time dateTime="2026-10-11">8–11 October 2026</time></div>
     </header>
     <section className="updates-grid" aria-label="Changes in this update">
       {updates.map((update, index) => <article className="update-card" key={update.title}>
