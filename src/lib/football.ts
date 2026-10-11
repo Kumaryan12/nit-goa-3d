@@ -6,17 +6,22 @@ export const FOOTBALL_RADIUS = 0.28
 export const FOOTBALL_GOAL_X = 42
 export const FOOTBALL_SIDE_Z = 22
 export const FOOTBALL_GOAL_HALF_WIDTH = 3.6
+export const FOOTBALL_DRAG = .65
+export type FootballAction = 'shot' | 'pass'
 export interface FootballPitch { center: LocalCoordinate; rotation: number; elevation: number }
 export interface FootballState {
   x: number; z: number; vx: number; vz: number
   blue: number; gold: number; resetSeconds: number
-  event: 'kickoff' | 'playing' | 'blue-goal' | 'gold-goal' | 'out'; kickCooldown: number
+  event: 'kickoff' | 'playing' | 'blue-goal' | 'gold-goal' | 'out'; kickCooldown: number; revision?: number
 }
-export interface FootballActor { position: LocalCoordinate; direction: LocalCoordinate; moving: boolean; running: boolean; active: boolean }
-export interface FootballControls { kick: number; reset: number; actor: FootballActor | null }
+export interface FootballActor { position: LocalCoordinate; direction: LocalCoordinate; moving: boolean; running: boolean; active: boolean; speed?:number }
+export interface FootballControls { kick: number; reset: number; actor: FootballActor | null; action?: FootballAction; arrivalDirection?:LocalCoordinate }
 export interface FootballStatus { blue: number; gold: number; canKick: boolean; onPitch: boolean; distance: number; event: FootballState['event']; countdown: number }
 export const createFootballControls = (): FootballControls => ({ kick: 0, reset: 0, actor: null })
-export const createFootballState = (): FootballState => ({ x: 0, z: 0, vx: 0, vz: 0, blue: 0, gold: 0, resetSeconds: 0, event: 'kickoff', kickCooldown: 0 })
+export const createFootballState = (): FootballState => ({ x: 0, z: 0, vx: 0, vz: 0, blue: 0, gold: 0, resetSeconds: 0, event: 'kickoff', kickCooldown: 0, revision: 0 })
+export function requestFootballAction(controls: FootballControls, action: FootballAction = 'shot') {
+  controls.action = action; controls.kick++
+}
 export function footballPitch(location: CampusLocation): FootballPitch {
   return { center: { ...location.coordinates }, rotation: (location.rotationDegrees ?? 0) * Math.PI / 180, elevation: location.elevation ?? 0 }
 }
@@ -32,19 +37,35 @@ export function footballStatus(state: FootballState, actor: FootballActor | null
   const point = actor ? footballToLocal(actor.position, pitch) : null
   const distance = point ? Math.hypot(point.x - state.x, point.z - state.z) : Infinity
   const onPitch = !!actor?.active && !!point && Math.abs(point.x) <= 46 && Math.abs(point.z) <= 26
-  return { blue: state.blue, gold: state.gold, onPitch, distance, canKick: onPitch && distance <= 1.8 && state.resetSeconds === 0, event: state.event, countdown: Math.ceil(state.resetSeconds) }
+  return { blue: state.blue, gold: state.gold, onPitch, distance, canKick: onPitch && distance <= 1.8 && state.resetSeconds === 0 && state.kickCooldown <= 0, event: state.event, countdown: Math.ceil(state.resetSeconds) }
 }
-export function kickFootball(state: FootballState, actor: FootballActor | null, pitch: FootballPitch, shot = true): boolean {
+export function kickFootball(state: FootballState, actor: FootballActor | null, pitch: FootballPitch, shot: boolean | FootballAction = true): boolean {
   if (!actor || !footballStatus(state, actor, pitch).canKick || state.kickCooldown > 0) return false
   const length = Math.hypot(actor.direction.x, actor.direction.z)
   if (!Number.isFinite(length) || length < .001) return false
   const c = Math.cos(pitch.rotation), s = Math.sin(pitch.rotation)
   const dx = (actor.direction.x * c - actor.direction.z * s) / length, dz = (actor.direction.x * s + actor.direction.z * c) / length
-  const power = shot ? actor.running ? 30 : 22 : actor.running ? 7 : 4
-  state.vx = dx * power; state.vz = dz * power; state.event = 'playing'; state.kickCooldown = shot ? .25 : .16
+  const power = shot === 'pass' ? 11 : shot ? actor.running ? 30 : 22 : actor.running ? 7 : 4
+  state.vx = dx * power; state.vz = dz * power; state.event = 'playing'; state.kickCooldown = shot === 'pass' ? .2 : shot ? .25 : .16
+  return true
+}
+// A close, forward-facing touch steers velocity rather than snapping the ball
+// to the player. Fast shots remain free, and a kick cannot be overwritten.
+export function dribbleFootball(state: FootballState, actor: FootballActor, pitch: FootballPitch, delta: number): boolean {
+  if (!actor.active || !actor.moving || state.resetSeconds > 0 || state.kickCooldown > 0 || Math.hypot(state.vx, state.vz) > 10 || !Number.isFinite(delta) || delta <= 0) return false
+  const p = footballToLocal(actor.position, pitch), d = footballToLocal(actor.direction, { ...pitch, center: { x: 0, z: 0 } }), length = Math.hypot(d.x, d.z)
+  if (!Number.isFinite(length) || length < .001) return false
+  const dx = d.x / length, dz = d.z / length, bx = state.x-p.x, bz = state.z-p.z
+  if (Math.hypot(bx,bz) > 1.15 || bx*dx+bz*dz < -.15) return false
+  const pace = actor.speed !== undefined && Number.isFinite(actor.speed) ? Math.max(.3,Math.min(actor.running?6:3.3,actor.speed+.75)) : actor.running ? 6 : 3.3
+  let vx = dx*pace + (dx*.85-bx)*7, vz = dz*pace + (dz*.85-bz)*7
+  const scale = Math.min(1,8/Math.hypot(vx,vz)); vx*=scale; vz*=scale
+  const blend = 1-Math.exp(-18*Math.min(.1,delta))
+  state.vx += (vx-state.vx)*blend; state.vz += (vz-state.vz)*blend; state.event = 'playing'
   return true
 }
 export function resetFootball(state: FootballState, scores = false): void {
+  state.revision = (state.revision ?? 0) + 1
   state.x = 0; state.z = 0; state.vx = 0; state.vz = 0; state.resetSeconds = 0; state.kickCooldown = 0; state.event = 'kickoff'
   if (scores) { state.blue = 0; state.gold = 0 }
 }
@@ -62,7 +83,7 @@ export function stepFootball(state: FootballState, delta: number): void {
   for (let i = 0; i < steps; i++) {
     const beforeX = state.x, beforeZ = state.z
     state.x += state.vx * step; state.z += state.vz * step
-    state.vx *= Math.exp(-.65 * step); state.vz *= Math.exp(-.65 * step)
+    state.vx *= Math.exp(-FOOTBALL_DRAG * step); state.vz *= Math.exp(-FOOTBALL_DRAG * step)
     for (const goal of [-1, 1]) {
       const line = goal * (FOOTBALL_GOAL_X + FOOTBALL_RADIUS)
       if (goal * beforeX < goal * line && goal * state.x >= goal * line) {

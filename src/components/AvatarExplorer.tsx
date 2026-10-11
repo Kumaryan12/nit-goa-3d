@@ -8,7 +8,7 @@ import type { LocalCoordinate } from '../lib/geo'
 import { cameraBoomFraction, createWalkWorld, emptyWalkInput, findSharedSpawn, isWalkable, nearestWalkLocation, stepWalking, treeCeilingAt, walkSurfaceHeightAt } from '../lib/walking'
 import { arrivalFacing, findLocationArrival } from '../lib/walkArrival'
 import type { WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
-import { footballToLocal, footballToWorld } from '../lib/football'
+import { footballToLocal, footballToWorld, requestFootballAction } from '../lib/football'
 import type { FootballControls, FootballPitch } from '../lib/football'
 import StudentAvatar from './StudentAvatar'
 import SocialBubble from './SocialBubble'
@@ -113,7 +113,10 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
         const points = world.buildings.length ? world.buildings.map(building => ({ x: (building.minX + building.maxX) / 2, z: (building.minZ + building.maxZ) / 2 })) : twin.boundary
         const center = points.reduce((sum, point) => ({ x: sum.x + point.x / points.length, z: sum.z + point.z / points.length }), { x: 0, z: 0 })
         yaw.current = arrival ? spawn.locationId === 'main-entrance' ? arrival.yaw : arrivalFacing(position.current, arrival) : Math.atan2(position.current.x - center.x, position.current.z - center.z)
-        if (spawn.football && footballPitch) yaw.current = Math.atan2(-Math.cos(footballPitch.rotation), Math.sin(footballPitch.rotation))
+        if (spawn.football && footballPitch) {
+          yaw.current = Math.atan2(-Math.cos(footballPitch.rotation), Math.sin(footballPitch.rotation))
+          pitch.current=1.02;cameraDistance.current=9.5
+        }
         if (interiorPose.current && arrival?.entrance) yaw.current = Math.atan2(arrival.entrance.outward.x, arrival.entrance.outward.z)
         if (avatar.current) avatar.current.rotation.y = yaw.current
         oriented.current = true
@@ -169,10 +172,11 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
         event.preventDefault()
         if (!event.repeat) {
           if (ride.current !== 'walk') { if (event.code === 'Space') keys.current.add('Space') }
-          else if (event.code === 'Space' && footballPitch && footballLive) footballControls.current.kick++
+          else if (event.code === 'Space' && footballPitch && footballLive) requestFootballAction(footballControls.current)
           else input.current.jump = true
         }
       }
+      if(event.code==='KeyQ' && footballPitch && footballLive && !event.repeat) {event.preventDefault();requestFootballAction(footballControls.current,'pass')}
       if (event.code === 'KeyF' && !event.repeat) {
         if (ridingPassenger.current) { event.preventDefault(); onBuggyRide(null) }
         else if (ride.current !== 'walk') { event.preventDefault(); input.current.vehicle = 'walk' }
@@ -204,10 +208,10 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     const distance = (value: number) => { lookTarget.current.distance = Math.max(3, Math.min(12, value)) }
     return bindCameraGestures(gl.domElement, {
       zoom: ratio => distance(lookTarget.current.distance * ratio),
-      rotate: (x, y) => { lookTarget.current.yaw -= x * WALK_CONTROLS.dragYaw; lookTarget.current.pitch = Math.max(.08, Math.min(.8, lookTarget.current.pitch + y * WALK_CONTROLS.dragPitch)) },
+      rotate: (x, y) => { lookTarget.current.yaw -= x * WALK_CONTROLS.dragYaw; lookTarget.current.pitch = Math.max(.08, Math.min(footballPitch ? 1.15 : .8, lookTarget.current.pitch + y * WALK_CONTROLS.dragPitch)) },
       scroll: event => distance(lookTarget.current.distance + cameraWheelStep(event.deltaY, event.deltaMode)),
     })
-  }, [gl, paused])
+  }, [gl, paused, footballPitch])
   useFrame((_, delta) => {
     if (!avatar.current) return
     delta = motionDelta(delta)
@@ -337,7 +341,13 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
         applyBuggyImpact(vehicle.current, impact, receivedImpact.age + Math.max(0, performance.now()-receivedImpact.receivedAt)/1000)
       }
     }
-    const allowed = !concertJoined && !paused && !editingText() && !document.hidden, key = (code: string) => allowed && keys.current.has(code) ? 1 : 0
+    if(footballPitch && footballControls.current.arrivalDirection) {
+      const d=footballControls.current.arrivalDirection
+      delete footballControls.current.arrivalDirection
+      yaw.current=Math.atan2(-d.x,-d.z);lookTarget.current.yaw=yaw.current;avatar.current.rotation.y=yaw.current;snapped.current=false
+      jump.current=freshJump();locomotion.current=freshLocomotion()
+    }
+    const allowed = !concertJoined && (!footballPitch || footballLive) && !paused && !editingText() && !document.hidden, key = (code: string) => allowed && keys.current.has(code) ? 1 : 0
     let forward = allowed ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
     let side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
     const turn = allowed ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0
@@ -375,7 +385,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     // Room admission can relocate a football player between render frames.
     if (!passengerPose && !reconciledImpact && Math.hypot(before.x - avatar.current.position.x, before.z - avatar.current.position.z) > 2) { campusEpoch.current++; jump.current = freshJump() }
     const running = !!(allowed && !sitting && (key('ShiftLeft') || key('ShiftRight') || input.current.running))
-    const travel = advanceLocomotion(locomotion.current, direction, walkSpeed(running, !!pose, pose && plan ? interiorLocationId(plan) : undefined), delta, allowed && !journey.current && !passengerPose && !sitting)
+    const travel = advanceLocomotion(locomotion.current, direction, walkSpeed(running, !!pose, pose && plan ? interiorLocationId(plan) : undefined), delta, allowed && !journey.current && !passengerPose && !sitting, footballPitch ? 7 : undefined)
     let vehicleBlocked = false
     let next = before, surfaceY = walkSurfaceHeightAt(twin.terrain, before.x, before.z)
     if (sitting) {
@@ -421,7 +431,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     const feetY = sitting || passengerPose || journey.current || ride.current !== 'walk' ? surfaceY : jump.current.y ?? surfaceY
     reconcileLocomotion(locomotion.current, before, next, travel)
     const moved = Math.hypot(next.x - before.x, next.z - before.z), blocked = !passengerPose && (vehicleBlocked || ride.current === 'walk' && allowed && !sitting && travel.speed * travel.delta > .00001 && moved < travel.speed * travel.delta * .05 && !journey.current)
-    footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, moving:moved>.001, running, active:allowed && footballLive && !pose } : null
+    footballControls.current.actor = footballPitch ? { position:{...next}, direction:{x:-Math.sin(yaw.current),z:-Math.cos(yaw.current)}, speed:delta>0?moved/delta:0, moving:moved>.001, running, active:allowed && footballLive && !pose } : null
     position.current = next
     motion.current.moving = moved > .001
     motion.current.speed = delta > 0 ? Math.min(PRESENCE_SPEED_LIMITS[passengerPose ? 'buggy' : ride.current], moved / delta) : 0
@@ -455,7 +465,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
       motion.current.kick = footballControls.current.kick
     }
     campusPose.current = { ...(ride.current !== 'walk' || passengerPose ? { pitch: avatar.current.rotation.x } : {}), airborne: !jump.current.grounded, vehicle: ride.current, ...(ride.current === 'buggy' && impactAck.current ? {impactAck:impactAck.current} : {}), x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
-    target.set(next.x, feetY + (sitting ? .9 : 1.35), next.z)
+    target.set(next.x, feetY + (sitting || footballPitch ? .9 : 1.35), next.z)
     const indoorFov = pose ? 75 : 60
     if ('fov' in camera && camera.fov !== indoorFov) { camera.fov = indoorFov; camera.updateProjectionMatrix() }
     const boom = pose ? Math.min(4.5, cameraDistance.current) : cameraDistance.current
