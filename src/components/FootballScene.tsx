@@ -1,13 +1,13 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Quaternion, Vector3 } from 'three'
 import type { Group } from 'three'
 import { FOOTBALL_RADIUS, footballStatus, footballToLocal, footballToWorld } from '../lib/football'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
 import type { CampusSession } from '../lib/campusProtocol'
 import { CAMPUS_COLORS } from '../lib/campusProtocol'
 import { defaultAvatarColor } from '../lib/profile'
+import type { AvatarStyle } from '../lib/profile'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
 import StudentAvatar from './StudentAvatar'
 import CrowdAvatar from './CrowdAvatar'
@@ -16,9 +16,11 @@ import { chooseFootballCrowd } from '../lib/footballMotion'
 import { motionDelta, stridePhase } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
 import FootballCelebration from './FootballCelebration'
+import { createFootballBallGeometry } from '../lib/footballBallGeometry'
 const ignoreRaycast = () => undefined
-function RemotePlayer({ player, session, campusSession, pitch, detailed, label }: { player: FootballPlayer; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; pitch: FootballPitch; detailed:boolean; label:boolean }) {
+const RemotePlayer=memo(function RemotePlayer({ player, session, campusSession, pitch, detailed, label,style,color }: { player: FootballPlayer; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; pitch: FootballPitch; detailed:boolean; label:boolean;style?:AvatarStyle;color:string }) {
   const group = useRef<Group>(null), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false })
+  const initial=useMemo(()=>{const p=footballToWorld(player,pitch);return [p.x,pitch.elevation+.11,p.z] as [number,number,number]},[player.id,pitch])
   const gl = useThree(state => state.gl), portal = useRef(gl.domElement.parentElement!)
   useFrame((_, delta) => {
     const current = session.current.playerIndex?.get(player.id) ?? session.current.snapshot?.players.find(item => item.id === player.id)
@@ -31,13 +33,14 @@ function RemotePlayer({ player, session, campusSession, pitch, detailed, label }
     else { group.current.position.x += (point.x - group.current.position.x) * blend; group.current.position.z += (point.z - group.current.position.z) * blend }
     // Shared campus presence carries verified world-space jump height. Keep
     // football's authoritative X/Z and ignore unrelated indoor/teleport poses.
-    const pose = campusSession.current.motion?.sample(player.id, performance.now()) ?? campusSession.current.snapshot?.people.find(person => person.id === player.id)?.pose
+    const currentPerson=campusSession.current.peopleById?.get(player.id) ?? campusSession.current.snapshot?.people.find(person=>person.id===player.id)
+    const pose=currentPerson?.pose?.airborne?campusSession.current.motion?.sample(player.id,performance.now()) ?? currentPerson.pose:currentPerson?.pose
     const ground = pitch.elevation + .11
     const y = pose?.space === 'outdoors' && Math.hypot(pose.x - point.x, pose.z - point.z) < 3 ? Math.max(ground, Math.min(ground + .8, pose.y)) : ground
     group.current.position.y += (y - group.current.position.y) * blend
     motion.current.airborne = group.current.position.y > ground + .08
-    const direction = footballToWorld({ x:current.dx,z:current.dz }, { ...pitch, center:{x:0,z:0} })
-    const yaw = sampled?.yaw ?? Math.atan2(-direction.x, -direction.z)
+    const c=Math.cos(pitch.rotation),s=Math.sin(pitch.rotation)
+    const yaw = sampled?.yaw ?? Math.atan2(-(current.dx*c+current.dz*s),-(-current.dx*s+current.dz*c))
     group.current.rotation.y += Math.atan2(Math.sin(yaw-group.current.rotation.y),Math.cos(yaw-group.current.rotation.y)) * blend
     const distance = Math.hypot(group.current.position.x - beforeX, group.current.position.z - beforeZ)
     motion.current.moving = current.active && distance > .001
@@ -46,23 +49,18 @@ function RemotePlayer({ player, session, campusSession, pitch, detailed, label }
     motion.current.speed = motion.current.moving && delta > 0 ? Math.min(5.5, distance / delta) : 0
     if (motion.current.moving) motion.current.phase = stridePhase(motion.current.phase, distance, current.running)
   })
-  const initial = footballToWorld(player, pitch)
-  const color = campusSession.current.snapshot?.people.find(person => person.id === player.id)?.color ?? defaultAvatarColor(player.id)
-  return <group ref={group} position={[initial.x,pitch.elevation+.11,initial.z]} name={`football-player-${player.number}`}>
-    {detailed ? <StudentAvatar style={campusSession.current.snapshot?.people.find(person => person.id === player.id)?.avatarStyle} motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={CAMPUS_COLORS[color]} /> : <CrowdAvatar style={campusSession.current.snapshot?.people.find(person=>person.id===player.id)?.avatarStyle} motion={motion} color={player.team==='blue'?'#388fc1':'#d2a345'}/>}
+  return <group ref={group} position={initial} name={`football-player-${player.number}`}>
+    {detailed ? <StudentAvatar style={style} motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={color} /> : <CrowdAvatar style={style} motion={motion} color={player.team==='blue'?'#388fc1':'#d2a345'}/>}
     {label && <Html portal={portal} position={[0,2.2,0]} center pointerEvents="none" zIndexRange={[15,0]}><span className={`football-player-label ${player.team}`}>Player {player.number}</span></Html>}
   </group>
-}
+})
 export default function FootballScene({ pitch, session, campusSession, players, controls, live, onStatus }: {
   pitch: FootballPitch; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; players: FootballPlayer[]; controls: React.RefObject<FootballControls>; live: boolean; onStatus: (status: FootballStatus) => void
 }) {
   const ball = useRef<Group>(null), aim=useRef<Group>(null), ballMarker=useRef<Group>(null), elapsed = useRef(0), last = useRef({ x:0,z:0,revision:-1 })
   const profile=useContext(GraphicsContext),crowdElapsed=useRef(1),crowdKey=useRef(''),[crowd,setCrowd]=useState<ReturnType<typeof chooseFootballCrowd>>([])
-  const panels = useMemo(() => {
-    const points = [{x:0,y:1,z:0},{x:0,y:-1,z:0}]
-    for(const y of [-.45,.45])for(let i=0;i<5;i++){const a=i/5*Math.PI*2+(y>0?0:Math.PI/5);points.push({x:Math.cos(a)*Math.sqrt(1-y*y),y,z:Math.sin(a)*Math.sqrt(1-y*y)})}
-    return points.map(point => ({ ...point, quaternion: new Quaternion().setFromUnitVectors(new Vector3(0,0,1),new Vector3(point.x,point.y,point.z)) }))
-  }, [])
+  const ballGeometry=useMemo(createFootballBallGeometry,[])
+  useEffect(()=>()=>ballGeometry.dispose(),[ballGeometry])
   useEffect(() => { last.current = { x:0,z:0,revision:-1 } }, [pitch.center.x,pitch.center.z,pitch.rotation])
   useFrame(({camera}, delta) => {
     const snapshot = session.current.snapshot, state = snapshot?.ball
@@ -70,7 +68,7 @@ export default function FootballScene({ pitch, session, campusSession, players, 
     if(crowdElapsed.current>=.25) {
       crowdElapsed.current=0
       const next=live?chooseFootballCrowd(snapshot?.players ?? players,session.current.id,pitch,camera.position,profile.dpr<=.85?'smooth':profile.dpr>=1.5?'detailed':'balanced'):[]
-      const key=next.map(p=>`${p.id}:${p.detailed}:${p.label}`).join('|')
+      const key=next.map(p=>`${p.id}:${p.detailed}:${p.label}`).sort().join('|')
       if(key!==crowdKey.current){crowdKey.current=key;setCrowd(next)}
     }
     const sample=session.current.ballMotion?.sample(performance.now())
@@ -98,8 +96,7 @@ export default function FootballScene({ pitch, session, campusSession, players, 
     <group position={[pitch.center.x,pitch.elevation,pitch.center.z]} rotation={[0,pitch.rotation,0]} name="campus-football">
       <FootballCelebration session={session} controls={controls} pitch={pitch} live={live}/>
       <group ref={ball} position={[0,FOOTBALL_RADIUS+.11,0]}>
-        <mesh castShadow raycast={ignoreRaycast}><sphereGeometry args={[FOOTBALL_RADIUS,24,16]} /><meshStandardMaterial color="#fbfaf2" roughness={.65} /></mesh>
-        {panels.map((point,i)=><mesh key={i} position={[point.x*(FOOTBALL_RADIUS+.002),point.y*(FOOTBALL_RADIUS+.002),point.z*(FOOTBALL_RADIUS+.002)]} quaternion={point.quaternion} raycast={ignoreRaycast}><circleGeometry args={[.072,5]} /><meshStandardMaterial color="#202b30" roughness={.8} /></mesh>)}
+        <mesh geometry={ballGeometry} castShadow raycast={ignoreRaycast}><meshStandardMaterial vertexColors roughness={.65} /></mesh>
       </group>
       <group ref={ballMarker} visible={false}>
         <mesh rotation={[-Math.PI/2,0,0]} raycast={ignoreRaycast}><ringGeometry args={[.43,.49,24]} /><meshBasicMaterial color="#f3d777" transparent opacity={.65} depthWrite={false} /></mesh>
@@ -109,6 +106,6 @@ export default function FootballScene({ pitch, session, campusSession, players, 
         <mesh position={[0,0,-1.95]} rotation={[-Math.PI/2,0,0]} raycast={ignoreRaycast}><circleGeometry args={[.22,3,Math.PI/2]} /><meshBasicMaterial color="#f5df99" transparent opacity={.9} depthWrite={false} /></mesh>
       </group>
     </group>
-    {live && crowd.map(choice=>{const player=players.find(p=>p.id===choice.id);return player&&<RemotePlayer key={player.id} player={player} session={session} campusSession={campusSession} pitch={pitch} detailed={choice.detailed} label={choice.label}/>})}
+    {live && crowd.map(choice=>{const player=players.find(p=>p.id===choice.id),person=campusSession.current.peopleById?.get(choice.id) ?? campusSession.current.snapshot?.people.find(p=>p.id===choice.id);return player&&<RemotePlayer key={player.id} player={player} session={session} campusSession={campusSession} pitch={pitch} detailed={choice.detailed} label={choice.label} style={person?.avatarStyle} color={CAMPUS_COLORS[person?.color ?? defaultAvatarColor(choice.id)]}/>})}
   </>
 }

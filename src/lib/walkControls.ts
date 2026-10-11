@@ -13,6 +13,7 @@ export const WALK_CONTROLS = {
   dragPitch: .0016,
   zoomSensitivity: .003,
   cameraFollowRate: 8,
+  footballCameraFollowRate: 14,
 } as const
 
 export function walkSpeed(running: boolean, indoors: boolean, locationId?: string) {

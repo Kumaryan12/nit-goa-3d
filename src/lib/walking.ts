@@ -181,16 +181,27 @@ export function nearestWalkLocation(point: LocalCoordinate, locations: CampusLoc
 // Shorten the follow camera's boom before it enters buildings or rising terrain.
 export function cameraBoomFraction(origin: { x: number; y: number; z: number }, end: { x: number; y: number; z: number }, world: WalkWorld): number {
   const distance = Math.hypot(end.x - origin.x, end.y - origin.y, end.z - origin.z), steps = Math.max(1, Math.ceil(distance / 0.3))
+  // Gather conservative candidates once for the whole boom, rather than
+  // scanning campus buildings, poles and nine tree buckets at every sample.
+  const minX=Math.min(origin.x,end.x),maxX=Math.max(origin.x,end.x),minZ=Math.min(origin.z,end.z),maxZ=Math.max(origin.z,end.z)
+  const trees:TreeInstance[]=[]
+  for(let x=Math.floor(minX/8)-1;x<=Math.floor(maxX/8)+1;x++)for(let z=Math.floor(minZ/8)-1;z<=Math.floor(maxZ/8)+1;z++) {
+    const bucket=world.trees.get(`${x},${z}`);if(bucket)trees.push(...bucket)
+  }
+  const lamps=world.lamps?.filter(lamp=>lamp.x>=minX-LAMP_POLE_RADIUS-.2&&lamp.x<=maxX+LAMP_POLE_RADIUS+.2&&lamp.z>=minZ-LAMP_POLE_RADIUS-.2&&lamp.z<=maxZ+LAMP_POLE_RADIUS+.2) ?? []
+  const buildings=world.buildings.filter(b=>b.maxX+.2>=minX&&b.minX-.2<=maxX&&b.maxZ+.2>=minZ&&b.minZ-.2<=maxZ)
   for (let i = 1; i <= steps; i++) {
     const t = i / steps, point = { x: origin.x + (end.x - origin.x) * t, y: origin.y + (end.y - origin.y) * t, z: origin.z + (end.z - origin.z) * t }
-    const treeHit = nearbyTrees(point, world).some(tree => {
+    const treeHit = trees.some(tree => {
+      // Preserve the existing bucket reach, including negative coordinates.
+      if(Math.abs(Math.floor(tree.x/8)-Math.floor(point.x/8))>1 || Math.abs(Math.floor(tree.z/8)-Math.floor(point.z/8))>1)return false
       const distance = Math.max(0, Math.hypot(point.x - tree.x, point.z - tree.z) - .2)
       const trunk = point.y >= tree.y && point.y <= tree.y + (tree.palm ? 8 : 4.8) * tree.scale && distance < treeTrunkRadius(tree)
       const crown = !tree.palm && (distance / (2.7 * tree.scale)) ** 2 + ((point.y - tree.y - 6 * tree.scale) / (3.1 * tree.scale + .2)) ** 2 < 1
       return trunk || crown
     })
-    const poleHit = world.lamps?.some(lamp => point.y>=lamp.y && point.y<=lamp.y+lamp.height && Math.hypot(point.x-lamp.x,point.z-lamp.z)<LAMP_POLE_RADIUS+.2)
-    if ((world.terrain.entrance && entranceBlocksCamera(point, world.terrain.entrance, world.terrain)) || (world.terrain.flag && flagBlocksCamera(point, world.terrain.flag)) || poleHit || treeHit || point.y < walkSurfaceHeightAt(world.terrain, point.x, point.z) + 0.25 || world.buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
+    const poleHit = lamps.some(lamp => point.y>=lamp.y && point.y<=lamp.y+lamp.height && Math.hypot(point.x-lamp.x,point.z-lamp.z)<LAMP_POLE_RADIUS+.2)
+    if ((world.terrain.entrance && entranceBlocksCamera(point, world.terrain.entrance, world.terrain)) || (world.terrain.flag && flagBlocksCamera(point, world.terrain.flag)) || poleHit || treeHit || point.y < walkSurfaceHeightAt(world.terrain, point.x, point.z) + 0.25 || buildings.some(building => point.y >= building.base && point.y <= building.base + building.height + 0.5 && hitsBuilding(point, building, 0.2))) return Math.max(0.08, (i - 1) / steps)
   }
   return 1
 }

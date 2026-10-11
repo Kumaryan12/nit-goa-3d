@@ -12,9 +12,9 @@ export const initialGraphics = (compact: boolean): GraphicsAdaptation => ({ leve
 
 // Sustained evidence and a cooldown avoid changing quality on a loading frame
 // or repeatedly resizing render targets while the camera is moving.
-export function adaptGraphics(state: GraphicsAdaptation, fps: number, seconds: number, compact: boolean): GraphicsAdaptation {
+export function adaptGraphics(state: GraphicsAdaptation, fps: number, seconds: number, compact: boolean, ceiling=2): GraphicsAdaptation {
   if (!Number.isFinite(fps) || fps <= 0 || !Number.isFinite(seconds) || seconds <= 0 || seconds > 3) return state
-  const cooldown = Math.max(0, state.cooldown - seconds), maxLevel = compact ? 0 : 2, minLevel = compact ? -1 : 0
+  const cooldown = Math.max(0, state.cooldown - seconds), maxLevel = compact ? 0 : Number.isFinite(ceiling)?Math.max(0,Math.min(2,Math.floor(ceiling))):2, minLevel = compact ? -1 : 0
   if (state.cooldown > 0) return { ...state, cooldown, slow: 0, fast: 0 }
   const slow = fps < 42 ? state.slow + seconds : 0, fast = fps >= 56 ? state.fast + seconds : 0
   if (slow >= 4 && state.level > minLevel) return { level: state.level - 1, slow: 0, fast: 0, cooldown: 16 }

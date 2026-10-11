@@ -54,10 +54,11 @@ import CampusPeopleScene from './CampusPeopleScene'
 import HostelCourtyards from './HostelCourtyards'
 import ScenePerformance, { GraphicsContext } from './ScenePerformance'
 import { adaptGraphics, graphicsProfile, initialGraphics } from '../lib/graphics'
+import { footballGraphicsProfile, footballTrees } from '../lib/footballRendering'
 import type { GraphicsMode } from '../lib/graphics'
 import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib/campusProtocol'
 
-export interface SceneMetrics { fps: number; calls: number; triangles: number }
+export interface SceneMetrics { fps: number; calls: number; triangles: number; peakCalls?:number; peakTriangles?:number }
 interface CampusSceneProps {
   overviewDrag?: OverviewDrag
   scenePrepared?: boolean
@@ -191,12 +192,15 @@ function Navigation({ twin, request, facades, drag }: { twin: DigitalTwin | null
 }
 
 function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => void }) {
-  const elapsed = useRef(0), frames = useRef(0)
+  const elapsed = useRef(0), frames = useRef(0),calls=useRef(0),triangles=useRef(0),peakCalls=useRef(0),peakTriangles=useRef(0)
   useFrame(({ gl }, delta) => {
     elapsed.current += delta; frames.current++
+    calls.current+=gl.info.render.calls;triangles.current+=gl.info.render.triangles
+    peakCalls.current=Math.max(peakCalls.current,gl.info.render.calls);peakTriangles.current=Math.max(peakTriangles.current,gl.info.render.triangles)
     if (elapsed.current >= 2) {
-      onMetrics({ fps: Math.round(frames.current / elapsed.current), calls: gl.info.render.calls, triangles: gl.info.render.triangles })
+      onMetrics({ fps: Math.round(frames.current / elapsed.current), calls:Math.round(calls.current/frames.current),triangles:Math.round(triangles.current/frames.current),peakCalls:peakCalls.current,peakTriangles:peakTriangles.current })
       elapsed.current = 0; frames.current = 0
+      calls.current=triangles.current=peakCalls.current=peakTriangles.current=0
     }
   })
   return null
@@ -205,13 +209,15 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
 function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, oatSelfId, concertJoined, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const compact = useRef(window.matchMedia('(pointer: coarse)').matches || navigator.hardwareConcurrency <= 4).current
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
-  const profile = useMemo(() => graphicsProfile(graphicsMode, qualityLevel), [graphicsMode, qualityLevel])
+  const profile = useMemo(() => footballGraphicsProfile(graphicsProfile(graphicsMode, qualityLevel),footballJoined,graphicsMode), [graphicsMode, qualityLevel,footballJoined])
+  const renderedTrees=useMemo(()=>twin?footballTrees(twin.trees,footballPitch,footballJoined):[],[twin,footballPitch,footballJoined])
+  const footballLightFocus=useMemo(()=>footballJoined&&footballPitch?{...footballPitch.center,elevation:footballPitch.elevation}:undefined,[footballJoined,footballPitch])
   const reportMetrics = useCallback((metrics: SceneMetrics) => {
     onMetrics?.(metrics)
     if (graphicsMode !== 'auto' || document.hidden || !document.hasFocus()) return
-    adaptation.current = adaptGraphics(adaptation.current, metrics.fps, 2, compact)
+    adaptation.current = adaptGraphics(adaptation.current, metrics.fps, 2, compact,footballJoined?1:2)
     setQualityLevel(adaptation.current.level)
-  }, [graphicsMode, compact, onMetrics])
+  }, [graphicsMode, compact, onMetrics,footballJoined])
   const concertLayout = useMemo(() => twin ? createConcertLayout(twin.theatre) : null, [twin])
   const concertPose = concertLayout ? concertPlacement(concertLayout, oatConcert, oatSelfId) : null
   const dynamicShadows = view === 'walk' || campusPeople.some(p => p.pose?.visible) || (footballLive && footballPlayers.length > 0) || !!oatConcert?.participants.length || playback.status === 'playing'
@@ -246,7 +252,7 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
     {night ? <Stars radius={3000} depth={150} count={1100} factor={2.2} saturation={0} fade speed={0} />
       : <Sky distance={450000} sunPosition={sceneConfig.sunPosition} turbidity={2.4} rayleigh={1.1} mieCoefficient={0.004} mieDirectionalG={0.8} />}
     <ScenePerformance dynamicShadows={dynamicShadows} revision={shadowRevision} />
-    <Lighting groundSize={size} night={night} />
+    <Lighting groundSize={size} night={night} focus={footballLightFocus}/>
     <Terrain model={twin?.terrain ?? loadingTerrain} patches={twin?.terrainPatches} onReady={twin ? onTerrainReady : noop} />
     {showContours && twin && <TerrainContours model={twin.terrain} night={night} />}
     {showGrid && <gridHelper args={[size, Math.round(size / sceneConfig.gridSpacing), '#7d8970', '#9ba584']} position={[0, 0.025, 0]} />}
@@ -259,7 +265,7 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
       {hostelPlan && <HostelCourtyards building={hostelPlan.building} />}
       <CampusStreetlights lamps={twin.lamps} terrain={twin.terrain} night={night} indoors={view==='walk' && hostelFloor!==null} />
       {twin.flag && <CampusNationalFlag flag={twin.flag} night={night} />}
-      {twin.vegetationReady && <Vegetation trees={twin.trees} onReady={onVegetationReady} />}
+      {twin.vegetationReady && <Vegetation trees={renderedTrees} onReady={onVegetationReady} />}
       {twin.vegetationReady && <CampusGardens gardens={twin.gardens} terrain={twin.terrain} />}
       {twin.meadow && <CampusMeadow chunks={twin.meadow} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} terrain={twin.terrain} entrance={twin.mainEntrance} entranceGardens={twin.entranceGardens} night={night} />}
@@ -270,7 +276,7 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
       {view==='walk' && gyanPlan && <BuildingInterior night={night} plan={gyanPlan} floor={interiorBuildingId===gyanPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===gyanPlan.buildingId?stairLowFloor:null} onSelect={selectGyan} />}
       {footballPitch && <FootballScene campusSession={campusSession} pitch={footballPitch} session={footballSession} players={footballPlayers} controls={footballInput} live={footballLive} onStatus={onFootballStatus} />}
       <CampusPeopleScene people={campusPeople} session={campusSession} localPose={view === 'walk' ? campusPose : undefined} messages={campusMessages} excludedIds={[...(footballLive ? footballPlayers.map(p => p.id) : []), ...(oatConcert?.participants.map(p => p.id) ?? [])]} space={hostelFloor !== null ? `${activeInterior?.kind==='classroom'?'gyan':'hostel'}:${stairLowFloor ?? hostelFloor}` : 'outdoors'} walking={view === 'walk'} />
-      {!(view==='walk'&&hostelFloor!==null)&&<LocationLabels locations={labelLocations} heights={heights} />}
+      {!footballJoined&&!(view==='walk'&&hostelFloor!==null)&&<LocationLabels locations={labelLocations} heights={heights} />}
     </>}
     {view === 'overview' && twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     {slopePreview && twin && <SlopePreview points={slopePreview} terrain={twin.terrain} />}

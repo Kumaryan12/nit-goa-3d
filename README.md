@@ -51,6 +51,8 @@ A Node WebSocket server verifies each account and owns one ball and score for up
 
 The server uses fixed 60 Hz physics and 20 Hz broadcasts. Ball rendering buffers 75 ms with at most 100 ms of prediction, and resets bypass interpolation. Pose acknowledgements avoid correcting healthy players against older network positions. See [football controls and limits](docs/football.md). Regression tests cover goals, passes, contested touches, delayed packets, multi-touch and 24 authenticated loopback socket peers.
 
+Football uses a field-centred shadow pass and surrounding greenery, with automatic graphics headroom for running and busy rooms. Leaving restores the full campus view. The follow camera responds more closely to acceleration; camera collision candidates are gathered once, and remote detail changes preserve animated positions. The development fixture supports `?full=1&players=24` for full-campus rendering measurements.
+
 ## Two explorer versions
 
 Use the **Overview / Walk with avatar** switch in the header. Both versions share the same real OSM buildings, roads, corrected names/positions, Nescafe-to-sports slope, lighting and gallery.
