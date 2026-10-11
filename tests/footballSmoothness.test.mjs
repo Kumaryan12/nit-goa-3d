@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createFootballControls, createFootballState, dribbleFootball, kickFootball, requestFootballAction, stepFootball } from '../src/lib/football.ts'
-import { FootballMotionBuffer, FootballPoseProgress } from '../src/lib/footballMotion.ts'
+import { chooseFootballCrowd, FootballMotionBuffer, FootballPoseProgress } from '../src/lib/footballMotion.ts'
 import { parseFootballSnapshot } from '../src/lib/footballProtocol.ts'
 import { createFootballRoom } from '../server/footballRoom.ts'
 import { advanceLocomotion, freshLocomotion } from '../src/lib/avatarMotion.ts'
@@ -154,6 +154,24 @@ test('a full pitch starts with distinct team-facing positions, and departures re
   room.remove('p-2');room.remove('p-7')
   room.add('replacement-a',1100);room.add('replacement-b',1100)
   assert.equal(new Set(room.snapshot().players.map(p=>`${p.x},${p.z}`)).size,24)
+})
+
+test('phone football keeps every other player visible while bounding detailed avatars and labels',()=>{
+  const room=createFootballRoom();for(let n=0;n<24;n++)room.add(`p-${n}`,1000)
+  const players=room.snapshot().players,choices=chooseFootballCrowd(players,'p-0',pitch,{x:0,z:0},'smooth')
+  assert.equal(choices.length,23);assert.equal(new Set(choices.map(p=>p.id)).size,23)
+  assert.equal(choices.filter(p=>p.detailed).length,6);assert.equal(choices.filter(p=>p.label).length,6)
+  assert.ok(choices.some(p=>!p.detailed),'the remaining players use the light model rather than disappearing')
+  assert.deepEqual(choices,chooseFootballCrowd([...players].reverse(),'p-0',pitch,{x:0,z:0},'smooth'))
+  assert.equal(chooseFootballCrowd(players,'p-0',pitch,{x:0,z:0},'detailed').filter(p=>p.detailed).length,12)
+})
+
+test('football detail selection uses world distance on a rotated pitch',()=>{
+  const players=[{id:'near',x:10,z:0},{id:'far',x:-30,z:0}]
+  const rotated={center:{x:100,z:100},rotation:Math.PI/2,elevation:0}
+  const choices=chooseFootballCrowd(players,null,rotated,{x:100,z:90},'balanced')
+  assert.equal(choices[0].id,'near');assert.equal(choices[0].detailed,true)
+  assert.equal(choices[1].detailed,false);assert.equal(choices.length,2)
 })
 
 test('24 authenticated socket peers receive the same pass, accepted aim and stable identities',async()=>{

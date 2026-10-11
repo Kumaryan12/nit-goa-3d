@@ -1,6 +1,14 @@
-import { FOOTBALL_DRAG, FOOTBALL_GOAL_X, FOOTBALL_SIDE_Z, FOOTBALL_RADIUS } from './football.ts'
-import type { FootballState } from './football.ts'
-import type { FootballSnapshot } from './footballProtocol.ts'
+import { FOOTBALL_DRAG, FOOTBALL_GOAL_X, FOOTBALL_SIDE_Z, FOOTBALL_RADIUS, footballToWorld } from './football.ts'
+import type { FootballPitch, FootballState } from './football.ts'
+import type { FootballPlayer, FootballSnapshot } from './footballProtocol.ts'
+
+export function chooseFootballCrowd(players:FootballPlayer[],selfId:string|null,pitch:FootballPitch,camera:{x:number;z:number},quality:'smooth'|'balanced'|'detailed') {
+  const budget=quality==='smooth'?6:quality==='detailed'?12:8
+  return players.filter(p=>p.id!==selfId).map(p=>{
+    const point=footballToWorld(p,pitch)
+    return{id:p.id,distance:Math.hypot(point.x-camera.x,point.z-camera.z)}
+  }).sort((a,b)=>a.distance-b.distance||a.id.localeCompare(b.id)).map((p,index)=>({id:p.id,detailed:index<budget&&p.distance<32,label:index<budget&&p.distance<40}))
+}
 
 interface Frame { time: number; ball: FootballState }
 // The ball uses one short shared timeline rather than restarting prediction
