@@ -24,7 +24,6 @@ await writeFile(join(root, '_headers'), `/*
   Strict-Transport-Security: max-age=31536000
   Permissions-Policy: camera=(), microphone=(self), geolocation=(self)
   Content-Security-Policy: ${csp}
-  Cache-Control: public, max-age=0, must-revalidate
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 `)
