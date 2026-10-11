@@ -15,6 +15,7 @@ import { GraphicsContext } from './ScenePerformance'
 import { chooseFootballCrowd } from '../lib/footballMotion'
 import { motionDelta, stridePhase } from '../lib/avatarMotion'
 import type { AvatarMotion } from '../lib/avatarMotion'
+import FootballCelebration from './FootballCelebration'
 const ignoreRaycast = () => undefined
 function RemotePlayer({ player, session, campusSession, pitch, detailed, label }: { player: FootballPlayer; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; pitch: FootballPitch; detailed:boolean; label:boolean }) {
   const group = useRef<Group>(null), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false })
@@ -95,6 +96,7 @@ export default function FootballScene({ pitch, session, campusSession, players, 
   })
   return <>
     <group position={[pitch.center.x,pitch.elevation,pitch.center.z]} rotation={[0,pitch.rotation,0]} name="campus-football">
+      <FootballCelebration session={session} controls={controls} pitch={pitch} live={live}/>
       <group ref={ball} position={[0,FOOTBALL_RADIUS+.11,0]}>
         <mesh castShadow raycast={ignoreRaycast}><sphereGeometry args={[FOOTBALL_RADIUS,24,16]} /><meshStandardMaterial color="#fbfaf2" roughness={.65} /></mesh>
         {panels.map((point,i)=><mesh key={i} position={[point.x*(FOOTBALL_RADIUS+.002),point.y*(FOOTBALL_RADIUS+.002),point.z*(FOOTBALL_RADIUS+.002)]} quaternion={point.quaternion} raycast={ignoreRaycast}><circleGeometry args={[.072,5]} /><meshStandardMaterial color="#202b30" roughness={.8} /></mesh>)}

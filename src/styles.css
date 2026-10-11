@@ -424,6 +424,14 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 }
 
 .football-controls { position: absolute; z-index: 39; right: 24px; top: 132px; width: 260px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--glass); color: var(--ink); backdrop-filter: blur(16px); }
+.football-goal-banner { position: absolute; top: max(112px, calc(env(safe-area-inset-top) + 96px)); left: 50%; transform: translateX(-50%); display: grid; justify-items: center; gap: 2px; min-width: 156px; padding: 12px 22px; border: 1px solid #d5eeff70; border-radius: 20px; background: #102b43e8; box-shadow: 0 12px 36px #081b3933; color: #f4fbff; pointer-events: none; animation: football-goal-arrive .22s ease-out both; }
+.football-goal-banner.gold { background: #3b2c13ed; border-color: #f3d77e80; color: #fff1bf; }
+.football-goal-team { font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.football-goal-banner strong { font-size: clamp(28px, 5vw, 44px); line-height: 1.05; letter-spacing: -.04em; }
+.football-goal-result { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes football-goal-arrive { from { opacity: 0; transform: translateX(-50%) translateY(8px) scale(.94); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+@media (max-width: 760px), (pointer: coarse) { .football-goal-banner { top: max(292px, calc(env(safe-area-inset-top) + 280px)); min-width: 116px; padding: 10px 14px; }.football-mode.toolbar-hidden .football-goal-banner { top: max(200px, calc(env(safe-area-inset-top) + 188px)); }.football-mode:has(.mobile-tools-open) .football-goal-banner { top: max(384px, calc(env(safe-area-inset-top) + 372px)); } }
+@media (max-height: 520px) and (pointer: coarse) { .football-mode .football-goal-banner, .football-mode.toolbar-hidden .football-goal-banner, .football-mode:has(.mobile-tools-open) .football-goal-banner { left: 58%; top: max(16px, env(safe-area-inset-top)); } }
 .football-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.football-heading .eyebrow { font-size: 8px; }
 .football-score { display: flex; justify-content: center; gap: 14px; align-items: center; margin: 18px 0 12px; font-size: 13px; }.football-score span { display: flex; align-items: center; gap: 10px; }.football-score b { font-size: 32px; font-variant-numeric: tabular-nums; }
 .football-score .blue { color: #3389c0; }.football-score .gold { color: #a77a25; }
