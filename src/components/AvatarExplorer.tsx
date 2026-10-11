@@ -472,7 +472,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     desired.set(next.x + Math.sin(yaw.current) * boom * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * boom, next.z + Math.cos(yaw.current) * boom * Math.cos(pitch.current))
     const fraction = (end: Vector3) => pose && plan ? interiorCameraFraction(target, end, plan, pose.floor, journey.current?.lowFloor ?? null) : cameraBoomFraction(target, end, world)
     desired.lerpVectors(target, desired, fraction(desired))
-    if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * WALK_CONTROLS.cameraFollowRate))
+    if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * (footballPitch ? WALK_CONTROLS.footballCameraFollowRate : WALK_CONTROLS.cameraFollowRate)))
     camera.position.lerpVectors(target, camera.position, fraction(camera.position))
     camera.position.y = Math.max(camera.position.y, (pose ? surfaceY : walkSurfaceHeightAt(twin.terrain, camera.position.x, camera.position.z)) + .3)
     // Tight doorways sometimes shorten the boom into the avatar. Show the

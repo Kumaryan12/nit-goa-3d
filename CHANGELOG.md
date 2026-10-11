@@ -4,6 +4,8 @@ Public update log: [What’s new](https://nitg-explored.onrender.com/updates).
 
 ## Football and concert update — 11 October 2026
 
+- Reduce football rendering work with a field-centred shadow pass, nearby greenery and automatic graphics headroom. Keep remote avatar positions stable through detail changes and merge the ball into one draw call.
+- Make the football camera follow acceleration more closely. Gather camera collision candidates once per boom, preserving building, tree and pole clearance.
 - Make football acceleration more responsive while keeping the existing speed limits. Add Q / Pass, Space / Shoot, a readable aiming arrow and a higher football camera.
 - Keep phone Pass and Shoot beside the movement pad, accepting separate movement, running and kicking fingers. Collapse help and manual kickoff to keep the pitch clear.
 - Smooth the shared ball with buffered snapshots, bounded prediction and explicit kickoff resets. Fixed-rate server physics, measured-speed dribbling and short buffered presses improve ball contacts.
@@ -13,7 +15,7 @@ Public update log: [What’s new](https://nitg-explored.onrender.com/updates).
 - Automatically seat concert audience avatars, reserve their places through stage turns, and show seated participants to nearby visitors. Leaving restores walking at the OAT entrance.
 - Display shared monitored voice usage to concert participants, including minimized controls.
 
-Validation: 520 regression tests and production build; includes 24 authenticated loopback football peers, goal celebration timing/reconnect checks and phone portrait/landscape layout rehearsal. Physical-device latency depends on the connection and hardware.
+Validation: 526 regression tests and production build; includes 24 authenticated loopback football peers, graphics recovery/collision checks, goal celebration timing/reconnect checks and full-campus phone layout rehearsal. Physical-device latency depends on the connection and hardware.
 
 ## Feedback update — 8–9 October 2026
 
