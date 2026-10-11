@@ -22,6 +22,7 @@ import { cameraWheelStep, smoothLookAngle, walkSpeed, WALK_CONTROLS } from '../l
 import { bindCameraGestures } from '../lib/cameraGestures'
 import { PRESENCE_SPEED_LIMITS } from '../lib/movementLimits'
 import type { CampusPose, CampusSession } from '../lib/campusProtocol'
+import type { ConcertPlacement } from '../lib/concertSeating'
 import { nearbyCampusBuggies, sampleCampusPerson } from '../lib/buggyRide'
 import { canUseStairs, interiorFloorPlan, interiorLocationId, interiorRoomLabel, interiorSpace, interiorCameraFraction, interiorJumpCeiling, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
@@ -29,8 +30,9 @@ import { nearestHostelLift, hostelLiftArrival, hostelAreaLabel, hostelCourtSurfa
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ avatarStyle, campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose, campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
   avatarStyle?: AvatarStyle
+  concertJoined: boolean; concertPose: ConcertPlacement | null
   onSocialStop: () => void
   campusSession: React.RefObject<CampusSession>; onBuggyRide: (driverId: string | null) => void
   campusPose: React.RefObject<CampusPose | null>
@@ -42,6 +44,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
 }) {
   const [passengerView, setPassengerView] = useState(false), ridingPassenger = useRef(false)
   const seated = useRef(false), stoppingSocial = useRef<number | null>(null)
+  const lastConcert = useRef<ConcertPlacement | null>(null)
   const seatOrigin = useRef<CampusPose | null>(null)
   const seatEpoch = useRef(0)
   const [rideMode, setRideMode] = useState<TransportMode>('walk')
@@ -206,8 +209,53 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
     })
   }, [gl, paused])
   useFrame((_, delta) => {
-    if (!avatar.current || !position.current) return
+    if (!avatar.current) return
     delta = motionDelta(delta)
+    const concert = concertJoined ? concertPose ?? lastConcert.current : null
+    if (concert) {
+      const previous = lastConcert.current
+      const changed = !previous || previous.role !== concert.role || previous.seat !== concert.seat || previous.x !== concert.x || previous.y !== concert.y || previous.z !== concert.z
+      lastConcert.current = concert
+      if (changed) {
+        campusEpoch.current = Math.max(campusEpoch.current, campusPose.current?.epoch ?? 0) + 1
+        ride.current = 'walk'; setRideMode('walk'); vehicle.current = freshVehicle()
+        jump.current = freshJump(); locomotion.current = freshLocomotion(); journey.current = null
+        recoilOffset.current = { x: 0, z: 0 }; ridingPassenger.current = false; setPassengerView(false)
+        yaw.current = concert.yaw; lookTarget.current = { yaw: concert.yaw, pitch: .16, distance: 5.5 }
+        motion.current = { phase: 0, moving: false, speed: 0, seated: concert.role === 'audience' }
+        seated.current = false; seatOrigin.current = null; interiorPose.current = null
+      }
+      keys.current.clear(); input.current = emptyWalkInput()
+      position.current = { x: concert.x, z: concert.z }
+      avatar.current.position.set(concert.x, concert.y, concert.z); avatar.current.rotation.set(0, concert.yaw, 0)
+      avatar.current.visible = true
+      if (presentation.current) presentation.current.position.set(0, 0, 0)
+      motion.current.seated = concert.role === 'audience'
+      motion.current.social = campusSession.current.peopleById?.get(campusSession.current.id ?? '')?.social
+      campusPose.current = { x: concert.x, y: concert.y, z: concert.z, yaw: concert.yaw, vehicle: 'walk', moving: false, running: false, airborne: false, active: !document.hidden, visible: true, space: 'outdoors', epoch: campusEpoch.current }
+      const blend = 1 - Math.exp(-delta * 8)
+      yaw.current = smoothLookAngle(yaw.current, lookTarget.current.yaw, delta)
+      pitch.current += (lookTarget.current.pitch - pitch.current) * blend
+      cameraDistance.current += (lookTarget.current.distance - cameraDistance.current) * blend
+      target.set(concert.x, concert.y + (concert.role === 'audience' ? .9 : 1.35), concert.z)
+      desired.set(concert.x + Math.sin(yaw.current) * cameraDistance.current * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * cameraDistance.current, concert.z + Math.cos(yaw.current) * cameraDistance.current * Math.cos(pitch.current))
+      desired.lerpVectors(target, desired, cameraBoomFraction(target, desired, world))
+      camera.position.lerp(desired, blend); camera.lookAt(target)
+      if ('fov' in camera && camera.fov !== 60) { camera.fov = 60; camera.updateProjectionMatrix() }
+      elapsed.current += delta
+      if (changed || elapsed.current >= .2) {
+        elapsed.current = 0
+        onStatus({ position: position.current, nearestId: 'open-air-theatre', distance: 0, moving: false, blocked: false, vehicle: 'walk', speed: 0, canRide: false, canJump: false })
+      }
+      return
+    }
+    if (lastConcert.current) {
+      lastConcert.current = null; motion.current.seated = false; motion.current.social = undefined
+      campusEpoch.current++; jump.current = freshJump(); locomotion.current = freshLocomotion()
+      position.current = arrival ? { ...arrival.position } : position.current
+      snapped.current = false
+    }
+    if (!position.current) return
     const live = campusSession.current
     if (live.id && live.spawnPending) {
       if (joinedId.current !== live.id && !interiorPose.current && !footballPitch && ride.current === 'walk' && !seated.current && !ridingPassenger.current) {
@@ -289,7 +337,7 @@ export default function AvatarExplorer({ avatarStyle, campusSession, onSocialSto
         applyBuggyImpact(vehicle.current, impact, receivedImpact.age + Math.max(0, performance.now()-receivedImpact.receivedAt)/1000)
       }
     }
-    const allowed = !paused && !editingText() && !document.hidden, key = (code: string) => allowed && keys.current.has(code) ? 1 : 0
+    const allowed = !concertJoined && !paused && !editingText() && !document.hidden, key = (code: string) => allowed && keys.current.has(code) ? 1 : 0
     let forward = allowed ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
     let side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
     const turn = allowed ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0

@@ -11,7 +11,11 @@ export function createOatRoom() {
   return {
     add(id: string, now = Date.now()) {
       if (participants.size >= OAT_CAPACITY || participants.has(id)) return null
-      const participant = { id, name: `Visitor ${Array.from(participants.values()).length + 1}` }
+      // The performer keeps their audience seat until leaving the room.
+      const occupied = new Set([...participants.values()].map(p => p.seat))
+      let seat = 0
+      while (occupied.has(seat)) seat++
+      const participant = { id, name: `Visitor ${Array.from(participants.values()).length + 1}`, seat }
       participants.set(id, participant); sequence++; music.updatedAt ||= now
       return participant
     },

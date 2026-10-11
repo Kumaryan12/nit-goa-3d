@@ -123,7 +123,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       watchdog.received(); session.current.motion?.push(snapshot, performance.now())
       session.current.peopleById = new Map(snapshot.people.map(person => [person.id, person]))
       // Per-frame poses stay in a ref; names/activity update React only as needed.
-      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.locatorVisible, p.name, p.handle, p.color, p.avatarStyle, p.activity, p.pose?.space, p.pose?.visible, p.pose?.vehicle, p.ride?.driverId, p.ride?.seat, p.social?.action, p.social?.startedAt, p.social?.seatId]))
+      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.locatorVisible, p.name, p.handle, p.color, p.avatarStyle, p.activity, p.concert?.role, p.concert?.seat, p.pose?.space, p.pose?.visible, p.pose?.vehicle, p.ride?.driverId, p.ride?.seat, p.social?.action, p.social?.startedAt, p.social?.seatId]))
       if (key !== rosterKey) { rosterKey = key; setPeople(snapshot.people) }
     }
     ws.onerror = () => { if (active) setError('The live connection was interrupted. Checking connection…') }

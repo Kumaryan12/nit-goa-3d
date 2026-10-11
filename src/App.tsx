@@ -111,13 +111,13 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const [oatOpen, setOatOpen] = useState(() => new URL(window.location.href).searchParams.get('concert') === '1')
   const [oatJoined, setOatJoined] = useState(false), [oatName, setOatName] = useState(''), [oatRetry, setOatRetry] = useState(0)
   const oat = useOatSession(oatOpen && oatJoined, oatName, oatRetry)
-  const closeOat = () => { oat.stopMic(); setOatJoined(false); setOatOpen(false) }
+  const closeOat = () => { oat.stopMic(); setOatJoined(false); setOatOpen(false); if (view === 'walk') spawnNear('open-air-theatre') }
   const onFootballStatus = useCallback((status: FootballStatus) => setFootballStatus(previous => previous && previous.blue === status.blue && previous.gold === status.gold && previous.canKick === status.canKick && previous.onPitch === status.onPitch && previous.event === status.event && previous.countdown === status.countdown ? previous : status), [])
   const processedWalkSpawn = useRef(0)
   const [walkStatus, setWalkStatus] = useState<WalkStatus | null>(null), [walkManualPause, setWalkManualPause] = useState(false)
   const [walkSpawn, setWalkSpawn] = useState<WalkSpawnRequest>({ sequence: 0, locationId: 'main-entrance' })
   const onWalkStatus = useCallback((status: WalkStatus) => setWalkStatus(status), [])
-  const spawnNear = useCallback((locationId: string) => { setFootballJoined(false); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId })); setWalkManualPause(false) }, [])
+  const spawnNear = useCallback((locationId: string) => { setFootballJoined(false); setOatJoined(false); setOatOpen(false); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId })); setWalkManualPause(false) }, [])
   const [localEdits, setLocalEdits] = useState(() => readLocationEdits(browserStorage))
   const overrides = useMemo(() => validateOverrides({ ...savedCampusOverrides, ...localEdits }), [localEdits])
   const editableMetadata = useMemo(() => campusLocations.map((location) => applyLocationOverride(location, overrides[location.id])), [overrides])
@@ -204,11 +204,6 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const socialSeats = useMemo(() => twin ? theatreSeats(twin.theatre).filter(seat => seat.row >= 3) : [], [twin])
   const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview', import.meta.env.DEV && !firebasePublicConfig, socialSeats)
   const stopSocial = useCallback(() => { campusLive.socialAction('stop') }, [campusLive.socialAction])
-  useEffect(() => {
-    if (!oatJoined || !twin || view === 'walk') return
-    // Concert visitors have a live presence even before their first walk.
-    campusPose.current = { x: twin.theatre.center.x, y: twin.theatre.elevation + .53, z: twin.theatre.center.z, yaw: twin.theatre.rotation, vehicle: 'walk', moving: false, running: false, airborne: false, active: true, visible: false, space: 'outdoors', epoch: (campusPose.current?.epoch ?? 0) + 1 }
-  }, [oatJoined, twin, view])
   const selfColor = campusLive.people.find(p => p.id === campusLive.session.current.id)?.color
   const unreadChat = campusOpen ? 0 : campusLive.messages.filter(m => m.time > chatReadAt && m.sender !== campusLive.session.current.id).length
   useEffect(() => { if (campusOpen) setChatReadAt(Date.now()) }, [campusOpen, campusLive.messages])
@@ -394,7 +389,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
           overviewDrag={overviewDrag}
           scenePrepared={requestsSettled && !!twin && terrainReady && vegetationReady}
           onSceneReady={onSceneReady} onSceneUnavailable={onSceneUnavailable}
-          oatConcert={oat.snapshot}
+          oatConcert={oat.snapshot} oatSelfId={oat.selfId} concertJoined={oatJoined}
           onSocialStop={stopSocial} onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarStyle={campusLive.people.find(p => p.id === campusLive.session.current.id)?.avatarStyle ?? avatarStyle} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}
           showContours={terrainSettings.showContours} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null} interiorBuildingId={walkStatus?.interior ? interiorPose.current?.buildingId ?? null : null}
@@ -419,7 +414,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
         : <BuildingInfoPanel onOpenConcert={openOat} onPlayFootball={joinFootball} gyanPlan={gyanPlan} onEnterGyan={enterGyan} hostelPlan={hostelPlan} onEnterHostel={enterHostel} onViewCourtyards={hostelPlan ? viewHostelCourtyards : undefined} walkMode={view === 'walk'} onEdit={canEdit ? editLocation : undefined} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
-      {oatOpen && <OatControls session={oat} joined={oatJoined} onJoin={name => { setOatName(name); setOatJoined(true) }} onRetry={() => setOatRetry(value => value + 1)} onClose={closeOat} />}
+      {oatOpen && <OatControls session={oat} joined={oatJoined} onJoin={name => { setOatName(name); setOatJoined(true); setFootballJoined(false); setView('walk'); setWalkManualPause(false); interiorPose.current = null; walkInput.current = emptyWalkInput(); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId: 'open-air-theatre' })) }} onRetry={() => setOatRetry(value => value + 1)} onClose={closeOat} />}
       {editorOpen && <Suspense fallback={<p className="scene-loading">Opening location editor…</p>}><CampusLocationEditor locations={catalog} locationId={editorLocationId}
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}
         onLocation={(id) => { setEditorLocationId(id); setPicking(null); setPicked(null) }} onPick={setPicking} onSave={saveCorrection} onReset={resetCorrection} onClose={closeEditor} /></Suspense>}
@@ -475,7 +470,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
       {uploadOpen && <PhotoUploadDialog locations={locations} locationId={uploadLocation} onClose={() => setUploadOpen(false)} onAuth={() => setAuthOpen(true)} />}
       {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
       </Suspense></ErrorBoundary>
-      {view === 'walk' && <WalkControls compact={!layout.panels} campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
+      {view === 'walk' && !oatJoined && <WalkControls compact={!layout.panels} campusLive={campusLive} input={walkInput} status={walkStatus} paused={walkPaused} ready={!!twin && twin.boundary.length >= 3} locations={catalog} onPause={() => setWalkManualPause(previous => !previous)} onSpawn={spawnNear} onInspect={chooseLocation} onOverview={() => changeView('overview')} />}
       {footballJoined && <FootballControls input={footballInput} status={footballStatus} connection={football.connection} players={football.players} selfId={football.session.current.id} paused={walkPaused} onLeave={() => { setFootballJoined(false); footballInput.current.actor = null }} onRetry={() => setFootballRetry(value => value + 1)} />}
       {view === 'walk' && !campusOpen && !footballJoined && !oatOpen && <CampusFinder live={campusLive} pose={campusPose} landmarks={locations} enabled={finderEnabled} onToggle={toggleFinder} targetId={finderTarget} onFind={findPerson} onOpenPeople={() => setCampusOpen(true)} />}
       <CampusSocial landmarks={locations} finderEnabled={finderEnabled} onToggleFinder={toggleFinder} targetId={finderTarget} onFind={findPerson} live={campusLive} open={campusOpen} onClose={() => setCampusOpen(false)} pose={campusPose} walking={view === 'walk'} />

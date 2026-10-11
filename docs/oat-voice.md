@@ -8,6 +8,14 @@ The audience pauses separate backing music only while the mixed voice stream is 
 
 ## Local rehearsal
 
+### Audience seating
+
+Joining a concert switches to the avatar view and automatically places the admitted listener on a front-row OAT bench, facing the stage. Each of the 24 concert places has a stable server-assigned index; taking the stage reserves the performer's audience seat, and ending a turn returns them to that same seat. Waiting performers remain seated. Movement, jumping and vehicle controls are suspended during the concert, while camera gestures and audience reactions remain available. Leaving returns the avatar to the OAT entrance for walking.
+
+Campus presence broadcasts derive seated/stage placement from authenticated OAT membership and the published concert layout, so nearby bystanders also see the audience. No client can assign a concert seat or stage role by submitting a pose. Location hiding still removes distant private concert placement. The local avatar is rendered once by its controller; the concert renderer skips that participant.
+
+`/tests/fixtures/concert-seating-preview.html` is a development-only rehearsal using the actual avatar controller and campus/theatre geometry. Check joining, stage turns, returning to the same bench, holding movement/jump/buggy inputs and leaving to walk. It uses no production identities or microphone capture. `tests/concertSeating.test.mjs` verifies seat stability, capacity, orientation, privacy and authenticated campus/OAT socket propagation.
+
 Run the normal Vite server at `http://127.0.0.1:5176`, then:
 
 ```sh

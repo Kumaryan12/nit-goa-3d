@@ -13,7 +13,7 @@ export function oatPlaybackURL(url: string, pageURL: string, concertServerURL: s
   }
   return new URL(url, new URL(pageURL).origin).href
 }
-export interface OatParticipant { id: string; name: string }
+export interface OatParticipant { id: string; name: string; seat?: number }
 export interface OatMusic { url: string; title: string; position: number; playing: boolean; updatedAt: number; duration: number }
 export interface OatSnapshot {
   type: 'state'; sequence: number; serverTime: number; participants: OatParticipant[]
@@ -46,6 +46,8 @@ export function parseOatSnapshot(value: unknown): OatSnapshot | null {
   if (usage === null || (usage && usage.availability !== s.voiceAvailability)) return null
   if (s.type !== 'state' || !Number.isSafeInteger(s.sequence) || s.sequence < 0 || !Number.isFinite(s.serverTime) || !Array.isArray(s.participants) || s.participants.length > OAT_CAPACITY || !Array.isArray(s.queue) || typeof s.micOn !== 'boolean' || !oatName(s.concertTitle) || s.concertTitle !== oatName(s.concertTitle)) return null
   if (!s.participants.every(p => p && typeof p.id === 'string' && p.id.length <= 64 && !!oatName(p.name) && p.name === oatName(p.name))) return null
+  const seats = s.participants.flatMap(p => p.seat === undefined ? [] : [p.seat])
+  if (seats.some(seat => !Number.isInteger(seat) || seat < 0 || seat >= OAT_CAPACITY) || new Set(seats).size !== seats.length) return null
   const ids = new Set(s.participants.map(p => p.id))
   if (ids.size !== s.participants.length || (s.performerId !== null && !ids.has(s.performerId)) || s.queue.some(id => !ids.has(id) || id === s.performerId) || new Set(s.queue).size !== s.queue.length || (s.micOn && !s.performerId)) return null
   if (!m || (m.url !== '' && oatAudioURL(m.url) !== m.url) || typeof m.title !== 'string' || m.title.length > 120 || typeof m.playing !== 'boolean' || ![m.position, m.updatedAt, m.duration].every(Number.isFinite) || m.position < 0 || m.duration < 0 || m.duration > 14400 || (m.playing && !m.url)) return null

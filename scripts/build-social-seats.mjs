@@ -6,6 +6,7 @@ import { extractCampusRoads } from '../src/lib/roads.ts'
 import { validClosedRing } from '../src/lib/geo.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
 import { theatreSeats } from '../src/lib/social.ts'
+import { createConcertLayout } from '../src/lib/concertSeating.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
 import { defaultTerrainSettings } from '../src/data/topography.ts'
 
@@ -23,6 +24,7 @@ export async function buildSocialSeats(target = 'dist/map/nit-goa-social-seats.j
   const seats = theatreSeats(twin.theatre).filter(seat => seat.row >= 3)
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, JSON.stringify(seats) + '\n')
+  await writeFile(resolve(dirname(target), 'nit-goa-concert-layout.json'), JSON.stringify(createConcertLayout(twin.theatre)) + '\n')
   return seats
 }
 
