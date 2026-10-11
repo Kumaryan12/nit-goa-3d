@@ -1,5 +1,5 @@
 export type GraphicsMode = 'auto' | 'smooth' | 'detailed'
-export interface GraphicsProfile { dpr: number; shadowSize: number; detailDistance: number; shadowRate: number }
+export interface GraphicsProfile { dpr: number; shadowSize: number; detailDistance: number; shadowRate: number; avatarShadows?:boolean }
 export const GRAPHICS_PROFILES: GraphicsProfile[] = [
   { dpr: .85, shadowSize: 1024, detailDistance: 120, shadowRate: 10 },
   { dpr: 1.15, shadowSize: 1536, detailDistance: 200, shadowRate: 15 },
@@ -12,9 +12,9 @@ export const initialGraphics = (compact: boolean): GraphicsAdaptation => ({ leve
 
 // Sustained evidence and a cooldown avoid changing quality on a loading frame
 // or repeatedly resizing render targets while the camera is moving.
-export function adaptGraphics(state: GraphicsAdaptation, fps: number, seconds: number, compact: boolean, ceiling=2): GraphicsAdaptation {
+export function adaptGraphics(state: GraphicsAdaptation, fps: number, seconds: number, compact: boolean, ceiling=2, floor=compact?-1:0): GraphicsAdaptation {
   if (!Number.isFinite(fps) || fps <= 0 || !Number.isFinite(seconds) || seconds <= 0 || seconds > 3) return state
-  const cooldown = Math.max(0, state.cooldown - seconds), maxLevel = compact ? 0 : Number.isFinite(ceiling)?Math.max(0,Math.min(2,Math.floor(ceiling))):2, minLevel = compact ? -1 : 0
+  const cooldown = Math.max(0, state.cooldown - seconds), maxLevel = compact ? 0 : Number.isFinite(ceiling)?Math.max(0,Math.min(2,Math.floor(ceiling))):2, minLevel = floor===-1?-1:0
   if (state.cooldown > 0) return { ...state, cooldown, slow: 0, fast: 0 }
   const slow = fps < 42 ? state.slow + seconds : 0, fast = fps >= 56 ? state.fast + seconds : 0
   if (slow >= 4 && state.level > minLevel) return { level: state.level - 1, slow: 0, fast: 0, cooldown: 16 }
@@ -34,3 +34,8 @@ export function detailVisible(camera: { x: number; y: number; z: number }, cente
   const edge = Math.hypot(camera.x - center[0], camera.y - center[1], camera.z - center[2]) - radius
   return edge <= distance + (previous ? 20 : 0)
 }
+
+// Average FPS can hide repeated long frames. Use the sustained slow tail when
+// deciding whether automatic graphics should reduce work. A rare outlier alone
+// does not change the 95th percentile.
+export const frameBudgetFps=(fps:number,p95Ms?:number)=>typeof p95Ms==='number'&&Number.isFinite(p95Ms)&&p95Ms>34?Math.min(fps,1000/p95Ms):fps

@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { createFootballBallGeometry } from '../src/lib/footballBallGeometry.ts'
 import { FOOTBALL_RADIUS } from '../src/lib/football.ts'
 import { footballGraphicsProfile, footballTrees } from '../src/lib/footballRendering.ts'
-import { GRAPHICS_PROFILES, MOBILE_RECOVERY_PROFILE, adaptGraphics, initialGraphics } from '../src/lib/graphics.ts'
+import { GRAPHICS_PROFILES, MOBILE_RECOVERY_PROFILE, adaptGraphics, frameBudgetFps, initialGraphics } from '../src/lib/graphics.ts'
 import { cameraBoomFraction, createWalkWorld } from '../src/lib/walking.ts'
 import { localToGps } from '../src/lib/geo.ts'
+import { createFootballAvatarGeometry } from '../src/lib/footballAvatarGeometry.ts'
 
 const terrain={size:1000,segments:10,heights:new Float32Array(121),colors:new Float32Array(363)}
 const ring=(x,z,w)=>[{x:x-w,z:z-w},{x:x+w,z:z-w},{x:x+w,z:z+w},{x:x-w,z:z+w}]
@@ -14,10 +15,37 @@ const building=(outer,holes=[])=>({id:'test-building',height:15,outer:outer.map(
 test('automatic football graphics reserve headroom, preserve recovery and restore campus/detailed modes',()=>{
   for(const base of [...GRAPHICS_PROFILES,MOBILE_RECOVERY_PROFILE]) {
     const limited=footballGraphicsProfile(base,true,'auto')
-    assert.ok(limited.dpr<=1.15&&limited.shadowSize<=1024&&limited.shadowRate<=6)
+    assert.ok(limited.dpr<=.9&&limited.shadowSize<=512&&limited.shadowRate===0)
+    assert.equal(limited.avatarShadows,false,'contact shadows replace costly repeated shadow passes')
     assert.ok(limited.dpr<=base.dpr&&limited.shadowSize<=base.shadowSize)
     assert.equal(footballGraphicsProfile(base,false,'auto'),base)
     assert.equal(footballGraphicsProfile(base,true,'detailed'),base)
+  }
+})
+
+test('slow desktop football can reach recovery quality without lowering ordinary campus quality',()=>{
+  let state=initialGraphics(false)
+  for(let i=0;i<15;i++)state=adaptGraphics(state,25,2,false,1,-1)
+  assert.equal(state.level,-1)
+  for(let i=0;i<25;i++)state=adaptGraphics(state,60,2,false,1,-1)
+  assert.equal(state.level,1)
+  let ordinary=initialGraphics(false)
+  for(let i=0;i<30;i++)ordinary=adaptGraphics(ordinary,25,2,false)
+  assert.equal(ordinary.level,0)
+})
+
+test('football athletes keep both hairstyles and all rigid joints within a small geometry budget',()=>{
+  for(const style of ['boy','girl']) {
+    const geometry=createFootballAvatarGeometry(style)
+    let triangles=0
+    for(const g of Object.values(geometry)) {
+      triangles+=(g.index?.count ?? g.getAttribute('position').count)/3
+      assert.equal(g.groups.length,0)
+      assert.equal(g.getAttribute('position').count,g.getAttribute('color').count)
+      for(const value of g.getAttribute('position').array)assert.ok(Number.isFinite(value))
+      g.dispose()
+    }
+    assert.ok(triangles<2400)
   }
 })
 
@@ -68,4 +96,12 @@ test('distant poles are filtered once per boom while near poles still stop the c
   const world=createWalkWorld([],[],terrain,[],[...distant,{x:0,z:4,y:0,height:10}])
   assert.ok(cameraBoomFraction({x:0,y:1,z:0},{x:0,y:4,z:12},world)<.4)
   assert.ok(scans<=1000,`broad phase scanned ${scans} distant pole coordinates`)
+})
+
+test('automatic graphics react to sustained frame spikes instead of only average FPS',()=>{
+  assert.equal(frameBudgetFps(60,17),60)
+  assert.equal(frameBudgetFps(60,50),20)
+  assert.equal(frameBudgetFps(30,20),30)
+  assert.equal(frameBudgetFps(60,undefined),60)
+  assert.equal(frameBudgetFps(60,NaN),60)
 })

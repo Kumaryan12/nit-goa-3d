@@ -11,6 +11,8 @@ import type { AvatarStyle } from '../lib/profile'
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
 import StudentAvatar from './StudentAvatar'
 import CrowdAvatar from './CrowdAvatar'
+import FootballAvatar from './FootballAvatar'
+import FootballContactShadows from './FootballContactShadows'
 import { GraphicsContext } from './ScenePerformance'
 import { chooseFootballCrowd } from '../lib/footballMotion'
 import { motionDelta, stridePhase } from '../lib/avatarMotion'
@@ -18,7 +20,7 @@ import type { AvatarMotion } from '../lib/avatarMotion'
 import FootballCelebration from './FootballCelebration'
 import { createFootballBallGeometry } from '../lib/footballBallGeometry'
 const ignoreRaycast = () => undefined
-const RemotePlayer=memo(function RemotePlayer({ player, session, campusSession, pitch, detailed, label,style,color }: { player: FootballPlayer; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; pitch: FootballPitch; detailed:boolean; label:boolean;style?:AvatarStyle;color:string }) {
+const RemotePlayer=memo(function RemotePlayer({ player, session, campusSession, pitch, detailed, label,style,color,lightweight }: { player: FootballPlayer; session: React.RefObject<FootballSession>; campusSession: React.RefObject<CampusSession>; pitch: FootballPitch; detailed:boolean; label:boolean;style?:AvatarStyle;color:string;lightweight:boolean }) {
   const group = useRef<Group>(null), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false })
   const initial=useMemo(()=>{const p=footballToWorld(player,pitch);return [p.x,pitch.elevation+.11,p.z] as [number,number,number]},[player.id,pitch])
   const gl = useThree(state => state.gl), portal = useRef(gl.domElement.parentElement!)
@@ -50,7 +52,7 @@ const RemotePlayer=memo(function RemotePlayer({ player, session, campusSession, 
     if (motion.current.moving) motion.current.phase = stridePhase(motion.current.phase, distance, current.running)
   })
   return <group ref={group} position={initial} name={`football-player-${player.number}`}>
-    {detailed ? <StudentAvatar style={style} motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={color} /> : <CrowdAvatar style={style} motion={motion} color={player.team==='blue'?'#388fc1':'#d2a345'}/>}
+    {lightweight ? <FootballAvatar style={style} motion={motion} color={player.team==='blue'?'#388fc1':'#d2a345'}/> : detailed ? <StudentAvatar style={style} motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={color} /> : <CrowdAvatar style={style} motion={motion} color={player.team==='blue'?'#388fc1':'#d2a345'}/>}
     {label && <Html portal={portal} position={[0,2.2,0]} center pointerEvents="none" zIndexRange={[15,0]}><span className={`football-player-label ${player.team}`}>Player {player.number}</span></Html>}
   </group>
 })
@@ -67,7 +69,8 @@ export default function FootballScene({ pitch, session, campusSession, players, 
     crowdElapsed.current+=delta
     if(crowdElapsed.current>=.25) {
       crowdElapsed.current=0
-      const next=live?chooseFootballCrowd(snapshot?.players ?? players,session.current.id,pitch,camera.position,profile.dpr<=.85?'smooth':profile.dpr>=1.5?'detailed':'balanced'):[]
+      let next=live?chooseFootballCrowd(snapshot?.players ?? players,session.current.id,pitch,camera.position,profile.dpr<=.85?'smooth':profile.dpr>=1.5?'detailed':'balanced'):[]
+      if(profile.avatarShadows===false){const labels=new Set(players.filter(p=>p.id!==session.current.id).slice(0,4).map(p=>p.id));next=next.map(p=>({...p,detailed:false,label:labels.has(p.id)}))}
       const key=next.map(p=>`${p.id}:${p.detailed}:${p.label}`).sort().join('|')
       if(key!==crowdKey.current){crowdKey.current=key;setCrowd(next)}
     }
@@ -94,9 +97,10 @@ export default function FootballScene({ pitch, session, campusSession, players, 
   })
   return <>
     <group position={[pitch.center.x,pitch.elevation,pitch.center.z]} rotation={[0,pitch.rotation,0]} name="campus-football">
+      <FootballContactShadows session={session} controls={controls} pitch={pitch} live={live} enabled={profile.avatarShadows===false}/>
       <FootballCelebration session={session} controls={controls} pitch={pitch} live={live}/>
       <group ref={ball} position={[0,FOOTBALL_RADIUS+.11,0]}>
-        <mesh geometry={ballGeometry} castShadow raycast={ignoreRaycast}><meshStandardMaterial vertexColors roughness={.65} /></mesh>
+        <mesh geometry={ballGeometry} castShadow={profile.avatarShadows!==false} raycast={ignoreRaycast}><meshStandardMaterial vertexColors roughness={.65} /></mesh>
       </group>
       <group ref={ballMarker} visible={false}>
         <mesh rotation={[-Math.PI/2,0,0]} raycast={ignoreRaycast}><ringGeometry args={[.43,.49,24]} /><meshBasicMaterial color="#f3d777" transparent opacity={.65} depthWrite={false} /></mesh>
@@ -106,6 +110,6 @@ export default function FootballScene({ pitch, session, campusSession, players, 
         <mesh position={[0,0,-1.95]} rotation={[-Math.PI/2,0,0]} raycast={ignoreRaycast}><circleGeometry args={[.22,3,Math.PI/2]} /><meshBasicMaterial color="#f5df99" transparent opacity={.9} depthWrite={false} /></mesh>
       </group>
     </group>
-    {live && crowd.map(choice=>{const player=players.find(p=>p.id===choice.id),person=campusSession.current.peopleById?.get(choice.id) ?? campusSession.current.snapshot?.people.find(p=>p.id===choice.id);return player&&<RemotePlayer key={player.id} player={player} session={session} campusSession={campusSession} pitch={pitch} detailed={choice.detailed} label={choice.label} style={person?.avatarStyle} color={CAMPUS_COLORS[person?.color ?? defaultAvatarColor(choice.id)]}/>})}
+    {live && crowd.map(choice=>{const player=players.find(p=>p.id===choice.id),person=campusSession.current.peopleById?.get(choice.id) ?? campusSession.current.snapshot?.people.find(p=>p.id===choice.id);return player&&<RemotePlayer key={player.id} player={player} session={session} campusSession={campusSession} pitch={pitch} detailed={choice.detailed} label={choice.label} lightweight={profile.avatarShadows===false} style={person?.avatarStyle} color={CAMPUS_COLORS[person?.color ?? defaultAvatarColor(choice.id)]}/>})}
   </>
 }

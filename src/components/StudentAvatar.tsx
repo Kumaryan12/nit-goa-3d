@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useContext, useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { avatarHairEdge, avatarPortraitPoint, avatarScalpPoint, createAvatarGeometry } from '../lib/avatarGeometry'
 import type { BufferGeometry } from 'three'
@@ -7,6 +7,7 @@ import { advanceAvatarAnimation, freshAvatarAnimation } from '../lib/avatarAnima
 import { avatarPose, motionDelta, ridingPose, socialPoseForMotion } from '../lib/avatarMotion'
 import type { AvatarStyle } from '../lib/profile'
 import type { AvatarMotion } from '../lib/avatarMotion'
+import { GraphicsContext } from './ScenePerformance'
 
 import type { AvatarPart as Part, AvatarTriple as Triple } from '../lib/avatarGeometry'
 const capsule = (radius: number, length: number, at: Triple, scale?: Triple): Part => ({ shape: 'capsule', size: [radius, length, 0], at, scale })
@@ -19,6 +20,7 @@ const sharedParts = new Map<Part[], { geometry: BufferGeometry; users: number }>
 // Merge fixed detail by material so facial features and clothing details do not
 // each need a separate draw call in the multiplayer crowd.
 function Parts({ parts, color = '#ffffff', roughness = .85 }: { parts: Part[]; color?: string; roughness?: number }) {
+  const {avatarShadows}=useContext(GraphicsContext)
   const shared = useMemo(() => {
     const existing = sharedParts.get(parts)
     if (existing) return existing
@@ -29,7 +31,7 @@ function Parts({ parts, color = '#ffffff', roughness = .85 }: { parts: Part[]; c
     shared.users++
     return () => { shared.users--; queueMicrotask(() => { if (!shared.users && sharedParts.get(parts) === shared) { shared.geometry.dispose(); sharedParts.delete(parts) } }) }
   }, [parts, shared])
-  return <mesh castShadow receiveShadow><primitive object={shared.geometry} attach="geometry" /><meshStandardMaterial color={color} vertexColors roughness={roughness} /></mesh>
+  return <mesh castShadow={avatarShadows!==false} receiveShadow><primitive object={shared.geometry} attach="geometry" /><meshStandardMaterial color={color} vertexColors roughness={roughness} /></mesh>
 }
 
 // A compact student silhouette: rounded jacket, connected sleeves, tailored

@@ -4,6 +4,7 @@ Public update log: [What’s new](https://nitg-explored.onrender.com/updates).
 
 ## Football and concert update — 11 October 2026
 
+- Follow-up football stutter fix: cached stadium shadows with one moving contact-shadow layer, shared animated opponents without distance-based model rebuilds, lighter translucent controls, and automatic recovery based on slow-frame timings. Grass matrices no longer re-upload when quality changes.
 - Reduce football rendering work with a field-centred shadow pass, nearby greenery and automatic graphics headroom. Keep remote avatar positions stable through detail changes and merge the ball into one draw call.
 - Make the football camera follow acceleration more closely. Gather camera collision candidates once per boom, preserving building, tree and pole clearance.
 - Make football acceleration more responsive while keeping the existing speed limits. Add Q / Pass, Space / Shoot, a readable aiming arrow and a higher football camera.

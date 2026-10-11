@@ -654,3 +654,6 @@ button[aria-busy="true"] { cursor: wait; }
   .football-mode .football-controls { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); right: auto; width: 180px; max-height: calc(100dvh - 220px); }
   .football-mode .football-connection, .football-mode .football-options { display: none; }
 }
+
+/* Keep translucent panels without continuously blurring the moving pitch. */
+.football-mode :is(.scene-header, .location-navigation, .map-status, .building-info-panel, .campus-minimap, .walk-controls, .football-controls, .view-dock, .view-options) { backdrop-filter: none; -webkit-backdrop-filter: none; }
