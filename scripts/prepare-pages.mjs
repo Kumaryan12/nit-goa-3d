@@ -28,7 +28,9 @@ await writeFile(join(root, '_headers'), `/*
   Cache-Control: public, max-age=31536000, immutable
 `)
 const routes = ['/campus', '/student', '/admin', '/admin/campus', '/admin/crowd', '/me', '/manage', '/people', '/updates', '/people/*']
-await writeFile(join(root, '_redirects'), routes.map(path => `${path} /index.html 200`).join('\n') + '\n')
+// Rewrite to the canonical root. /index.html is canonicalized to / by Pages,
+// which would otherwise redirect away from a refreshed campus/profile URL.
+await writeFile(join(root, '_redirects'), routes.map(path => `${path} / 200`).join('\n') + '\n')
 // Disable Pages' catch-all SPA fallback for missing files and protected paths.
 await writeFile(join(root, '404.html'), '<!doctype html><html lang="en"><meta charset="utf-8"><title>Page not found · NITG Explored</title><body><h1>Page not found</h1><a href="/">Return to campus</a></body></html>')
 console.log('Pages frontend prepared; live server:', backend)
