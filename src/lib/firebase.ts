@@ -1,5 +1,6 @@
 import type { Auth } from 'firebase/auth'
 import type { FirebaseApp } from 'firebase/app'
+import { campusServerURL } from './serverURL'
 export interface FirebasePublicConfig {
   apiKey: string
   authDomain: string
@@ -67,7 +68,7 @@ export async function campusAPI(
   const headers = new Headers(options.headers)
   if (authenticated)
     headers.set('Authorization', `Bearer ${await firebaseToken()}`)
-  const response = await fetch(path, {
+  const response = await fetch(campusServerURL(path, window.location.href, import.meta.env.VITE_CAMPUS_SERVER_URL), {
     ...options,
     headers,
     signal: options.signal || AbortSignal.timeout(15000),

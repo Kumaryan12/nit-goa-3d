@@ -1,4 +1,5 @@
 import { attachLiveAccess } from './liveAccess.ts'
+import type { SiteOrigins } from './siteOrigins.ts'
 import type { VerifyAccess } from './access.ts'
 import type { EventEmitter } from 'node:events'
 import { WebSocketServer, WebSocket } from 'ws'
@@ -6,7 +7,7 @@ import { createFootballRoom } from './footballRoom.ts'
 
 export function attachFootballServer(
   server: EventEmitter,
-  origin?: string,
+  origin?: SiteOrigins,
   verify?: VerifyAccess,
 ) {
   const room = createFootballRoom(),

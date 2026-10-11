@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { attachLiveAccess } from './liveAccess.ts'
+import { allowedSiteOrigin } from './siteOrigins.ts'
+import type { SiteOrigins } from './siteOrigins.ts'
 import type { VerifyAccess } from './access.ts'
 import type { EventEmitter } from 'node:events'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -49,7 +51,7 @@ const audioType = (bytes: Buffer): string | null => {
 }
 export function attachOatServer(
   server: EventEmitter,
-  origin?: string,
+  origin?: SiteOrigins,
   verify?: VerifyAccess,
   relay: OatIceProvider | OatVoiceService | undefined = createOatVoiceService(),
 ) {
@@ -64,13 +66,7 @@ export function attachOatServer(
       perMessageDeflate: false,
     }),
     alive = new WeakSet<WebSocket>()
-  const allowed = (req: IncomingMessage) =>
-    !!req.headers.origin &&
-    (origin
-      ? req.headers.origin === origin
-      : [`http://${req.headers.host}`, `https://${req.headers.host}`].includes(
-          req.headers.origin,
-        ))
+  const allowed = (req: IncomingMessage) => allowedSiteOrigin(req, origin)
   const send = (ws: WebSocket, message: unknown) => {
     if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 131072)
       ws.send(JSON.stringify(message))

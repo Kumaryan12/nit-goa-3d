@@ -1,4 +1,5 @@
 import { campusSnapshotForViewer } from './campusLocator.ts'
+import type { SiteOrigins } from './siteOrigins.ts'
 import type { EventEmitter } from 'node:events'
 import { WebSocketServer, WebSocket } from 'ws'
 import type { VerifyAccess } from './access.ts'
@@ -12,7 +13,7 @@ import { seatConcertVisitors } from './concertSeating.ts'
 import type { ConcertLayout } from '../src/lib/concertSeating.ts'
 import type { OatSnapshot } from '../src/lib/oatProtocol.ts'
 
-export function attachCampusServer(server: EventEmitter, origin?: string, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats(), concert?: { snapshot: () => OatSnapshot; layout: ConcertLayout }) {
+export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats(), concert?: { snapshot: () => OatSnapshot; layout: ConcertLayout }) {
   const room = createCampusRoom(boundary, seats), sockets = new Map<string, WebSocket>(), spawnSlots = new Map<string, number>()
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384, perMessageDeflate: false })
   const access = attachLiveAccess(server, wss, '/presence', origin, CAMPUS_CAPACITY, verify)

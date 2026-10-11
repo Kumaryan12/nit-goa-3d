@@ -1,4 +1,5 @@
 import { BuggyImpactInbox } from '../lib/buggyImpacts'
+import { liveServerURL } from '../lib/serverURL'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { authenticateLiveSocket } from '../lib/liveAuth'
 import { campusId, chatText, parseCampusChat, parseCampusSnapshot, parseCampusPose, publishedCampusPose } from '../lib/campusProtocol'
@@ -75,7 +76,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     if (!enabled) { recoveryAttempt.current = 0; setConnection('idle'); setPeople([]); setMessages([]); session.current = { id: null, snapshot: null }; return }
     let active = true, initialized = false, rosterKey = '', stopAuth = () => {}, recoveryTimer: number | undefined
     setRideError(''); setSocialError(''); clearSocialPending(); setConnection('connecting'); setPeople([]); setMessages([]); setError(''); setQueue(0); session.current = { id: null, snapshot: null }
-    const url = new URL('/presence', window.location.href); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    const url = liveServerURL('/presence', window.location.href, import.meta.env.VITE_CAMPUS_SERVER_URL)
     const ws = new WebSocket(url); socket.current = ws
     const watchdog = watchLiveConnection(ws)
     session.current.motion = new RemoteMotionBuffer()

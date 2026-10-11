@@ -1,4 +1,5 @@
 import { authenticateLiveSocket } from '../lib/liveAuth'
+import { liveServerURL } from '../lib/serverURL'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { oatAudioURL, oatPlaybackURL, oatMusicPosition, OAT_UPLOAD_LIMIT, parseOatSignal, parseOatSnapshot } from '../lib/oatProtocol'
 import type { OatSignal, OatSnapshot } from '../lib/oatProtocol'
@@ -16,10 +17,7 @@ function iceServers(): RTCIceServer[] {
   try { return parseOatIceServers(JSON.parse(import.meta.env.VITE_OAT_ICE_SERVERS || '[{"urls":"stun:stun.l.google.com:19302"}]')) ?? [] } catch { return [] }
 }
 function serverURL() {
-  const url = new URL(import.meta.env.VITE_OAT_URL || '/oat', window.location.href)
-  if (url.protocol === 'http:') url.protocol = 'ws:'; if (url.protocol === 'https:') url.protocol = 'wss:'
-  if (!['ws:', 'wss:'].includes(url.protocol)) throw new Error('Invalid concert server URL')
-  return url
+  return liveServerURL('/oat', window.location.href, import.meta.env.VITE_CAMPUS_SERVER_URL, import.meta.env.VITE_OAT_URL)
 }
 export interface OatRuntime {
   openSocket: (url: URL) => WebSocket

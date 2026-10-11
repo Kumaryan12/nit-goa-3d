@@ -4,6 +4,8 @@ import type { Duplex } from 'node:stream'
 import { WebSocket, WebSocketServer } from 'ws'
 import { createAccessVerifier } from './access.ts'
 import type { CampusIdentity, VerifyAccess } from './access.ts'
+import { allowedSiteOrigin } from './siteOrigins.ts'
+import type { SiteOrigins } from './siteOrigins.ts'
 interface Entry {
   ws: WebSocket
   identity: CampusIdentity
@@ -16,7 +18,7 @@ export function attachLiveAccess(
   server: EventEmitter,
   wss: WebSocketServer,
   path: string,
-  origin: string | undefined,
+  origin: SiteOrigins,
   capacity: number,
   verify: VerifyAccess = createAccessVerifier(),
 ) {
@@ -75,9 +77,6 @@ export function attachLiveAccess(
     head: Buffer,
   ) => {
     if (request.url?.split('?')[0] !== path) return
-    const allowed = origin
-      ? [origin]
-      : [`http://${request.headers.host}`, `https://${request.headers.host}`]
     const ip = request.socket.remoteAddress || 'unknown',
       now = Date.now()
     for (const [key, value] of attempts)
@@ -90,8 +89,7 @@ export function attachLiveAccess(
     attempt.count++
     attempts.set(ip, attempt)
     if (
-      !request.headers.origin ||
-      !allowed.includes(request.headers.origin) ||
+      !allowedSiteOrigin(request, origin) ||
       attempt.count > 120 ||
       attempts.size > 4096 ||
       pending.size >= 32 ||
