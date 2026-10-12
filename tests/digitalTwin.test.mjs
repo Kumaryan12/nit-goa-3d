@@ -35,7 +35,7 @@ test('height priority honors OSM height, OSM levels, manual override, then defau
 
 test('visual height overrides are finite estimates applied after corrected campus matching', () => {
   const corrected = createDigitalTwin(map, roadData, false, savedCampusOverrides, { ...defaultTerrainSettings, customSlopes: [] })
-  assert.deepEqual(new Set(buildingOverrides.map((item) => item.id)), new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen', 'way/1423803660', 'way/1423803662', 'way/1423803680']))
+  assert.deepEqual(new Set(buildingOverrides.map((item) => item.id)), new Set(['academic-block', 'administration-block', 'boys-hostel', 'girls-hostel', 'canteen', 'way/1423803659', 'way/1423803660', 'way/1423803662', 'way/1423803680']))
   for (const override of buildingOverrides) {
     const index = corrected.selections.findIndex((selection) => selection.location.id === override.id)
     assert.ok(index >= 0)

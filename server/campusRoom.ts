@@ -1,3 +1,5 @@
+import { DRINK_LIFETIME, isCafeDrink, nearbyCafeCounter, SIP_DURATION } from '../src/lib/cafeDrinks.ts'
+import type { CafeCounter } from '../src/lib/cafeDrinks.ts'
 import { BUGGY_BODY, BUGGY_IMPACT_MS, boundedBuggyVelocity, buggyContact, sweptBuggyContact, solveBuggyImpact } from '../src/lib/buggyImpacts.ts'
 import type { BuggyImpact } from '../src/lib/buggyImpacts.ts'
 import { randomUUID } from 'node:crypto'
@@ -23,11 +25,12 @@ export function publishedCampusBoundary(): LocalCoordinate[] {
   if (!ring) throw new Error('Invalid published campus boundary.')
   return ring.map(gpsToLocal)
 }
-export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[] = []) {
+export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[] = [], counters: CafeCounter[] = []) {
   if (boundary.length < 4) throw new Error('Campus presence requires a closed boundary.')
   const region = boundary.map(localToGps)
   const entranceExterior = createEntranceAccess(boundary)
   const members = new Map<string, { person: CampusPerson; preferredColor: AvatarColor; poseAt: number; spawnAt: number; velocity?: LocalCoordinate; movement?: { horizontal: number; vertical: number; speed: number; verticalSpeed: number }; seatOrigin?: CampusPose }>()
+  const drinkLimits = new Map<string, number>()
   const rideLimits = new Map<string, number>()
   const socialLimits = new Map<string, number[]>()
   const socialSeats = new Map(seats.map(seat => [seat.id, seat]))
@@ -53,6 +56,12 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       member.spawnAt = now
     }
     delete member.seatOrigin; delete member.person.social
+  }
+  const syncDrinks = (now: number) => {
+    for (const member of members.values()) {
+      const { drink, pose, activity, ride } = member.person
+      if (drink && (now >= drink.until || activity !== 'walk' || pose?.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk' || ride)) delete member.person.drink
+    }
   }
   const syncSocial = (now: number) => {
     for (const [id, member] of members) {
@@ -139,7 +148,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
         Object.assign(member.person, metadata(identity))
       }
     },
-    remove(id: string) { releasePassengers(id, Date.now()); members.delete(id); rideLimits.delete(id) },
+    remove(id: string) { releasePassengers(id, Date.now()); members.delete(id); rideLimits.delete(id); drinkLimits.delete(id) },
     takeImpacts() { return pendingImpacts.splice(0) },
     poseFor(id: string) { const pose = members.get(id)?.person.pose; return pose ? { ...pose } : null },
     removeMessages(id: string) { for (let i = history.length - 1; i >= 0; i--) if (history[i].sender === id) history.splice(i, 1) },
@@ -209,6 +218,29 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       syncRides(now)
       return 'accepted'
     },
+    cafe(id: string, action: unknown, kind?: unknown, now = Date.now()): { ok: true } | { error: string } {
+      syncDrinks(now)
+      const member = members.get(id)
+      if (!member) return { error: 'Join the campus before ordering.' }
+      if (action === 'put-away') { delete member.person.drink; return { ok: true } }
+      if (action !== 'get' && action !== 'sip') return { error: 'Choose a café drink or take a sip.' }
+      if (now - (drinkLimits.get(id) ?? -Infinity) < 3000) return { error: 'Give your drink a moment.' }
+      drinkLimits.set(id, now)
+      const pose = member.person.pose
+      if (!pose?.active || !pose.visible || now - member.poseAt >= 2000 || pose.moving || pose.airborne || pose.space !== 'outdoors' || member.person.activity !== 'walk' || (pose.vehicle ?? 'walk') !== 'walk' || member.person.ride) return { error: 'Stop on foot to order or sip your drink.' }
+      if (action === 'get') {
+        if (!isCafeDrink(kind)) return { error: 'Choose coffee, cold coffee or water.' }
+        if (!nearbyCafeCounter(counters, pose)) return { error: 'Walk up to a Nescafé vending window.' }
+        member.person.drink = { kind, takenAt: now, until: now + DRINK_LIFETIME }
+      } else {
+        const drink = member.person.drink
+        if (!drink) return { error: 'Pick up a drink at Nescafé first.' }
+        if (drink.sipAt !== undefined && now - drink.sipAt < SIP_DURATION) return { error: 'Finish this sip first.' }
+        drink.sipAt = now
+      }
+      if (member.person.social && member.person.social.action !== 'sit') stopSocial(id, now)
+      return { ok: true }
+    },
     social(id: string, action: unknown, seatId?: unknown, now = Date.now()): { ok: true } | { error: string } {
       prune(now); syncRides(now); syncSocial(now)
       const member = members.get(id)
@@ -224,13 +256,13 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       if (member.person.social?.action === 'sit') return { error: 'Stand up before starting another action.' }
       if (action === 'sit') {
         const seat = typeof seatId === 'string' ? socialSeats.get(seatId) : undefined
-        if (!seat || activity !== 'walk' || pose.space !== 'outdoors' || !pose.visible || Math.hypot(seat.x - pose.x, seat.z - pose.z) > 3.2 || Math.abs(seat.y - pose.y) > .85) return { error: 'Walk closer to an OAT bench to sit down.' }
+        if (!seat || activity !== 'walk' || pose.space !== 'outdoors' || !pose.visible || Math.hypot(seat.x - pose.x, seat.z - pose.z) > 3.2 || Math.abs(seat.y - pose.y) > .85) return { error: 'Walk closer to a café chair or OAT bench to sit down.' }
         if ([...members.values()].some(other => other.person.social?.seatId === seat.id)) return { error: 'Someone is already sitting here. Choose another bench seat.' }
         member.seatOrigin = { ...pose }
         member.person.pose = { ...pose, x: seat.x, y: seat.y, z: seat.z, yaw: seat.yaw, pitch: 0, airborne: false, moving: false, running: false, epoch: nextEpoch(pose.epoch) }
         member.poseAt = now; member.spawnAt = now
       }
-      member.person.social = { action, startedAt: now, until: now + SOCIAL_DURATION[action], ...(action === 'sit' ? { seatId: seatId as string } : {}) }
+      member.person.social = { action, startedAt: now, until: now + SOCIAL_DURATION[action], ...(action === 'sit' ? { seatId: seatId as string, ...(socialSeats.get(seatId as string)?.seatHeight ? { seatHeight: socialSeats.get(seatId as string)!.seatHeight } : {}) } : {}) }
       return { ok: true }
     },
     ride(id: string, driverId: unknown, now = Date.now()): { ok: true } | { error: string } {
@@ -275,8 +307,8 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
     },
     history(now = Date.now()) { prune(now); return history.map(m => ({ ...m })) },
     snapshot(now = Date.now()): CampusSnapshot {
-      prune(now); syncRides(now); syncSocial(now)
-      return { type: 'campus-state', sequence: ++sequence, serverTime: now, people: [...members.values()].map(m => { const { impact, ...person } = m.person; return ({ ...person, ...(impact && impact.until > now && m.person.pose?.epoch === impact.anchor.epoch && m.person.pose.vehicle === 'buggy' ? { impact } : {}), ...(m.person.social ? { social: { ...m.person.social } } : {}), pose: m.person.pose ? { ...m.person.pose, active: m.person.pose.active && now - m.poseAt < 2000, moving: m.person.pose.moving && now - m.poseAt < 500, visible: m.person.pose.visible && now - m.poseAt < 15000 } : null }) }) }
+      prune(now); syncRides(now); syncSocial(now); syncDrinks(now)
+      return { type: 'campus-state', sequence: ++sequence, serverTime: now, people: [...members.values()].map(m => { const { impact, ...person } = m.person; return ({ ...person, ...(impact && impact.until > now && m.person.pose?.epoch === impact.anchor.epoch && m.person.pose.vehicle === 'buggy' ? { impact } : {}), ...(m.person.drink ? { drink: { ...m.person.drink } } : {}), ...(m.person.social ? { social: { ...m.person.social } } : {}), pose: m.person.pose ? { ...m.person.pose, active: m.person.pose.active && now - m.poseAt < 2000, moving: m.person.pose.moving && now - m.poseAt < 500, visible: m.person.pose.visible && now - m.poseAt < 15000 } : null }) }) }
     },
   }
 }

@@ -16,6 +16,7 @@ import { AVATAR_HEIGHT } from './avatarJump.ts'
 import { flagBlocksWalking, flagBlocksCamera } from './campusFlag.ts'
 import { entranceBlocksWalking, entranceBlocksCamera } from './mainEntrance.ts'
 import { inEntranceExterior } from './entranceExterior.ts'
+import { cafeBlocksWalking } from './cafe.ts'
 import { savedCampusOverrides } from '../data/campusOverrides.ts'
 
 import type { TransportMode } from './vehicles.ts'
@@ -80,6 +81,7 @@ export function isWalkable(point: LocalCoordinate, world: WalkWorld, radius = AV
   }
   if (world.terrain.canal && canalBlocksWalking(point, world.terrain.canal, radius)) return false
   if (world.terrain.theatre && theatreBlocksWalking(point, world.terrain.theatre, radius)) return false
+  if (world.terrain.cafe && cafeBlocksWalking(point, world.terrain.cafe, radius)) return false
   if (world.terrain.flag && flagBlocksWalking(point, world.terrain.flag, radius)) return false
   if (world.terrain.entrance && entranceBlocksWalking(point, world.terrain.entrance, radius)) return false
   if (world.lamps?.some(lamp => Math.hypot(point.x-lamp.x,point.z-lamp.z)<LAMP_POLE_RADIUS+radius)) return false

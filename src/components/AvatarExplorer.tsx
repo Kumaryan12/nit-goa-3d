@@ -84,7 +84,12 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     const anchor = locations.find(location => location.id === spawn.locationId) ?? twin.locations.find(location => location.id === 'main-entrance')!
     const changed = processedSpawn.current !== spawn.sequence, pose = interiorPose.current, plan = activePlan()
     const validInside = !!plan && !!pose && pose.buildingId === plan.buildingId && pose.floor >= 0 && pose.floor < plan.levels && !!position.current && isInteriorWalkable(position.current, plan)
-    const relocating = changed || !position.current || !(validInside || isWalkable(position.current, world))
+    const self = campusSession.current.snapshot?.people.find(person => person.id === campusSession.current.id)
+    // Chairs and OAT benches are solid to ordinary movement. A server-assigned
+    // sitting pose remains valid when a status/UI render rechecks the world.
+    const validSeat = self?.social?.action === 'sit' && self.pose?.space === 'outdoors' && !!position.current
+      && Math.hypot(position.current.x - self.pose.x, position.current.z - self.pose.z) < .1
+    const relocating = changed || !position.current || !(validInside || validSeat || isWalkable(position.current, world))
     if (relocating) {
       interiorPose.current = null
       if (hostelPlan && spawn.enterHostel) { interiorPose.current = { buildingId: hostelPlan.buildingId, floor: 0 }; position.current = { ...hostelPlan.entrance.inside } }
@@ -235,6 +240,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
       avatar.current.visible = true
       if (presentation.current) presentation.current.position.set(0, 0, 0)
       motion.current.seated = concert.role === 'audience'
+      motion.current.drink = undefined
       motion.current.social = campusSession.current.peopleById?.get(campusSession.current.id ?? '')?.social
       campusPose.current = { x: concert.x, y: concert.y, z: concert.z, yaw: concert.yaw, vehicle: 'walk', moving: false, running: false, airborne: false, active: !document.hidden, visible: true, space: 'outdoors', epoch: campusEpoch.current }
       const blend = 1 - Math.exp(-delta * 8)
@@ -302,6 +308,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
       if (wasSeated) seatOrigin.current = null
       stoppingSocial.current = null; publish()
     }
+    motion.current.drink = self?.drink
     motion.current.social = social
     const activityBlocked = self?.activity === 'concert' || self?.activity === 'football'
     if (activityBlocked && ride.current !== 'walk') {

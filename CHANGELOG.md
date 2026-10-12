@@ -1,6 +1,15 @@
 # Campus updates
 
-Public update log: [What’s new](https://nitg-explored.onrender.com/updates).
+Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
+
+## Nescafé coffee breaks — 12 October 2026
+
+- Add a shaded terrace with four tables, 16 shared chairs, planting and warm evening lights. Serving windows face the shaded tables and the adjacent long wall, matching the owner’s corrections; there is no separate entrance.
+- Choose free virtual coffee, cold coffee or water at the counters. Avatars hold a drink, take a sip and put it away; sitting and standing preserve the drink. Nearby players see the same drink and sip animation.
+- Validate orders against the authenticated player’s accepted position, counter proximity, movement and activity. Drinks expire after five minutes and clear for interiors, vehicles and games.
+- Keep older open browsers compatible with café seating so new seat IDs cannot make the shared player roster disappear.
+
+Validation: 545 regression tests and the production build pass, including two authenticated WebSocket peers, seat exclusivity and server validation. Chrome visual rehearsal verified all three drinks, seated sipping, standing and putting drinks away, around 60 fps on the development computer. Physical-device and distributed-network performance still require rehearsal.
 
 ## Football and concert update — 11 October 2026
 

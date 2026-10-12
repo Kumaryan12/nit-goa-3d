@@ -7,6 +7,7 @@ import { validClosedRing } from '../src/lib/geo.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
 import { theatreSeats } from '../src/lib/social.ts'
 import { createConcertLayout } from '../src/lib/concertSeating.ts'
+import { cafeCounters } from '../src/lib/cafe.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
 import { defaultTerrainSettings } from '../src/data/topography.ts'
 
@@ -21,14 +22,15 @@ export async function buildSocialSeats(target = 'dist/map/nit-goa-social-seats.j
     false, savedCampusOverrides, defaultTerrainSettings,
   )
   // Front rows are reserved for the concert room's seated audience.
-  const seats = theatreSeats(twin.theatre).filter(seat => seat.row >= 3)
+  const seats = [...theatreSeats(twin.theatre).filter(seat => seat.row >= 3), ...(twin.terrain.cafe?.seats ?? [])]
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, JSON.stringify(seats) + '\n')
+  await writeFile(resolve(dirname(target), 'nit-goa-cafe-counters.json'), JSON.stringify(twin.terrain.cafe ? cafeCounters(twin.terrain.cafe, twin.terrain) : []) + '\n')
   await writeFile(resolve(dirname(target), 'nit-goa-concert-layout.json'), JSON.stringify(createConcertLayout(twin.theatre)) + '\n')
   return seats
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const seats = await buildSocialSeats()
-  console.log(`Published ${seats.length} OAT bench seats from the campus terrain.`)
+  console.log(`Published ${seats.length} OAT and café seats from the campus terrain.`)
 }

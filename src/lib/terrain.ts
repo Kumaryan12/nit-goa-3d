@@ -13,6 +13,7 @@ import type { LawnPatch } from './landscaping.ts'
 import type { CampusFlagLayout } from './campusFlag.ts'
 import type { MainEntranceLayout } from './mainEntrance.ts'
 import type { EntranceExterior } from './entranceExterior.ts'
+import type { CafeLayout } from './cafe.ts'
 
 export interface GroundRect { x: number; z: number; halfX: number; halfZ: number; benchBuildingId?: string }
 export interface TerrainModel {
@@ -26,6 +27,7 @@ export interface TerrainModel {
   flag?: CampusFlagLayout
   entrance?: MainEntranceLayout
   entranceExterior?: EntranceExterior
+  cafe?: CafeLayout
 }
 export interface TerrainFeatures {
   boundary: LocalCoordinate[]

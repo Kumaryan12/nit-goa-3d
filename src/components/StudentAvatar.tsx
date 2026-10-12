@@ -5,6 +5,8 @@ import type { BufferGeometry } from 'three'
 import type { Group } from 'three'
 import { advanceAvatarAnimation, freshAvatarAnimation } from '../lib/avatarAnimation'
 import { avatarPose, motionDelta, ridingPose, socialPoseForMotion } from '../lib/avatarMotion'
+import { cafeDrinkArm } from '../lib/cafeDrinks'
+import AvatarDrink from './AvatarDrink'
 import type { AvatarStyle } from '../lib/profile'
 import type { AvatarMotion } from '../lib/avatarMotion'
 import { GraphicsContext } from './ScenePerformance'
@@ -153,6 +155,7 @@ export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77
       pose.rootY += (jump.rootY - pose.rootY) * visual.air
     }
     const social = kickTime.current ? null : socialPoseForMotion(state, Date.now(), reducedMotion.current)
+    const drink = !riding && !state.passenger && !state.airborne && (!social || state.social?.action === 'sit') ? cafeDrinkArm(state.drink, Date.now(), reducedMotion.current) : null
     const easing = 1 - Math.exp(-dt * 22)
     const mix = (normal: number, gesture: number | undefined) => normal + ((gesture ?? normal) - normal) * (social?.weight ?? 0)
     const approach = (current: number, target: number) => current + (target - current) * easing
@@ -162,12 +165,12 @@ export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77
     ;[leftArm, rightArm].forEach((ref, i) => {
       if (ref.current) {
         ref.current.rotation.order = 'YXZ'
-        ref.current.rotation.x = approach(ref.current.rotation.x, mix(pose.arms[i], social?.arms[i]))
-        ref.current.rotation.y = approach(ref.current.rotation.y, mix(0, social?.armY[i]))
-        ref.current.rotation.z = approach(ref.current.rotation.z, mix(i ? -.07 : .07, social?.armZ[i]))
+        ref.current.rotation.x = approach(ref.current.rotation.x, i && drink ? drink.arm : mix(pose.arms[i], social?.arms[i]))
+        ref.current.rotation.y = approach(ref.current.rotation.y, i && drink ? drink.armY : mix(0, social?.armY[i]))
+        ref.current.rotation.z = approach(ref.current.rotation.z, i && drink ? drink.armZ : mix(i ? -.07 : .07, social?.armZ[i]))
       }
     })
-    ;[leftElbow, rightElbow].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = approach(ref.current.rotation.x, mix(pose.elbows[i], social?.elbows[i])) })
+    ;[leftElbow, rightElbow].forEach((ref, i) => { if (ref.current) ref.current.rotation.x = approach(ref.current.rotation.x, i && drink ? drink.elbow : mix(pose.elbows[i], social?.elbows[i])) })
     if (root.current) {
       // During sitting/standing transitions, use the actual smoothed leg angles
       // to keep sneakers above the row floor instead of lerping through it.
@@ -215,7 +218,7 @@ export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77
     <group ref={shoulders} position={[0, .88, 0]}>
       {[[leftArm, leftElbow], [rightArm, rightElbow]].map(([arm, elbow], i) => <group key={`arm-${i}`} ref={arm} position={[i ? .29 : -.29, .52, 0]}>
         <Parts parts={outfit.sleeve} />
-        <group ref={elbow} position={[0, -.235, 0]}><Parts parts={outfit.forearm} /></group>
+        <group ref={elbow} position={[0, -.235, 0]}><Parts parts={outfit.forearm} />{i === 1 && <AvatarDrink motion={motion} arm={rightArm} elbow={rightElbow} />}</group>
       </group>)}
     </group>
     {[[leftHip, leftKnee, leftFoot], [rightHip, rightKnee, rightFoot]].map(([hip, knee, foot], i) => <group key={`leg-${i}`} ref={hip} position={[i ? .115 : -.115, .88, 0]}>

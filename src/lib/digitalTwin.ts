@@ -26,13 +26,15 @@ import type { TerrainPatchData } from './terrainPatches.ts'
 import type { HostelPlan } from './hostelInterior.ts'
 import { createMainEntrance, createEntrancePlanting } from './mainEntrance.ts'
 import { createEntranceExterior } from './entranceExterior.ts'
+import { createCafeLayout, elevateCafe, rotateCafeBuilding, rotateCafeLayout, withCafeVendingWindow } from './cafe.ts'
 
 export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadData | null, vegetationReady = true, overrides: CampusOverrides = {}, terrainSettings: TerrainSettings = defaultTerrainSettings) {
   const relief = validateTerrainSettings(terrainSettings)
   const boundary = (map?.boundary ?? roads?.boundary ?? []).map(gpsToLocal)
   const metadata = campusLocations.map((location) => applyLocationOverride(location, overrides[location.id]))
   const selections = assignCampusLocations(map?.buildings ?? [], metadata).map((selection) => ({ ...selection, location: applyLocationOverride(selection.location, overrides[selection.location.id]) }))
-  const buildings = (map?.buildings ?? []).map((building, i) => ({ ...correctBoysHostelCourtyards(correctGyanCourtyards(building)), height: buildingHeight(building.tags, selections[i].location.id) }))
+  const mappedBuildings = (map?.buildings ?? []).map((building, i) => ({ ...correctBoysHostelCourtyards(correctGyanCourtyards(building)), height: buildingHeight(building.tags, selections[i].location.id) }))
+  const buildings = mappedBuildings.map(rotateCafeBuilding)
   const locations = metadata.map((location) => {
     const index = selections.findIndex((selection) => selection.location.id === location.id)
     return index < 0 ? { ...location } : { ...location, coordinates: buildingCenter(buildings[index]), height: buildings[index].height }
@@ -41,6 +43,8 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   const sports = locations.find((location) => location.id === campusTopography.lowerLocationId)!
   const entrance = locations.find((location) => location.id === 'main-entrance')!
   const mainEntrance = createMainEntrance(roads?.roads ?? [], entrance.coordinates)
+  const originalCafe = createCafeLayout(mappedBuildings, roads?.roads ?? [], boundary, sports.coordinates)
+  const cafe = originalCafe ? withCafeVendingWindow(rotateCafeLayout(originalCafe, buildingCenter(mappedBuildings.find(b => b.id === originalCafe.buildingId)!)), buildings.find(b => b.id === originalCafe.buildingId)!, roads?.roads ?? []) : null
   const clearings: GroundRect[] = [
     { ...sports.coordinates, halfX: 47 * Math.abs(Math.cos((sports.rotationDegrees ?? 0) * Math.PI / 180)) + 28 * Math.abs(Math.sin((sports.rotationDegrees ?? 0) * Math.PI / 180)), halfZ: 47 * Math.abs(Math.sin((sports.rotationDegrees ?? 0) * Math.PI / 180)) + 28 * Math.abs(Math.cos((sports.rotationDegrees ?? 0) * Math.PI / 180)) },
     { ...entrance.coordinates, halfX: 14, halfZ: 16 },
@@ -76,6 +80,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   theatre.elevation = terrainHeightAt(terrain, theatre.center.x, theatre.center.z)
   theatreLocation.elevation = theatre.elevation
   terrain.theatre = theatre
+  if (cafe) terrain.cafe = elevateCafe(cafe, terrain, buildings.find(b => b.id === cafe.buildingId)!)
   const flag = createCampusFlag(buildings, lawns, boundary, roads?.roads ?? [], terrain)
   if (flag) terrain.flag = flag
   if (mainEntrance) terrain.entrance = mainEntrance
@@ -85,7 +90,7 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
   // in the scene, so late roads never run through previously generated trees.
   const access = theatre.access
   // Reserve gateway landscaping without altering the established gate slopes.
-  const plantingClearings = clearings.map((rect,index)=>index===1 && mainEntrance ? mainEntrance.clearing : rect)
+  const plantingClearings = [...clearings.map((rect,index)=>index===1 && mainEntrance ? mainEntrance.clearing : rect), ...(cafe ? [cafe.clearing] : [])]
   const vegetationClearings = access.length ? [...plantingClearings, { x: (access[0].x + access[1].x) / 2, z: (access[0].z + access[1].z) / 2, halfX: Math.abs(access[1].x - access[0].x) / 2 + 1.2, halfZ: Math.abs(access[1].z - access[0].z) / 2 + 1.2 }] : plantingClearings
   const trees = vegetationReady ? generateTrees(boundary, buildings, roads?.roads ?? [], vegetationClearings, terrain) : []
   if (vegetationReady && entrancePlanting) trees.push(...entrancePlanting.palms)

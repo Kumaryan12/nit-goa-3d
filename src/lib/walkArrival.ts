@@ -5,6 +5,7 @@ import { gpsToLocal } from './geo.ts'
 import type { HostelPlan } from './hostelInterior.ts'
 import { campusFacadeApproach, campusFacadeFront } from './campusFacade.ts'
 import { createAdministrationFacade } from './administrationFacade.ts'
+import { CAFE_BUILDING_ID } from './cafe.ts'
 import { findEntranceSpawn, findWalkSpawn } from './walking.ts'
 import type { WalkEntrance, WalkWorld } from './walking.ts'
 
@@ -31,6 +32,11 @@ export function findLocationArrival(location: CampusLocation, twin: DigitalTwin,
       entrance = { point: facade.front.center, outward: facade.front.outward }
       distance = Math.max(2.4, 6.45 * facade.porchScale + 1)
     }
+  } else if (building && building.id === CAFE_BUILDING_ID && twin.terrain.cafe) {
+    // This is a walk-up vending café, with no separate entrance. Arrive at
+    // the open central aisle beside the shared tables and serving counter.
+    const front = twin.terrain.cafe.terrace
+    entrance = { point: front.center, outward: front.outward }
   } else if (building) {
     const front = campusFacadeFront(building, twin.roads, undefined, campusFacadeApproach(location.id, twin.locations))
     if (front) entrance = { point: front.entrance, outward: front.front.outward }

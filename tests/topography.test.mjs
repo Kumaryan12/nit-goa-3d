@@ -1,3 +1,4 @@
+import { rotateCafeBuilding } from '../src/lib/cafe.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
@@ -44,7 +45,7 @@ test('corrected Nescafe name activates relief without moving mapped X/Z or mutat
   const building = twin.buildings.find(building => building.id === cafe.buildingId)
   close(building.baseElevation, 8)
   for (const building of twin.buildings) {
-    assert.deepEqual(building.outer, map.buildings.find(original => original.id === building.id).outer)
+    assert.deepEqual(building.outer, rotateCafeBuilding(map.buildings.find(original => original.id === building.id)).outer)
     const rect = footprintRect(building)
     for (const point of building.outer.map(gpsToLocal)) close(terrainHeightAt(twin.terrain, point.x, point.z), building.baseElevation)
     assert.ok(Number.isFinite(rect.x))
@@ -84,7 +85,7 @@ test('published corrections activate the Nescafe slope and preserve the exported
   assert.equal(twin.selections.find(selection => selection.buildingId === 'way/1423803680').location.name, 'Seminar Complex')
   assert.equal(twin.selections.find(selection => selection.buildingId === 'relation/19505815/0').location.name, 'Vikram Sarabhai (ECE)')
   for (const building of twin.buildings) {
-    assert.deepEqual(building.outer, map.buildings.find(source => source.id === building.id).outer)
+    assert.deepEqual(building.outer, rotateCafeBuilding(map.buildings.find(source => source.id === building.id)).outer)
     for (const point of building.outer.map(gpsToLocal)) close(terrainHeightAt(twin.terrain, point.x, point.z), building.baseElevation)
   }
   assert.equal(twin.trees.length, 644)

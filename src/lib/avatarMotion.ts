@@ -1,7 +1,8 @@
+import type { CafeDrink } from './cafeDrinks.ts'
 import type { LocalCoordinate } from './geo.ts'
 import type { SocialState } from './social.ts'
 
-export interface AvatarMotion { passenger?: boolean; phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; verticalVelocity?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; impactStrength?: number; impactAge?: number; social?: SocialState; seated?: boolean }
+export interface AvatarMotion { drink?: CafeDrink; passenger?: boolean; phase: number; moving: boolean; speed?: number; running?: boolean; turn?: number; kick?: number; paused?: boolean; airborne?: boolean; verticalVelocity?: number; vehicle?: 'walk' | 'bicycle' | 'buggy'; driveSpeed?: number; impactStrength?: number; impactAge?: number; social?: SocialState; seated?: boolean }
 export interface Locomotion { velocity: LocalCoordinate }
 export const freshLocomotion = (): Locomotion => ({ velocity: { x: 0, z: 0 } })
 export const motionDelta = (delta: number) => Number.isFinite(delta) ? Math.max(0, Math.min(.1, delta)) : 0
@@ -104,7 +105,12 @@ export function socialPose(state: SocialState | undefined, now: number, reducedM
   const pose: SocialPose = { ...avatarPose(0, 0, false, 0), armY: [0, 0], armZ: [.07, -.07], weight: seated ? 1 : smoothStep(seconds / .2) * smoothStep((state!.until - now) / 350) }
   const rhythm = reducedMotion ? 0 : Math.sin(seconds * Math.PI * 3)
   if (sitting) {
-    pose.hips = [2.18, 2.18]; pose.knees = [-2.7, -2.7]
+    if (state?.action === 'sit' && state.seatId?.startsWith('cafe-')) {
+      // 44 cm café chair: thighs near horizontal, shins vertical and shoes
+      // grounded. The existing lower OAT bench pose stays unchanged.
+      const hip = Math.acos((.44 + .03 - .51) / .37)
+      pose.hips = [hip, hip]; pose.knees = [-hip, -hip]
+    } else { pose.hips = [2.18, 2.18]; pose.knees = [-2.7, -2.7] }
     pose.arms = [.65, .65]; pose.elbows = [.4, .4]
     pose.lean = -.03
   }

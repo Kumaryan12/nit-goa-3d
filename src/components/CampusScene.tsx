@@ -20,6 +20,7 @@ import Lighting from './Lighting'
 import CampusStreetlights from './CampusStreetlights'
 import CampusNationalFlag from './CampusNationalFlag'
 import CampusGardens from './CampusGardens'
+import CampusCafe from './CampusCafe'
 import CampusMeadow from './CampusMeadow'
 import FootballScene from './FootballScene'
 import type { FootballControls, FootballPitch, FootballStatus } from '../lib/football'
@@ -241,7 +242,7 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
   const selectHostel = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === hostelPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, hostelPlan, onSelectBuilding])
   const selectGyan = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === gyanPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, gyanPlan, onSelectBuilding])
   const selectTheatre = useCallback(() => { const location = twin?.locations.find(item => item.id === 'open-air-theatre'); if (location) onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location }) }, [twin, onSelectBuilding])
-  const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== administration?.buildingId && !facades.has(building.id) && !(view === 'walk' && hostelFloor !== null && activeInterior?.buildingId === building.id)) ?? [], [twin, administration, facades, view, hostelFloor, activeInterior])
+  const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== twin.terrain.cafe?.buildingId && building.id !== administration?.buildingId && !facades.has(building.id) && !(view === 'walk' && hostelFloor !== null && activeInterior?.buildingId === building.id)) ?? [], [twin, administration, facades, view, hostelFloor, activeInterior])
   return <CampusGraphicsBoundary onUnavailable={onSceneUnavailable}><GraphicsContext.Provider value={profile}><Canvas shadows={{ type: PCFShadowMap }} dpr={[.65, profile.dpr]}
     onPointerMissed={(event) => { if (event.button === 0) onClearSelection() }}
     camera={{ position: sceneConfig.cameraPosition, fov: 45, near: 1, far: 10000 }}
@@ -268,6 +269,7 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
       {twin.flag && <CampusNationalFlag flag={twin.flag} night={night} />}
       {twin.vegetationReady && <Vegetation trees={renderedTrees} onReady={onVegetationReady} />}
       {twin.vegetationReady && <CampusGardens gardens={twin.gardens} terrain={twin.terrain} />}
+      {twin.terrain.cafe && <CampusCafe cafe={twin.terrain.cafe} terrain={twin.terrain} night={night} />}
       {twin.meadow && <CampusMeadow chunks={twin.meadow} />}
       {twin.boundary.length > 0 && <POIObjects locations={twin.locations} terrain={twin.terrain} entrance={twin.mainEntrance} entranceGardens={twin.entranceGardens} night={night} />}
       {twin.boundary.length > 0 && <OpenAirTheatre theatre={twin.theatre} terrain={twin.terrain} night={night}

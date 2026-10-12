@@ -2,18 +2,20 @@ import type { TheatreLayout } from './theatre.ts'
 
 export const SOCIAL_ACTIONS = ['wave', 'dance', 'applause', 'heart', 'cheer', 'sit'] as const
 export type SocialAction = typeof SOCIAL_ACTIONS[number]
-export interface SocialState { action: SocialAction; startedAt: number; until: number; seatId?: string }
-export interface SocialSeat { id: string; x: number; y: number; z: number; yaw: number; row: number }
+export interface SocialState { action: SocialAction; startedAt: number; until: number; seatId?: string; seatHeight?: number }
+export interface SocialSeat { id: string; x: number; y: number; z: number; yaw: number; row: number; seatHeight?: number }
 export const SOCIAL_DURATION: Record<SocialAction, number> = { wave: 3500, dance: 12000, applause: 6000, heart: 3500, cheer: 4500, sit: 20 * 60000 }
-export const SOCIAL_LABELS: Record<SocialAction, string> = { wave: 'Wave', dance: 'Dance', applause: 'Applaud', heart: 'Send love', cheer: 'Celebrate', sit: 'Sit on a bench' }
+export const SOCIAL_LABELS: Record<SocialAction, string> = { wave: 'Wave', dance: 'Dance', applause: 'Applaud', heart: 'Send love', cheer: 'Celebrate', sit: 'Sit down' }
 export const SOCIAL_SYMBOLS: Record<SocialAction, string> = { wave: '👋', dance: '♪', applause: '👏', heart: '♥', cheer: '🎉', sit: '◡' }
 export const isSocialAction = (value: unknown): value is SocialAction => typeof value === 'string' && (SOCIAL_ACTIONS as readonly string[]).includes(value)
 export function parseSocialState(value: unknown): SocialState | null {
   if (!value || typeof value !== 'object') return null
   const s = value as SocialState
   if (!isSocialAction(s.action) || !Number.isFinite(s.startedAt) || s.startedAt < 0 || s.startedAt > 1e14 || !Number.isFinite(s.until) || s.until <= s.startedAt || s.until - s.startedAt > SOCIAL_DURATION[s.action]) return null
-  if (s.action === 'sit' ? typeof s.seatId !== 'string' || !/^oat-[0-5]-[0-7]$/.test(s.seatId) : s.seatId !== undefined) return null
-  return { action: s.action, startedAt: s.startedAt, until: s.until, ...(s.seatId ? { seatId: s.seatId } : {}) }
+  if (s.action === 'sit' ? typeof s.seatId !== 'string' || !/^(oat-[0-5]-[0-7]|cafe-[0-3]-[0-3])$/.test(s.seatId) : s.seatId !== undefined) return null
+  const cafe = s.action === 'sit' && s.seatId?.startsWith('cafe-')
+  if (s.seatHeight !== undefined && (!cafe || s.seatHeight !== .44)) return null
+  return { action: s.action, startedAt: s.startedAt, until: s.until, ...(s.seatId ? { seatId: s.seatId } : {}), ...(cafe ? { seatHeight: .44 } : {}) }
 }
 
 // Match the existing curved benches; y is the row's floor, with the sitting

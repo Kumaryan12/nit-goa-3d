@@ -1,0 +1,8 @@
+.cafe-menu { border-color: #a9855752; }
+.cafe-drink-choices .social-action-tile { min-height: 72px; font-size: 11px; }
+.cafe-drink-choices .social-action-tile > span { font-size: 25px; }
+.cafe-drink-actions { display: flex; gap: 6px; margin: 10px 0; }
+.cafe-drink-actions button { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 9px; background: var(--wash); color: var(--ink); font: inherit; font-size: 11px; cursor: pointer; }
+.cafe-drink-actions button:first-child { background: #53866b2b; border-color: #53866b60; }
+.cafe-drink-actions button:disabled { opacity: .5; cursor: default; }
+.cafe-drink-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

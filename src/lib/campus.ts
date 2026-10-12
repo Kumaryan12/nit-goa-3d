@@ -23,18 +23,19 @@ export function buildingCenter(building: BuildingFootprint): CampusLocation['coo
 function unnamedBuilding(building: BuildingFootprint, coordinates: CampusLocation['coordinates']): CampusLocation {
   const isHostel = building.tags.building === 'dormitory'
   const gyan = building.id === 'relation/19505813/0'
+  const cafe = building.id === 'way/1423803659'
   const isAcademic = gyan || ['university', 'school', 'college'].includes(building.tags.building)
   return {
     id: building.id,
     name: building.tags.name || (gyan ? 'Gyan Mandir' : 'Unnamed campus building'),
-    category: isHostel ? 'hostel' : isAcademic ? 'academic' : 'other',
-    description: gyan ? 'Gyan Mandir is the campus classroom building, with ground plus two upper floors, two open courtyards and a large reading room at the north end of the first floor.' : 'A real OpenStreetMap building footprint. Campus details have not yet been assigned to this building.',
-    keywords: gyan ? ['Gyan Mandir', 'classrooms', 'reading room', 'tutorial complex', 'study'] : building.tags.name ? [building.tags.name] : [],
+    category: cafe ? 'food' : isHostel ? 'hostel' : isAcademic ? 'academic' : 'other',
+    description: cafe ? 'The campus café, with a shaded outdoor terrace for coffee and conversations. Walk beside a chair and choose Actions → Sit to join friends at a table.' : gyan ? 'Gyan Mandir is the campus classroom building, with ground plus two upper floors, two open courtyards and a large reading room at the north end of the first floor.' : 'A real OpenStreetMap building footprint. Campus details have not yet been assigned to this building.',
+    keywords: cafe ? ['Nescafé', 'Nescafe', 'coffee', 'café', 'cafeteria', 'chairs', 'terrace'] : gyan ? ['Gyan Mandir', 'classrooms', 'reading room', 'tutorial complex', 'study'] : building.tags.name ? [building.tags.name] : [],
     coordinates,
     height: building.height,
-    icon: isHostel ? '🏠' : isAcademic ? '🏢' : '🏛',
+    icon: cafe ? '☕' : isHostel ? '🏠' : isAcademic ? '🏢' : '🏛',
     images: [],
-    facilities: gyan ? ['Classrooms on three floors', 'Two open courtyards', 'First-floor reading room', 'Explorable interior'] : [],
+    facilities: cafe ? ['Shaded outdoor terrace', 'Four café tables', '16 shared chair seats', 'Evening string lights'] : gyan ? ['Classrooms on three floors', 'Two open courtyards', 'First-floor reading room', 'Explorable interior'] : [],
   }
 }
 

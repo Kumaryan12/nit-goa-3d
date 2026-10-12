@@ -109,6 +109,7 @@ test('selected buildings arrive in front of their doorway, face it, and never la
     close(-Math.sin(arrival.yaw),vector.x/length);close(-Math.cos(arrival.yaw),vector.z/length)
     const plan=Object.values(twin.interiors).find(p=>p?.buildingId===selection.buildingId)
     if(plan) {assert.deepEqual(arrival.position,plan.entrance.outside);assert.deepEqual(arrival.entrance.point,plan.entrance.point)}
+    else if(selection.buildingId===twin.terrain.cafe?.buildingId) assert.deepEqual(arrival.entrance.point,twin.terrain.cafe.terrace.center)
     else if(selection.location.id!=='administration-block') assert.deepEqual(arrival.entrance.point,campusFacadeFront(assignedBuilding(selection.location.id),twin.roads,undefined,campusFacadeApproach(selection.location.id,twin.locations)).entrance)
     assert.deepEqual(findLocationArrival({...selection.location,name:'Renamed by owner'},twin,actual),arrival)
   }

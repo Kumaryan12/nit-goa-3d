@@ -1,3 +1,5 @@
+import CafeCounter from './components/CafeCounter'
+import { cafeCounters } from './lib/cafe'
 import type { AvatarStyle } from './lib/profile'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -201,8 +203,9 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
     const timer = window.setTimeout(() => setStartupVisible(false), duration)
     return () => window.clearTimeout(timer)
   }, [startupVisible, startup.complete, startupExiting])
-  const socialSeats = useMemo(() => twin ? theatreSeats(twin.theatre).filter(seat => seat.row >= 3) : [], [twin])
-  const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview', import.meta.env.DEV && !firebasePublicConfig, socialSeats)
+  const socialSeats = useMemo(() => twin ? [...theatreSeats(twin.theatre).filter(seat => seat.row >= 3), ...(twin.terrain.cafe?.seats ?? [])] : [], [twin])
+  const cafeStations = useMemo(() => twin?.terrain.cafe ? cafeCounters(twin.terrain.cafe, twin.terrain) : [], [twin])
+  const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview', import.meta.env.DEV && !firebasePublicConfig, socialSeats, cafeStations)
   const stopSocial = useCallback(() => { campusLive.socialAction('stop') }, [campusLive.socialAction])
   const selfColor = campusLive.people.find(p => p.id === campusLive.session.current.id)?.color
   const unreadChat = campusOpen ? 0 : campusLive.messages.filter(m => m.time > chatReadAt && m.sender !== campusLive.session.current.id).length
@@ -448,6 +451,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
           <GraphicsControl mode={graphicsMode} onChange={changeGraphics} />
           <SocialActions live={campusLive} pose={campusPose} seats={socialSeats} walking={view === 'walk'} concert={oatJoined} disabled={footballJoined || view === 'walk' && walkPaused} />
+          <CafeCounter live={campusLive} pose={campusPose} counters={cafeStations} walking={view === 'walk'} disabled={footballJoined || oatJoined || walkPaused} />
           <AtmosphereControls pose={campusPose} night={night} walking={view === 'walk'} concert={oatJoined} />
           {view === 'overview' && <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>}
           {canEdit && <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>}

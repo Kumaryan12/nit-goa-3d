@@ -8,9 +8,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { AvatarMotion } from '../lib/avatarMotion'
 
 // One draw call for distant visitors. Close friends keep the articulated model.
-export default function CrowdAvatar({ style = 'boy', motion, color, seated = false, passenger = false, vehicle = 'walk' }: { style?: AvatarStyle; motion: React.RefObject<AvatarMotion>; color: string; seated?: boolean; passenger?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy' }) {
+export default function CrowdAvatar({ style = 'boy', motion, color, seated = false, seatHeight, passenger = false, vehicle = 'walk' }: { style?: AvatarStyle; motion: React.RefObject<AvatarMotion>; color: string; seated?: boolean; seatHeight?: number; passenger?: boolean; vehicle?: 'walk' | 'bicycle' | 'buggy' }) {
   const root = useRef<Group>(null)
   const geometry = useMemo(() => {
+    const chair = seated && seatHeight === .44 && !passenger && vehicle === 'walk'
     const pieces: { geometry: BufferGeometry; x: number; y: number; z: number; color: string }[] = [
       { geometry: new BoxGeometry(.47, .49, .31), x: 0, y: 1.19, z: 0, color },
       { geometry: createAvatarGeometry([{ shape: 'head', size: [.215, 0, 0], at: [0, 0, 0], scale: [.90, 1, .85] }]), x: 0, y: 1.69, z: -.01, color: '#d4a17c' },
@@ -21,15 +22,15 @@ export default function CrowdAvatar({ style = 'boy', motion, color, seated = fal
       ...(style === 'girl' ? [{ geometry: new SphereGeometry(.1, 6, 4).scale(.8, 1.6, .8), x: .025, y: 1.60, z: .28, color: '#242529' }] : []),
       ...[-.12, .12].flatMap(x => seated || vehicle !== 'walk' ? [
         { geometry: new BoxGeometry(.15, .15, .42), x, y: .88, z: -.2, color: '#304255' },
-        { geometry: new BoxGeometry(.15, .27, .15), x, y: .71, z: -.42, color: '#304255' },
+        { geometry: new BoxGeometry(.15, chair ? .39 : .27, .15), x, y: chair ? .61 : .71, z: -.42, color: '#304255' },
       ] : [{ geometry: new BoxGeometry(.15, .78, .18), x, y: .43, z: 0, color: '#304255' }]),
-      ...[-.12, .12].map(x => ({ geometry: new BoxGeometry(.18, .11, .29), x, y: seated || vehicle !== 'walk' ? .61 : .068, z: seated || vehicle !== 'walk' ? -.47 : -.07, color: '#f8f5e9' })),
+      ...[-.12, .12].map(x => ({ geometry: new BoxGeometry(.18, .11, .29), x, y: chair ? .478 : seated || vehicle !== 'walk' ? .61 : .068, z: seated || vehicle !== 'walk' ? -.47 : -.07, color: '#f8f5e9' })),
       ...[-.29, .29].flatMap(x => [
         { geometry: new BoxGeometry(.12, .48, .13), x, y: 1.12, z: 0, color: '#f1ead4' },
         { geometry: new BoxGeometry(.125, .025, .135), x, y: 1.23, z: 0, color },
         { geometry: new BoxGeometry(.125, .04, .135), x, y: .91, z: 0, color: '#253735' },
       ]),
-    ].map(part => ({ ...part, x: part.x + (vehicle === 'buggy' ? .36 : 0), y: part.y + (vehicle === 'buggy' ? -.03 : passenger ? -.26 : seated ? -.55 : vehicle === 'bicycle' ? .15 : 0), z: part.z + (vehicle === 'buggy' ? -.46 : 0) }))
+    ].map(part => ({ ...part, x: part.x + (vehicle === 'buggy' ? .36 : 0), y: part.y + (vehicle === 'buggy' ? -.03 : passenger ? -.26 : chair ? -.41 : seated ? -.55 : vehicle === 'bicycle' ? .15 : 0), z: part.z + (vehicle === 'buggy' ? -.46 : 0) }))
     if (vehicle === 'bicycle') {
       for (const z of [-.7,.7]) pieces.push({ geometry: new TorusGeometry(.34,.04,4,12).rotateY(Math.PI/2), x:0,y:.37,z,color:'#202c31' })
       pieces.push({geometry:new BoxGeometry(.06,.55,1.1),x:0,y:.72,z:0,color})
@@ -46,7 +47,7 @@ export default function CrowdAvatar({ style = 'boy', motion, color, seated = fal
     })
     const result = mergeGeometries(colored)!
     colored.forEach(piece => piece.dispose()); return result
-  }, [style, color, seated, passenger, vehicle])
+  }, [style, color, seated, seatHeight, passenger, vehicle])
   useEffect(() => () => geometry.dispose(), [geometry])
   useFrame(() => {
     if (!root.current || motion.current.paused) return

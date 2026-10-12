@@ -4,6 +4,7 @@ import './updates.css'
 export const feedbackReleaseURL = 'https://github.com/Kumaryan12/nit-goa-3d/blob/main/CHANGELOG.md'
 
 const updates = [
+  { kind: 'Added', title: 'Meet you over coffee.', detail: 'A shaded Nescafé terrace with 16 shared seats and warm evening lights. Pick up coffee, cold coffee or water at the serving windows, take a sip and sit with friends. Nearby players see your drink too.' },
   { kind: 'Improved', title: 'A smoother game.', detail: 'Quicker movement, controlled passes and stronger running shots. Steady shadows, lighter animated opponents and a closer camera reduce stutters while running on a busy pitch. Move, run and shoot with separate fingers on phones. Shared goals get team-coloured confetti and a score celebration.' },
   { kind: 'Added', title: 'Your seat at the concert.', detail: 'Join the OAT audience and your avatar takes a seat facing the stage. Perform, then return to your reserved place. Everyone in the concert can also see the shared voice usage indicator.' },
   { kind: 'Fixed', title: 'Bring your friends along.', detail: 'A buggy carries its driver and three passengers. Walk up to a stopped buggy and choose Hop in or press F. Confirmed seats survive delayed updates, and riders stay seated together through turns and slopes.' },
@@ -27,7 +28,7 @@ export default function UpdatesPage() {
       <p className="updates-eyebrow">THE CAMPUS KEEPS GETTING BETTER</p>
       <h1 id="updates-title">You said it.<br /><em>We built on it.</em></h1>
       <p className="updates-description">Your feedback, brought into the campus.</p>
-      <div className="updates-release"><span>Campus update</span><time dateTime="2026-10-11">8–11 October 2026</time></div>
+      <div className="updates-release"><span>Campus update</span><time dateTime="2026-10-12">8–12 October 2026</time></div>
     </header>
     <section className="updates-grid" aria-label="Changes in this update">
       {updates.map((update, index) => <article className="update-card" key={update.title}>

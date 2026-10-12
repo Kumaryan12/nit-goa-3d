@@ -158,10 +158,13 @@ test('published walk-up seats follow the saved theatre terrain and reserve the c
   const directory = await mkdtemp(join(tmpdir(), 'nitg-social-seats-'))
   try {
     const target = join(directory, 'map/seats.json'), published = await buildSocialSeats(target)
-    assert.equal(published.length, 24)
-    assert.equal(new Set(published.map(seat => seat.id)).size, 24)
-    assert.ok(published.every(seat => seat.row >= 3 && seat.row <= 5 && Number.isFinite(seat.y)))
-    assert.ok(published.every(seat => seat.y > 10), 'use the raised OAT terrace instead of zero-height seating')
+    assert.equal(published.length, 40)
+    assert.equal(new Set(published.map(seat => seat.id)).size, 40)
+    const oat = published.filter(seat => seat.id.startsWith('oat-')), cafe = published.filter(seat => seat.id.startsWith('cafe-'))
+    assert.equal(oat.length, 24); assert.equal(cafe.length, 16)
+    assert.ok(oat.every(seat => seat.row >= 3 && seat.row <= 5 && Number.isFinite(seat.y)))
+    assert.ok(oat.every(seat => seat.y > 10), 'use the raised OAT terrace instead of zero-height seating')
+    assert.ok(cafe.every(seat => seat.seatHeight === .44 && seat.y > 7), 'café chairs follow the upper terrace')
     assert.deepEqual(JSON.parse(await readFile(target, 'utf8')), published)
   } finally { await rm(directory, { recursive: true, force: true }) }
 })
