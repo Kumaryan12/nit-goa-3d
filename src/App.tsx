@@ -1,5 +1,7 @@
 import CafeCounter from './components/CafeCounter'
-import { cafeCounters } from './lib/cafe'
+import CampusUpdateNotice from './components/CampusUpdateNotice'
+import { cafeCounters, CAFE_BUILDING_ID } from './lib/cafe'
+import type { CampusUpdateDestination } from './data/campusUpdate'
 import type { AvatarStyle } from './lib/profile'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -83,6 +85,8 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const toggleFinder = () => setFinderEnabled(current => { const next = !current; try { localStorage.setItem('nit-goa:people-finder', next ? 'on' : 'off') } catch { /* Display still works without storage. */ } return next })
   const findPerson = (id: string | null) => { setFinderTarget(id); if (id) { setFinderEnabled(true); try { localStorage.setItem('nit-goa:people-finder', 'on') } catch { /* Selection still works without storage. */ } } setCampusOpen(false); requestAnimationFrame(() => explorer.current?.querySelector('canvas')?.focus({ preventScroll: true })) }
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false)
+  const [updatesOpen, setUpdatesOpen] = useState(false)
+  const closeUpdates = useCallback(() => setUpdatesOpen(false), [])
   const changeLayout = (value: ViewLayout) => { setLayout(value); try { localStorage.setItem('nit-goa:view-layout', JSON.stringify(value)) } catch { /* View changes work without storage. */ } }
   const revealPanels = useCallback(() => setLayout(previous => {
     if (previous.panels) return previous
@@ -300,6 +304,13 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
     changeView('walk'); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId: 'boys-hostel', enterHostel: true }))
   }, [changeView])
   const enterGyan = useCallback(() => { changeView('walk'); setWalkSpawn(request => ({sequence:request.sequence+1,locationId:GYAN_MANDIR_ID,enterGyan:true})) },[changeView])
+  const exploreUpdate = (destination: CampusUpdateDestination) => {
+    closeUpdates()
+    if (destination === 'football') joinFootball()
+    else if (destination === 'oat') openOat()
+    else if (destination === 'hostel') enterHostel()
+    else { changeView('walk'); spawnNear(destination === 'nescafe' ? CAFE_BUILDING_ID : 'main-entrance') }
+  }
   const viewNescafeSlope = () => {
     if (!twin?.slope) return
     changeView('overview')
@@ -387,6 +398,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   return (<>
     <main ref={explorer} inert={startupVisible} aria-hidden={startupVisible || undefined} className={`explorer ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
       <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} view={view} drag={overviewDrag} onDrag={setOverviewDrag} vehicle={walkStatus?.vehicle ?? 'walk'} football={footballJoined} />
+      <CampusUpdateNotice ready={!startupVisible && !!twin && (campusLive.connection === 'live' || campusLive.socialPreview)} busy={footballJoined || oatOpen || campusOpen || accountOpen || editorOpen || slopeEditorOpen || !!activeSelection || navigationOpen} open={updatesOpen} onOpen={() => setUpdatesOpen(true)} onClose={closeUpdates} onExplore={exploreUpdate} />
       <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, scroll or pinch with two fingers to zoom, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : `Interactive campus. Click a building for details, left-drag to ${overviewDrag === 'pan' ? 'move the view' : 'rotate'}, right-drag to rotate, scroll or pinch with two fingers to zoom. Touch: one finger to rotate, pinch to zoom, three fingers to move the view.`}>
         <Suspense fallback={null}><CampusScene
           overviewDrag={overviewDrag}
@@ -450,8 +462,9 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
           <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
           <GraphicsControl mode={graphicsMode} onChange={changeGraphics} />
+          <button className="toolbar-button" aria-expanded={updatesOpen} onClick={() => setUpdatesOpen(value => !value)}>✦ What’s new</button>
           <SocialActions live={campusLive} pose={campusPose} seats={socialSeats} walking={view === 'walk'} concert={oatJoined} disabled={footballJoined || view === 'walk' && walkPaused} />
-          <CafeCounter live={campusLive} pose={campusPose} counters={cafeStations} walking={view === 'walk'} disabled={footballJoined || oatJoined || walkPaused} />
+          <CafeCounter live={campusLive} pose={campusPose} counters={cafeStations} seats={twin?.terrain.cafe?.seats ?? []} walking={view === 'walk'} disabled={footballJoined || oatJoined || walkPaused} />
           <AtmosphereControls pose={campusPose} night={night} walking={view === 'walk'} concert={oatJoined} />
           {view === 'overview' && <button type="button" className="toolbar-button navigate-toggle" aria-pressed={navigationOpen} onClick={() => setNavigationOpen((value) => !value)}>📍 Navigate</button>}
           {canEdit && <button type="button" className="toolbar-button" aria-pressed={showGrid} onClick={() => setShowGrid((value) => !value)}>▦ Grid {showGrid ? 'on' : 'off'}</button>}

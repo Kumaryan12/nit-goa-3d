@@ -1,4 +1,5 @@
 import CafeCounter from '../../src/components/CafeCounter'
+import CampusUpdateNotice from '../../src/components/CampusUpdateNotice'
 import { cafeCounters } from '../../src/lib/cafe'
 // Development-only rendering rehearsal, using the actual café meshes, avatar
 // controller and local social preview. Never connects to production rooms.
@@ -39,6 +40,8 @@ function Metrics({ report }: { report: (value: string) => void }) {
 }
 function Rehearsal({ twin }: { twin: DigitalTwin }) {
   const [night, setNight] = useState(false), [walking, setWalking] = useState(false), [metrics, setMetrics] = useState('Loading'), [status, setStatus] = useState('Drag to look around')
+  const [updatesOpen, setUpdatesOpen] = useState(false)
+  const closeUpdates = useCallback(() => setUpdatesOpen(false), [])
   const input = useRef(emptyWalkInput()), position = useRef<{ x: number; z: number } | null>(cafePoint(twin.terrain.cafe!, 0, 5.25)), pose = useRef<CampusPose | null>(null), interior = useRef(null), processed = useRef(0), football = useRef(createFootballControls())
   const cafe = twin.terrain.cafe!, counters = useMemo(() => cafeCounters(cafe, twin.terrain), [cafe, twin]), live = useCampusSession(false, pose, walking, 'walk', true, cafe.seats, counters)
   const patches = useMemo(() => createTerrainPatches(twin.terrain), [twin])
@@ -49,14 +52,16 @@ function Rehearsal({ twin }: { twin: DigitalTwin }) {
   const spawn = useMemo(() => ({ sequence: 0, locationId: cafe.buildingId }), [cafe])
   const onStatus = useCallback((s: WalkStatus) => setStatus(s.blocked ? 'Furniture is solid · walk around the chairs' : 'WASD to move · walk beside a chair to sit'), [])
   const sit = () => { const seat = nearbySeat(cafe.seats, pose.current); if (seat) live.socialAction('sit', seat.id); else setStatus('Move closer to a chair first') }
-  return <main style={{ height: '100dvh', background: '#172d27', color: '#f4ead7', fontFamily: 'system-ui', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+  return <main style={{ position: 'relative', height: '100dvh', background: '#172d27', color: '#f4ead7', fontFamily: 'system-ui', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
+    <CampusUpdateNotice ready={true} busy={walking} open={updatesOpen} onOpen={() => setUpdatesOpen(true)} onClose={closeUpdates} onExplore={destination => { if (destination === 'nescafe') { position.current = cafePoint(cafe, -1.55, 3); setWalking(true) } else window.location.assign('/campus') }} />
     <header style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <strong style={{ marginRight: 'auto' }}>NESCAFÉ <small style={{ opacity: .6 }}>terrace rehearsal</small></strong>
       <span role="status" style={{ fontSize: 12 }}>{status} · {metrics}</span>
       <button onClick={() => setNight(n => !n)}>{night ? 'Daylight' : 'Evening'}</button>
+      <button aria-expanded={updatesOpen} onClick={() => setUpdatesOpen(value => !value)}>What’s new</button>
       <button onClick={() => { if (!walking) position.current = cafePoint(cafe, -1.55, 3); setWalking(w => !w); setStatus('WASD · Shift to run · Space to jump') }}>{walking ? 'Overview' : 'Walk around'}</button>
       <button disabled={!walking} onClick={() => seated ? live.socialAction('stop') : sit()}>{seated ? 'Stand up' : 'Sit on nearby chair'}</button>
-      <CafeCounter live={live} pose={pose} counters={counters} walking={walking} disabled={false} />
+      <CafeCounter live={live} pose={pose} counters={counters} seats={cafe.seats} walking={walking} disabled={false} />
       {live.socialError && <span>{live.socialError}</span>}
     </header>
     <Canvas shadows dpr={1} camera={{ position: [camera.x, cafe.base + 13, camera.z], fov: 48 }}>

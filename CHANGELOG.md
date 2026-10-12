@@ -6,6 +6,8 @@ Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
 - Add a shaded terrace with four tables, 16 shared chairs, planting and warm evening lights. Serving windows face the shaded tables and the adjacent long wall, matching the owner’s corrections; there is no separate entrance.
 - Choose free virtual coffee, cold coffee or water at the counters. Avatars hold a drink, take a sip and put it away; sitting and standing preserve the drink. Nearby players see the same drink and sip animation.
+- Offer a compact action menu once per café visit after stopping at the counter. Highlight the selected drink and keep drink-specific sip, put-away, café sitting and standing controls together; dismissing the menu preserves walking focus.
+- Introduce a general “What’s new on campus” notice and in-campus update feed covering new experiences visitors can use and explore, with maintenance notes kept in this changelog. Remember acknowledged entry IDs, automatically flag new entries, and offer useful exploration shortcuts. Campus tools and the website update log share the same feed.
 - Validate orders against the authenticated player’s accepted position, counter proximity, movement and activity. Drinks expire after five minutes and clear for interiors, vehicles and games.
 - Keep older open browsers compatible with café seating so new seat IDs cannot make the shared player roster disappear.
 
