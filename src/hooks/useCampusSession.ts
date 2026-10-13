@@ -1,3 +1,4 @@
+import { cafeSeatTable } from '../lib/cafeVoiceProtocol'
 import { DRINK_LIFETIME, isCafeDrink, nearbyCafeCounter } from '../lib/cafeDrinks'
 import type { CafeCounter, CafeDrinkKind } from '../lib/cafeDrinks'
 import { BuggyImpactInbox } from '../lib/buggyImpacts'
@@ -16,6 +17,15 @@ import { readFinderPreference } from '../lib/peopleFinder'
 export type CampusConnection = 'idle' | 'connecting' | 'reconnecting' | 'waiting' | 'live' | 'offline'
 export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusPose | null>, walking: boolean, activity: CampusActivity, preview = false, seats: SocialSeat[] = [], counters: CafeCounter[] = []) {
   const session = useRef<CampusSession>({ id: null, snapshot: null }), socket = useRef<WebSocket | null>(null)
+  const voiceListeners = useRef(new Set<(event: unknown) => void>())
+  const socialStopGuard = useRef<(() => boolean) | null>(null)
+  const registerSocialStopGuard = useCallback((guard: () => boolean) => {
+    socialStopGuard.current = guard
+    return () => { if (socialStopGuard.current === guard) socialStopGuard.current = null }
+  }, [])
+  const subscribeCafeVoice = useCallback((listener: (event: unknown) => void) => { voiceListeners.current.add(listener); return () => { voiceListeners.current.delete(listener) } }, [])
+  const sendCafeVoice = useCallback((value: unknown) => { const ws = socket.current; if (!session.current.id || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) return false; ws.send(JSON.stringify(value)); return true }, [])
+  const resetVoice = () => { for (const listener of voiceListeners.current) listener({ type: 'cafe-voice-reset' }) }
   const mode = useRef({ walking, activity }); mode.current = { walking, activity }
   const [connection, setConnection] = useState<CampusConnection>('idle'), [people, setPeople] = useState<CampusPerson[]>([])
   const [messages, setMessages] = useState<CampusChat[]>([]), [error, setError] = useState(''), [queue, setQueue] = useState(0), [retry, setRetry] = useState(0)
@@ -79,7 +89,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         if (!mode.current.walking || !p || p.moving || p.airborne || (p.vehicle ?? 'walk') !== 'walk' || p.space !== 'outdoors') { setCafeError('Stop on foot to enjoy your drink.'); return false }
         if (now - lastCafe < 3000) { setCafeError('Give your drink a moment.'); return false }
         if (action === 'get') {
-          if (!isCafeDrink(kind) || !nearbyCafeCounter(countersRef.current, p)) { setCafeError('Walk up to a vending window.'); return false }
+          if (!isCafeDrink(kind) || !nearbyCafeCounter(countersRef.current, p) && !(person.social?.action === 'sit' && person.social.until > now && cafeSeatTable(person.social.seatId) !== null && seatsRef.current.some(s => s.id === person.social?.seatId))) { setCafeError('Walk up to a vending window.'); return false }
           person.drink = { kind, takenAt: now, until: now + DRINK_LIFETIME }
         } else if (person.drink && now < person.drink.until) person.drink.sipAt = now
         else { setCafeError('Pick up a drink first.'); return false }
@@ -131,6 +141,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         return
       }
       if (!initialized) return
+      if (typeof value.type === 'string' && value.type.startsWith('cafe-voice-')) { for (const listener of voiceListeners.current) listener(value); return }
       if (value.type === 'buggy-impact') { receiveImpact(value.impact, value.serverTime); watchdog.received(); return }
       if (value.type === 'pose-correction') {
         const corrected = parseCampusPose(value.pose)
@@ -153,6 +164,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }
     ws.onerror = () => { if (active) setError('The live connection was interrupted. Checking connection…') }
     ws.onclose = event => {
+      resetVoice()
       clearCafePending(); clearRidePending(); clearTimeout(locatorTimer.current); clearTimeout(timeout); stopAuth(); watchdog.stop()
       if (!active) return
       setPeople([]); clearSocialPending(); session.current = { id: null, snapshot: null }
@@ -171,7 +183,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }
     const timer = window.setInterval(publish, 100)
     window.addEventListener('blur', publish); window.addEventListener('focus', publish); window.addEventListener('pageshow', publish); document.addEventListener('visibilitychange', publish)
-    return () => { active = false; clearCafePending(); clearRidePending(); clearTimeout(locatorTimer.current); clearSocialPending(); stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
+    return () => { active = false; resetVoice(); clearCafePending(); clearRidePending(); clearTimeout(locatorTimer.current); clearSocialPending(); stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
   }, [enabled, retry, pose, preview, clearCafePending, clearSocialPending, clearRidePending, sendLocatorPreference])
   const sendChat = useCallback((text: string, scope: 'campus' | 'nearby') => {
     const clean = chatText(text), ws = socket.current
@@ -217,6 +229,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     return true
   }, [pose, clearCafePending])
   const socialAction = useCallback((action: SocialAction | 'stop', seatId?: string) => {
+    if (action === 'stop' && socialStopGuard.current && !socialStopGuard.current()) return false
     if (previewAction.current) return previewAction.current(action, seatId)
     const ws = socket.current
     if (!session.current.id || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) { setSocialError('Connect to the live campus to share an action.'); return false }
@@ -241,6 +254,6 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }, 5000)
     return true
   }, [pose, clearSocialPending])
-  return { requestDrink, cafePending, cafeError, ridePending, shareLocator, setShareLocator, locatorError, socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
+  return { registerSocialStopGuard, subscribeCafeVoice, sendCafeVoice, requestDrink, cafePending, cafeError, ridePending, shareLocator, setShareLocator, locatorError, socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
 }
 export type CampusLiveSession = ReturnType<typeof useCampusSession>

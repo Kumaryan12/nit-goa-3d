@@ -1,3 +1,4 @@
+import { createOatVoiceService } from './oatVoiceService.ts'
 import { createServer } from 'node:http'
 import { serveStaticAsset } from './staticAssets.ts'
 import { resolve, extname, sep } from 'node:path'
@@ -145,12 +146,14 @@ const football = attachFootballServer(
   origins ?? process.env.FOOTBALL_ORIGIN,
   verify,
 )
+const voiceRelay = createOatVoiceService()
 oat = attachOatServer(
   server,
   origins ?? process.env.OAT_ORIGIN ?? process.env.FOOTBALL_ORIGIN,
   verify,
+  voiceRelay,
 )
-const campus = attachCampusServer(server, origins, verify, undefined, undefined, { snapshot: () => oat.room.snapshot(), layout: publishedConcertLayout() })
+const campus = attachCampusServer(server, origins, verify, undefined, undefined, { snapshot: () => oat.room.snapshot(), layout: publishedConcertLayout() }, undefined, voiceRelay)
 crowd = createCrowdAPI(football.access, oat.access, oat.endStage, verify, () =>
   profiles.changed(),
   undefined, campus, oat.voiceUsage,

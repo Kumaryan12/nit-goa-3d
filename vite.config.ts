@@ -1,3 +1,4 @@
+import { createOatVoiceService } from './server/oatVoiceService.ts'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { attachFootballServer } from './server/footballServer.ts'
@@ -19,9 +20,10 @@ export default defineConfig(({ mode }) => {
     server: import('vite').ViteDevServer | import('vite').PreviewServer,
   ) => {
     if (!server.httpServer) return
+    const voiceRelay = createOatVoiceService()
     const football = attachFootballServer(server.httpServer, undefined, verify),
-      oat = attachOatServer(server.httpServer, undefined, verify),
-      campus = attachCampusServer(server.httpServer, undefined, verify, undefined, undefined, { snapshot: () => oat.room.snapshot(), layout: publishedConcertLayout() }),
+      oat = attachOatServer(server.httpServer, undefined, verify, voiceRelay),
+      campus = attachCampusServer(server.httpServer, undefined, verify, undefined, undefined, { snapshot: () => oat.room.snapshot(), layout: publishedConcertLayout() }, undefined, voiceRelay),
       crowd = createCrowdAPI(
         football.access,
         oat.access,

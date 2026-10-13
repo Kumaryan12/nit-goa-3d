@@ -6,3 +6,25 @@
 .cafe-drink-actions button:first-child { background: #53866b2b; border-color: #53866b60; }
 .cafe-drink-actions button:disabled { opacity: .5; cursor: default; }
 .cafe-drink-actions button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.cafe-table-voice { margin-top: .65rem; padding-top: .65rem; border-top: 1px solid var(--border); }
+.cafe-voice-heading, .cafe-voice-member, .cafe-voice-volume { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.cafe-voice-heading { font-size: .82rem; }
+.cafe-mic-live, .cafe-mic-indicator { color: #417d58; font-size: .68rem; font-weight: 700; }
+.cafe-mic-indicator { margin-left: .35rem; }
+.cafe-voice-volume { font-size: .73rem; margin: .6rem 0; }
+.cafe-voice-volume input { flex: 1; min-width: 0; accent-color: #56815e; }
+.cafe-voice-member { margin-top: .3rem; font-size: .76rem; }
+.cafe-voice-member small { display: block; opacity: .65; font-size: .66rem; }
+.cafe-voice-member button { border: 1px solid var(--border); border-radius: .5rem; background: transparent; color: inherit; padding: .3rem .5rem; }
+.cafe-voice-privacy { font-size: .67rem; opacity: .65; margin: .5rem 0 0; }
+.cafe-voice-error { color: #ae5436; }
+.cafe-voice-pill { position: absolute; z-index: 180; top: max(76px, calc(env(safe-area-inset-top) + 64px)); right: max(12px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border: 1px solid #53866b60; border-radius: 24px; background: var(--glass, #eef4e8ed); color: var(--ink, #244335); box-shadow: 0 4px 18px #183c2c16; font-size: 11px; }
+.cafe-voice-pill button { min-height: 36px; border: 1px solid #53866b60; border-radius: 18px; padding: 0 12px; background: #53866b20; color: inherit; cursor: pointer; }
+.cafe-voice-leave-notice { position: fixed; z-index: 180; left: 50%; bottom: max(28px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: 10px; width: max-content; max-width: calc(100vw - 24px); padding: 8px 8px 8px 14px; border: 1px solid #53866b60; border-radius: 14px; background: var(--glass, #eef4e8ed); color: var(--ink, #244335); box-shadow: 0 4px 18px #183c2c16; font-size: 12px; pointer-events: none; }
+.cafe-voice-leave-notice button { border: 0; background: transparent; color: inherit; min-width: 32px; min-height: 32px; font-size: 18px; cursor: pointer; pointer-events: auto; }
+@media (max-width: 760px), (pointer: coarse) { .cafe-voice-leave-notice { bottom: max(180px, calc(env(safe-area-inset-bottom) + 168px)); } }
+.cafe-leave-confirmation { width: min(360px, calc(100vw - 32px)); background: #f5f7eded; }
+.night-mode .cafe-leave-confirmation { background: #142632ed; }
+.cafe-leave-confirmation .dialog-heading h2 { font-size: 17px; line-height: 1.4; }
+.cafe-leave-confirmation .cafe-drink-actions { margin-bottom: 0; }

@@ -1,3 +1,4 @@
+import { cafeSeatTable } from '../src/lib/cafeVoiceProtocol.ts'
 import { DRINK_LIFETIME, isCafeDrink, nearbyCafeCounter, SIP_DURATION } from '../src/lib/cafeDrinks.ts'
 import type { CafeCounter } from '../src/lib/cafeDrinks.ts'
 import { BUGGY_BODY, BUGGY_IMPACT_MS, boundedBuggyVelocity, buggyContact, sweptBuggyContact, solveBuggyImpact } from '../src/lib/buggyImpacts.ts'
@@ -68,6 +69,14 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       const social = member.person.social, pose = member.person.pose
       if (social && (now >= social.until || now - member.poseAt >= 2000 || !pose?.active || !pose.visible && member.person.activity !== 'concert')) stopSocial(id, now)
     }
+  }
+  const cafeTable = (id: string, now: number) => {
+    syncSocial(now)
+    const member = members.get(id), social = member?.person.social, pose = member?.person.pose
+    const seat = social?.action === 'sit' && social.seatId ? socialSeats.get(social.seatId) : undefined
+    const table = cafeSeatTable(seat?.id)
+    if (!member || !seat || table === null || social!.until <= now || !pose?.active || !pose.visible || now - member.poseAt >= 2000 || member.person.activity !== 'walk' || pose.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk' || member.person.ride) return null
+    return { table, name: member.person.name }
   }
   const release = (id: string, now: number) => {
     const member = members.get(id), ride = member?.person.ride
@@ -218,6 +227,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       syncRides(now)
       return 'accepted'
     },
+    cafeTable(id: string, now = Date.now()) { return cafeTable(id, now) },
     cafe(id: string, action: unknown, kind?: unknown, now = Date.now()): { ok: true } | { error: string } {
       syncDrinks(now)
       const member = members.get(id)
@@ -230,7 +240,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       if (!pose?.active || !pose.visible || now - member.poseAt >= 2000 || pose.moving || pose.airborne || pose.space !== 'outdoors' || member.person.activity !== 'walk' || (pose.vehicle ?? 'walk') !== 'walk' || member.person.ride) return { error: 'Stop on foot to order or sip your drink.' }
       if (action === 'get') {
         if (!isCafeDrink(kind)) return { error: 'Choose coffee, cold coffee or water.' }
-        if (!nearbyCafeCounter(counters, pose)) return { error: 'Walk up to a Nescafé vending window.' }
+        if (!nearbyCafeCounter(counters, pose) && !cafeTable(id, now)) return { error: 'Walk up to a Nescafé vending window or sit at a café table.' }
         member.person.drink = { kind, takenAt: now, until: now + DRINK_LIFETIME }
       } else {
         const drink = member.person.drink

@@ -2,6 +2,19 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## Nescafé table conversations — 13 October 2026
+
+- Add opt-in live microphone conversations for up to four people seated at the same table, with listening-only mode, mic mute, individual caller mute and volume controls.
+- Keep ordering and sipping available at every café chair during conversation. Closing the menu keeps voice active; a compact mic stop control stays available with campus tools hidden.
+- Ask “Do you want to leave the conversation?” before ending an active table call or standing via café controls, Actions or movement; cancelling preserves seat and voice.
+- Show a brief “You left the table conversation.” confirmation after leaving an active call, including standing via café controls, Actions or movement.
+- End calls on standing, activity changes, tab hiding or disconnect. Cancel late microphone permission responses and isolate stale signalling with server-assigned join IDs.
+- Reuse the authenticated presence connection and monitored Cloudflare relay, including shared usage reporting and the existing 900 GB early cutoff. Bound audio links and retries; reject video/data-channel offers.
+- Correct incoming-call transceiver attachment so connected calls transmit audio in both directions.
+- Add “Coffee and conversation” to the visitor update feed.
+
+Validation: authenticated table isolation and voice lifecycle tests; four real Chrome WebRTC callers over TURN each received three decoded synthetic audio streams. Ordering, sipping, muting and standing were verified without real microphone capture. Backend and frontend must be published together; separate-device Safari/phone voice still needs rehearsal.
+
 ## Nescafé coffee breaks — 12 October 2026
 
 - Add a shaded terrace with four tables, 16 shared chairs, planting and warm evening lights. Serving windows face the shaded tables and the adjacent long wall, matching the owner’s corrections; there is no separate entrance.

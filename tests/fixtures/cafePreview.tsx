@@ -40,10 +40,28 @@ function Metrics({ report }: { report: (value: string) => void }) {
 }
 function Rehearsal({ twin }: { twin: DigitalTwin }) {
   const [night, setNight] = useState(false), [walking, setWalking] = useState(false), [metrics, setMetrics] = useState('Loading'), [status, setStatus] = useState('Drag to look around')
-  const [updatesOpen, setUpdatesOpen] = useState(false)
+  const [updatesOpen, setUpdatesOpen] = useState(false), [voicePreview, setVoicePreview] = useState(false)
+  const voiceListeners = useRef(new Set<(event: unknown) => void>()), voiceSession = useRef<string | null>(null)
+  const subscribeVoicePreview = useCallback((listener: (event: unknown) => void) => { voiceListeners.current.add(listener); return () => { voiceListeners.current.delete(listener) } }, [])
+  // One local listening-only caller exercises the real confirmation hook.
+  // No peer links, production identity or real microphone are needed.
+  const sendVoicePreview = useCallback((value: unknown) => {
+    const message = value as { type: string }
+    queueMicrotask(() => {
+      const publish = (event: unknown) => voiceListeners.current.forEach(listener => listener(event))
+      if (message.type === 'cafe-voice-join') {
+        voiceSession.current = crypto.randomUUID()
+        publish({ type: 'cafe-voice-state', table: 0, sessionId: voiceSession.current, members: [{ id: 'local-preview', name: 'Preview', sessionId: voiceSession.current, mic: false }] })
+        publish({ type: 'cafe-voice-ice', sessionId: voiceSession.current, configuration: { iceServers: [{ urls: ['stun:stun.cloudflare.com:3478'] }], expiresAt: Date.now() + 600000 } })
+      }
+      if (message.type === 'cafe-voice-leave') { voiceSession.current = null; publish({ type: 'cafe-voice-state', table: null, sessionId: null, members: [] }) }
+    })
+    return true
+  }, [])
   const closeUpdates = useCallback(() => setUpdatesOpen(false), [])
   const input = useRef(emptyWalkInput()), position = useRef<{ x: number; z: number } | null>(cafePoint(twin.terrain.cafe!, 0, 5.25)), pose = useRef<CampusPose | null>(null), interior = useRef(null), processed = useRef(0), football = useRef(createFootballControls())
   const cafe = twin.terrain.cafe!, counters = useMemo(() => cafeCounters(cafe, twin.terrain), [cafe, twin]), live = useCampusSession(false, pose, walking, 'walk', true, cafe.seats, counters)
+  const cafeLive = { ...live, connection: voicePreview ? 'live' as const : live.connection, subscribeCafeVoice: subscribeVoicePreview, sendCafeVoice: sendVoicePreview }
   const patches = useMemo(() => createTerrainPatches(twin.terrain), [twin])
   const center = cafePoint(cafe, 0, 5)
   // Show both owner-confirmed serving sides together: counter and shared tables.
@@ -61,7 +79,8 @@ function Rehearsal({ twin }: { twin: DigitalTwin }) {
       <button aria-expanded={updatesOpen} onClick={() => setUpdatesOpen(value => !value)}>What’s new</button>
       <button onClick={() => { if (!walking) position.current = cafePoint(cafe, -1.55, 3); setWalking(w => !w); setStatus('WASD · Shift to run · Space to jump') }}>{walking ? 'Overview' : 'Walk around'}</button>
       <button disabled={!walking} onClick={() => seated ? live.socialAction('stop') : sit()}>{seated ? 'Stand up' : 'Sit on nearby chair'}</button>
-      <CafeCounter live={live} pose={pose} counters={counters} seats={cafe.seats} walking={walking} disabled={false} />
+      <button disabled={!seated} onClick={() => setVoicePreview(true)}>Preview table voice</button>
+      <CafeCounter live={cafeLive} pose={pose} counters={counters} seats={cafe.seats} walking={walking} disabled={false} />
       {live.socialError && <span>{live.socialError}</span>}
     </header>
     <Canvas shadows dpr={1} camera={{ position: [camera.x, cafe.base + 13, camera.z], fov: 48 }}>

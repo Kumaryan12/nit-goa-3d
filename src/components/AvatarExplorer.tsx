@@ -358,7 +358,11 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     let forward = allowed ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
     let side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
     const turn = allowed ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0
-    if (allowed && social && (forward || side || input.current.jump || input.current.action || input.current.vehicle) && stoppingSocial.current !== social.startedAt) { stoppingSocial.current = social.startedAt; onSocialStop() }
+    const wantsToStand = forward || side || input.current.jump || input.current.action || input.current.vehicle
+    // A cancelled conversation prompt must allow a later movement attempt.
+    // Latch a held key/pad until it is released so it cannot reopen each frame.
+    if (allowed && social && !wantsToStand && stoppingSocial.current === social.startedAt) stoppingSocial.current = null
+    if (allowed && social && wantsToStand && stoppingSocial.current !== social.startedAt) { stoppingSocial.current = social.startedAt; onSocialStop() }
     if (sitting) { forward = 0; side = 0; delete input.current.jump; delete input.current.action; delete input.current.vehicle }
     if (allowed) {
       const rotation = (ride.current === 'walk' ? Math.max(-1, Math.min(1, turn)) : 0) * delta * WALK_CONTROLS.turnSpeed

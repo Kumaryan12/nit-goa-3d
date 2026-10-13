@@ -10,6 +10,7 @@ export interface CampusUpdate {
   action?: string
 }
 export const campusUpdates: readonly CampusUpdate[] = [
+  { id: 'cafe-table-conversations', destination: 'nescafe', action: 'Visit Nescafé', kind: 'Added', title: 'Coffee and conversation at Nescafé.', detail: 'Sit with friends and chat over live voice while ordering and sipping coffee, cold coffee or water. Choose Start talking or Listen, mute your mic or tablemates, and adjust volume. Before standing up, choose Stay seated to keep chatting or Leave and stand up to end the conversation.' },
   { id: 'nescafe-coffee-breaks', destination: 'nescafe', action: 'Visit Nescafé', kind: 'Added', title: 'Nescafé, now serving.', detail: 'Choose coffee, cold coffee or water at a serving window. Take a sip, sit at a shaded table and catch up with friends. Nearby players can see your drink too.' },
   { id: 'concert-seating', destination: 'oat', action: 'Visit the OAT', kind: 'Added', title: 'Live concerts at the OAT.', detail: 'Join the audience and take a seat facing the stage, or perform with music and your microphone. Listener volume and mute controls let you choose how to listen.' },
   { id: 'buggy-passengers', kind: 'Added', title: 'Bring your friends along.', detail: 'A buggy carries its driver and three passengers. Walk beside a stopped buggy and choose Hop in, or press F, to ride together around campus.' },

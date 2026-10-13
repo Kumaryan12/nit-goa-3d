@@ -1,3 +1,5 @@
+import { createCafeVoice } from './cafeVoice.ts'
+import type { OatVoiceService } from './oatVoiceService.ts'
 import { campusSnapshotForViewer } from './campusLocator.ts'
 import type { SiteOrigins } from './siteOrigins.ts'
 import type { EventEmitter } from 'node:events'
@@ -16,12 +18,13 @@ import { legacySocialSnapshot } from './socialCompatibility.ts'
 import { publishedCafeCounters } from './cafeCounters.ts'
 import type { CafeCounter } from '../src/lib/cafeDrinks.ts'
 
-export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats(), concert?: { snapshot: () => OatSnapshot; layout: ConcertLayout }, counters: CafeCounter[] = publishedCafeCounters()) {
+export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats(), concert?: { snapshot: () => OatSnapshot; layout: ConcertLayout }, counters: CafeCounter[] = publishedCafeCounters(), relay?: OatVoiceService) {
   const room = createCampusRoom(boundary, seats, counters), sockets = new Map<string, WebSocket>(), spawnSlots = new Map<string, number>()
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384, perMessageDeflate: false })
   const access = attachLiveAccess(server, wss, '/presence', origin, CAMPUS_CAPACITY, verify)
   const cafeSupport = new WeakSet<WebSocket>()
   const send = (ws: WebSocket, value: unknown) => { if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(JSON.stringify(value)) }
+  const voice = createCafeVoice(id => room.cafeTable(id), (id, value) => { const ws = sockets.get(id); if (ws) send(ws, value) }, relay)
   const snapshot = () => concert ? seatConcertVisitors(room.snapshot(), concert.snapshot(), concert.layout) : room.snapshot()
   access.onAdmit((ws, identity) => {
     if (!room.add(identity)) { ws.close(1013, 'Campus full'); return }
@@ -37,6 +40,7 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
       let msg
       try { msg = JSON.parse(bytes.toString()) } catch { return }
       if (!msg || typeof msg !== 'object') return
+      if (voice.handle(identity.id, msg)) return
       if (msg.type === 'social-capabilities' && msg.cafeSeats === true && !cafeSupport.has(ws)) {
         cafeSupport.add(ws); send(ws, campusSnapshotForViewer(snapshot(), identity.id))
       }
@@ -52,6 +56,7 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
       for (const { id, impact } of room.takeImpacts()) { const target = sockets.get(id); if (target) send(target, { type: 'buggy-impact', serverTime: Date.now(), impact }) }
       if (msg.type === 'locator-visibility') send(ws, { type: 'locator-result', ok: room.locatorVisibility(identity.id, msg.visible), visible: msg.visible === true })
       if (msg.type === 'social-action') send(ws, { type: 'social-result', ...room.social(identity.id, msg.action, msg.seatId) })
+      voice.reconcile()
       if (msg.type === 'cafe-drink') send(ws, { type: 'cafe-result', ...room.cafe(identity.id, msg.action, msg.kind) })
       if (msg.type === 'buggy-ride') {
         const result = room.ride(identity.id, msg.driverId)
@@ -64,10 +69,11 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
         else for (const id of result.recipients) { const target = sockets.get(id); if (target) send(target, result.message) }
       }
     })
-    ws.on('close', () => { if (sockets.get(identity.id) !== ws) return; sockets.delete(identity.id); spawnSlots.delete(identity.id); room.remove(identity.id); if (!sockets.size) for (const m of room.history()) room.removeMessages(m.sender) })
+    ws.on('close', () => { if (sockets.get(identity.id) !== ws) return; sockets.delete(identity.id); spawnSlots.delete(identity.id); room.remove(identity.id); voice.remove(identity.id); if (!sockets.size) for (const m of room.history()) room.removeMessages(m.sender) })
   })
   const timer = setInterval(() => {
     for (const [id, ws] of sockets) { const identity = access.identity(ws); if (identity) room.updateIdentity(identity); else { room.remove(id); sockets.delete(id); spawnSlots.delete(id) } }
+    voice.reconcile()
     if (!sockets.size) return
     const state = snapshot(), legacy = legacySocialSnapshot(state), encoded = JSON.stringify(state), oldEncoded = legacy === state ? encoded : JSON.stringify(legacy), privateMarkers = state.people.some(p => p.locatorVisible === false)
     for (const [id, ws] of sockets) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) {
@@ -77,7 +83,7 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
   }, 100)
   timer.unref()
   let closed = false
-  const close = () => { if (closed) return; closed = true; clearInterval(timer); access.close() }
+  const close = () => { if (closed) return; closed = true; clearInterval(timer); voice.close(); access.close() }
   server.once('close', close)
   return { access, room, close, removeMessages(id: string) { room.removeMessages(id); for (const ws of sockets.values()) send(ws, { type: 'chat-remove', sender: id }) } }
 }
