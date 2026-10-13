@@ -28,3 +28,6 @@
 .night-mode .cafe-leave-confirmation { background: #142632ed; }
 .cafe-leave-confirmation .dialog-heading h2 { font-size: 17px; line-height: 1.4; }
 .cafe-leave-confirmation .cafe-drink-actions { margin-bottom: 0; }
+.cafe-voice-time { margin: .5rem 0; font-size: 11px; line-height: 1.5; color: var(--ink); }
+.cafe-voice-time strong { font-variant-numeric: tabular-nums; }
+.cafe-voice-warning { border-color: #b58b425e; }

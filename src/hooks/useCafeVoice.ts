@@ -16,7 +16,7 @@ export function useCafeVoice(live: CampusLiveSession, seatId: string | undefined
   useEffect(() => {
     let wasJoined = false
     const voice = new CafeVoiceClient(live.sendCafeVoice, next => {
-      if (wasJoined && !next.joined) setLeaveNotice('You left the table conversation.')
+      if (wasJoined && !next.joined) setLeaveNotice(next.limitReached ? 'Your 10-minute conversation has ended. Take a 2-minute break; you can stay seated with your drink.' : 'You left the table conversation.')
       if (next.joined) setLeaveNotice('')
       else setLeaveConfirmation(null)
       wasJoined = next.joined
@@ -31,7 +31,15 @@ export function useCafeVoice(live: CampusLiveSession, seatId: string | undefined
     document.addEventListener('visibilitychange', hidden); window.addEventListener('pagehide', leave)
     return () => { unregisterGuard(); unsubscribe(); document.removeEventListener('visibilitychange', hidden); window.removeEventListener('pagehide', leave); voice.close(); client.current = null }
   }, [live.sendCafeVoice, live.subscribeCafeVoice, live.registerSocialStopGuard])
-  useEffect(() => { client.current?.leave(); setMuted(new Set()) }, [seatId, available])
+  useEffect(() => {
+    client.current?.leave(); setMuted(new Set())
+    if (available) live.sendCafeVoice({ type: 'cafe-voice-status' })
+  }, [seatId, available, live.sendCafeVoice])
+  useEffect(() => {
+    if (!view.joined && !(view.cooldownMs && view.cooldownMs > 0)) return
+    const timer = window.setInterval(() => { if (client.current) setView(client.current.view()) }, 1000)
+    return () => clearInterval(timer)
+  }, [view.joined, !!view.cooldownMs])
   return { view, volume, muted, leaveConfirmation, cancelLeave: () => setLeaveConfirmation(null),
     confirmLeave: () => {
       const stand = leaveConfirmation === 'stand'

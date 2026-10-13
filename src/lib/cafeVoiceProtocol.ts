@@ -1,3 +1,5 @@
+import { parseCafeVoiceTiming } from './cafeVoiceLimits.ts'
+import type { CafeVoiceTiming } from './cafeVoiceLimits.ts'
 import { parseOatSignal } from './oatProtocol.ts'
 import type { OatSignal } from './oatProtocol.ts'
 import { parseOatIceConfiguration } from './oatIce.ts'
@@ -10,8 +12,8 @@ export function cafeSeatTable(seat: unknown): number | null {
   return match ? Number(match[1]) : null
 }
 export interface CafeVoiceMember { id: string; name: string; sessionId: string; mic: boolean }
-export interface CafeVoiceState { type: 'cafe-voice-state'; table: number | null; sessionId: string | null; members: CafeVoiceMember[]; usage?: OatUsageStatus }
-export type CafeVoiceEvent = CafeVoiceState | { type: 'cafe-voice-ice'; sessionId: string; configuration: OatIceConfiguration } |
+export interface CafeVoiceState { type: 'cafe-voice-state'; table: number | null; sessionId: string | null; members: CafeVoiceMember[]; usage?: OatUsageStatus; timing?: CafeVoiceTiming; reason?: 'limit' }
+export type CafeVoiceEvent = CafeVoiceState | { type: 'cafe-voice-limits'; timing?: CafeVoiceTiming } | { type: 'cafe-voice-ice'; sessionId: string; configuration: OatIceConfiguration } |
   { type: 'cafe-voice-signal'; from: string; fromSessionId: string; sessionId: string; signal: OatSignal } |
   { type: 'cafe-voice-error'; message: string } | { type: 'cafe-voice-reset' }
 const token = (v: unknown): v is string => typeof v === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(v)
@@ -20,7 +22,11 @@ export function parseCafeVoiceEvent(value: unknown): CafeVoiceEvent | null {
   const v = value as Record<string, unknown>
   if (v.type === 'cafe-voice-reset') return { type: v.type }
   if (v.type === 'cafe-voice-error' && typeof v.message === 'string' && v.message.length <= 240) return { type: v.type, message: v.message }
+  const timing = v.timing === undefined ? undefined : parseCafeVoiceTiming(v.timing)
+  if (timing === null) return null
+  if (v.type === 'cafe-voice-limits') return { type: v.type, ...(timing ? { timing } : {}) }
   if (v.type === 'cafe-voice-state') {
+    if (v.reason !== undefined && (v.reason !== 'limit' || v.table !== null)) return null
     if (!(v.table === null || Number.isInteger(v.table) && Number(v.table) >= 0 && Number(v.table) < 4) || !(v.sessionId === null || token(v.sessionId)) || !Array.isArray(v.members) || v.members.length > 4) return null
     const members: CafeVoiceMember[] = []
     for (const m of v.members) {
@@ -30,7 +36,7 @@ export function parseCafeVoiceEvent(value: unknown): CafeVoiceEvent | null {
     if (new Set(members.map(m => m.id)).size !== members.length || (v.table === null) !== (v.sessionId === null) || v.table === null && members.length || v.sessionId !== null && !members.some(m => m.sessionId === v.sessionId)) return null
     const usage = v.usage === undefined ? undefined : parseOatUsageStatus(v.usage)
     if (usage === null) return null
-    return { type: v.type, table: v.table as number | null, sessionId: v.sessionId as string | null, members, ...(usage ? { usage } : {}) }
+    return { type: v.type, table: v.table as number | null, sessionId: v.sessionId as string | null, members, ...(usage ? { usage } : {}), ...(timing ? { timing } : {}), ...(v.reason === 'limit' ? { reason: 'limit' as const } : {}) }
   }
   if (v.type === 'cafe-voice-ice' && token(v.sessionId)) {
     const configuration = parseOatIceConfiguration(v.configuration)

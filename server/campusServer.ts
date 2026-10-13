@@ -18,13 +18,13 @@ import { legacySocialSnapshot } from './socialCompatibility.ts'
 import { publishedCafeCounters } from './cafeCounters.ts'
 import type { CafeCounter } from '../src/lib/cafeDrinks.ts'
 
-export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats(), concert?: { snapshot: () => OatSnapshot; layout: ConcertLayout }, counters: CafeCounter[] = publishedCafeCounters(), relay?: OatVoiceService) {
+export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, verify?: VerifyAccess, boundary: LocalCoordinate[] = publishedCampusBoundary(), seats: SocialSeat[] = publishedSocialSeats(), concert?: { snapshot: () => OatSnapshot; layout: ConcertLayout }, counters: CafeCounter[] = publishedCafeCounters(), relay?: OatVoiceService, voiceNow: () => number = Date.now) {
   const room = createCampusRoom(boundary, seats, counters), sockets = new Map<string, WebSocket>(), spawnSlots = new Map<string, number>()
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384, perMessageDeflate: false })
   const access = attachLiveAccess(server, wss, '/presence', origin, CAMPUS_CAPACITY, verify)
   const cafeSupport = new WeakSet<WebSocket>()
   const send = (ws: WebSocket, value: unknown) => { if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(JSON.stringify(value)) }
-  const voice = createCafeVoice(id => room.cafeTable(id), (id, value) => { const ws = sockets.get(id); if (ws) send(ws, value) }, relay)
+  const voice = createCafeVoice(id => room.cafeTable(id), (id, value) => { const ws = sockets.get(id); if (ws) send(ws, value) }, relay, voiceNow)
   const snapshot = () => concert ? seatConcertVisitors(room.snapshot(), concert.snapshot(), concert.layout) : room.snapshot()
   access.onAdmit((ws, identity) => {
     if (!room.add(identity)) { ws.close(1013, 'Campus full'); return }

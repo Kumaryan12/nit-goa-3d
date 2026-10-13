@@ -2,6 +2,15 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## Nescafé voice session limits — 13 October 2026
+
+- Limit each signed-in visitor’s café voice session to 10 minutes. Show the countdown and a one-minute warning, including with the café menu or campus tools hidden.
+- Stop microphone capture and incoming audio at expiry while keeping café seats and drinks available. Show a two-minute cooldown before the next session.
+- Apply the same cooldown to early leaving, disconnects and changing tables. Track it by authenticated account on the live server so refreshes and client-supplied timestamps cannot skip it.
+- Keep a monotonic browser deadline as well as server enforcement, so a delayed signalling connection cannot leave microphone tracks running. Preserve the shared relay usage cutoff and avoid unnecessary relay renewal near the session end.
+
+Validation: 565 regression tests pass, including exact warning/expiry boundaries, cooldown rejection and eligibility, device-clock skew, stale signalling, late microphone permission, and actual authenticated sockets retaining seats and drinks after expiry. The local 360-pixel preview shows the warning, end notice and cooldown; sipping remains available during the break.
+
 ## Nescafé table conversations — 13 October 2026
 
 - Add opt-in live microphone conversations for up to four people seated at the same table, with listening-only mode, mic mute, individual caller mute and volume controls.

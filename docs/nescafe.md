@@ -57,3 +57,16 @@ The terrace rehearsal also offers **Preview table voice** after sitting. Choose 
 Confirmation QA: in Chrome’s 360-pixel responsive preview, the café Stand up button and WASD both opened the question. Stay seated preserved the listening session; a second WASD attempt reopened the question after cancelling. Leave and stand up ended voice, restored the standing controls and displayed the leave notice. This used the one-caller local listening preview without microphone capture.
 
 Release checks: 557 regression tests pass, the Cloudflare Pages production build succeeds, and the production dependency audit reports no vulnerabilities.
+
+
+## Ten-minute voice sessions
+
+Each signed-in visitor gets at most **10 minutes** per Nescafé voice session. A countdown appears in Table conversation; with one minute left, a warning remains visible even when the café menu or campus toolbar is hidden. At expiry, the microphone, peer connections and incoming audio close. The avatar stays seated and café drink controls stay available. The existing five-minute drink lifetime still applies.
+
+A **two-minute cooldown** follows expiry and early endings (manual leaving, standing, disconnecting, hiding the page or switching tables). Voice buttons display the remaining break and become available afterward; voice never starts again automatically. The server assigns all deadlines and keys them by authenticated account. Normal refreshes, reconnects, duplicate join messages, microphone mute changes, extra callers and forged client timestamps cannot restart the timer or skip the break. Each tablemate has their own session, so late arrivals get their own ten minutes.
+
+Server membership reconciliation sends one warning and removes expired callers without changing social seating or drink records. The browser also uses a monotonic deadline to stop capture when a signalling update stalls. Cooldown metadata survives resource cleanup; server status restores it after reconnect. New relay credentials normally cover the session, so unnecessary renewal at the eight-minute point is skipped. Shorter cached credentials can still refresh without extending the conversation.
+
+Session windows are bounded and held in the existing single server process; a server restart clears those short-term timers. The separate persisted 900 GB relay usage cutoff continues to protect the shared monthly allowance. Both server and frontend require deployment for the new timing UI and server policy.
+
+The local terrace rehearsal includes **Preview last minute**, **Preview expiry** and **Preview cooldown end** for checking these states without a ten-minute wait. These controls are only in the development fixture and never alter production deadlines. Automated coverage includes real authenticated presence sockets and synthetic server time; no real microphone is captured by the listening-only UI rehearsal.

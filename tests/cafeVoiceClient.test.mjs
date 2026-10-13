@@ -75,3 +75,29 @@ test('server rejection tears down already captured mic and delayed audio unlock 
   slow.client.listen(); slow.client.leave(); unlock(); await tick()
   assert.equal(slow.sent.filter(m => m.type === 'cafe-voice-join').length, 0)
 })
+
+test('a stalled signalling socket cannot keep mic or decoder alive past the server deadline; cooldown prevents new capture', async t => {
+  const f = setup(); t.after(() => f.client.close()); await f.client.startMic()
+  const end = Date.now() + 70
+  const window = { serverTime: Date.now(), expiresAt: end, cooldownUntil: end + 120000 }
+  f.client.receive({ ...roster('alice', ['alice', 'bob']), timing: window }); f.client.receive(ice('alice')); await tick()
+  assert.equal(f.client.view().warning, true)
+  assert.equal(f.client.view().mic, true)
+  await new Promise(r => setTimeout(r, 100))
+  assert.equal(f.client.view().joined, false); assert.equal(f.client.view().mic, false); assert.equal(f.client.view().limitReached, true)
+  assert.ok(f.tracks.every(track => track.stopped)); assert.ok(f.pcs.every(pc => pc.closed)); assert.ok(f.audios.every(audio => audio.closed))
+  assert.ok(f.sent.some(m => m.type === 'cafe-voice-leave'))
+  assert.ok(f.client.view().cooldownMs > 119000)
+  const captures = f.tracks.length, joins = f.sent.filter(m => m.type === 'cafe-voice-join').length
+  await f.client.startMic(); f.client.listen(); await tick()
+  assert.equal(f.tracks.length, captures); assert.equal(f.sent.filter(m => m.type === 'cafe-voice-join').length, joins)
+})
+test('a server cooldown arriving during microphone permission stops the late input and emits no join', async t => {
+  let finish; const track = { readyState: 'live', stopped: false, stop() { this.stopped = true } }
+  const f = setup(() => new Promise(r => { finish = r })); t.after(() => f.client.close())
+  const request = f.client.startMic(); await tick()
+  const now = Date.now()
+  f.client.receive({ type: 'cafe-voice-limits', timing: { serverTime: now, expiresAt: now, cooldownUntil: now + 120000 } })
+  finish({ getTracks: () => [track], getAudioTracks: () => [track] }); await request
+  assert.equal(track.stopped, true); assert.equal(f.client.view().mic, false); assert.equal(f.sent.some(m => m.type === 'cafe-voice-join'), false)
+})

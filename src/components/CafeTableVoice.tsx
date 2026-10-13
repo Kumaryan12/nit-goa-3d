@@ -1,13 +1,16 @@
+import { cafeVoiceTime } from '../lib/cafeVoiceLimits'
 import type { useCafeVoice } from '../hooks/useCafeVoice'
 import { oatUsageAmount } from '../lib/oatUsage'
 export default function CafeTableVoice({ voice, enabled, ownId }: { voice: Pick<ReturnType<typeof useCafeVoice>, 'view' | 'volume' | 'muted' | 'listen' | 'startMic' | 'muteMic' | 'leave' | 'setVolume' | 'toggleMute'>; enabled: boolean; ownId: string | null }) {
-  const { view } = voice, others = view.members.filter(m => m.id !== ownId)
+  const { view } = voice, cooling = (view.cooldownMs ?? 0) > 0, others = view.members.filter(m => m.id !== ownId)
   return <div className="cafe-table-voice" role="group" aria-label="Table conversation">
     <div className="cafe-voice-heading"><strong>Table conversation</strong>{view.mic && <span className="cafe-mic-live">● Mic on</span>}</div>
     <p className="social-action-note">{view.joined ? others.length ? `${others.length} ${others.length === 1 ? 'person' : 'people'} joined · ${view.connected} connected` : 'You’re the first here. Invite your tablemates to join.' : 'Talk with people at this table. Your microphone starts only when you choose.'}</p>
+    {view.joined && view.remainingMs !== undefined && <p className="cafe-voice-time">Voice time left <strong>{cafeVoiceTime(view.remainingMs)}</strong></p>}
+    {cooling && <p className="cafe-voice-time">Next conversation in <strong>{cafeVoiceTime(view.cooldownMs!)}</strong>. Stay seated and enjoy your drink.</p>}
     <div className="cafe-drink-actions">
-      <button disabled={!enabled || view.pending && !view.mic} onClick={view.mic ? voice.muteMic : voice.startMic}>{view.mic ? 'Mute microphone' : view.pending ? 'Connecting…' : view.joined ? 'Turn mic on' : 'Start talking'}</button>
-      {!view.joined && <button disabled={!enabled || view.pending} onClick={voice.listen}>Listen</button>}
+      <button disabled={!enabled || cooling || view.pending && !view.mic} onClick={view.mic ? voice.muteMic : voice.startMic}>{view.mic ? 'Mute microphone' : view.pending ? 'Connecting…' : view.joined ? 'Turn mic on' : 'Start talking'}</button>
+      {!view.joined && <button disabled={!enabled || cooling || view.pending} onClick={voice.listen}>Listen</button>}
       {(view.joined || view.pending) && <button onClick={voice.leave}>Leave voice</button>}
     </div>
     {view.joined && <>
@@ -17,6 +20,6 @@ export default function CafeTableVoice({ voice, enabled, ownId }: { voice: Pick<
     {view.usage && <p className="social-action-note">Campus voice: {view.usage.usedBytes === null ? 'checking' : oatUsageAmount(view.usage.usedBytes)} used · pauses at {oatUsageAmount(view.usage.cutoffBytes)}.</p>}
     {view.error && <p className="social-action-note cafe-voice-error" role="status">{view.error}</p>}
     {!enabled && <p className="social-action-note">Join the live campus to use table voice.</p>}
-    <p className="cafe-voice-privacy">Only this table hears you. Standing up ends voice.</p>
+    <p className="cafe-voice-privacy">Only this table hears you. 10-minute sessions, then a 2-minute break. Standing up ends voice.</p>
   </div>
 }

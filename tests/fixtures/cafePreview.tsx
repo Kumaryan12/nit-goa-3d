@@ -1,3 +1,5 @@
+import { CAFE_VOICE_LIMIT_MS, CAFE_VOICE_COOLDOWN_MS } from '../../src/lib/cafeVoiceLimits'
+import type { CafeVoiceTiming } from '../../src/lib/cafeVoiceLimits'
 import CafeCounter from '../../src/components/CafeCounter'
 import CampusUpdateNotice from '../../src/components/CampusUpdateNotice'
 import { cafeCounters } from '../../src/lib/cafe'
@@ -41,23 +43,36 @@ function Metrics({ report }: { report: (value: string) => void }) {
 function Rehearsal({ twin }: { twin: DigitalTwin }) {
   const [night, setNight] = useState(false), [walking, setWalking] = useState(false), [metrics, setMetrics] = useState('Loading'), [status, setStatus] = useState('Drag to look around')
   const [updatesOpen, setUpdatesOpen] = useState(false), [voicePreview, setVoicePreview] = useState(false)
-  const voiceListeners = useRef(new Set<(event: unknown) => void>()), voiceSession = useRef<string | null>(null)
+  const voiceListeners = useRef(new Set<(event: unknown) => void>()), voiceSession = useRef<string | null>(null), voiceTiming = useRef<CafeVoiceTiming | undefined>(undefined)
+  const publishVoice = useCallback((event: unknown) => voiceListeners.current.forEach(listener => listener(event)), [])
   const subscribeVoicePreview = useCallback((listener: (event: unknown) => void) => { voiceListeners.current.add(listener); return () => { voiceListeners.current.delete(listener) } }, [])
   // One local listening-only caller exercises the real confirmation hook.
   // No peer links, production identity or real microphone are needed.
   const sendVoicePreview = useCallback((value: unknown) => {
     const message = value as { type: string }
     queueMicrotask(() => {
-      const publish = (event: unknown) => voiceListeners.current.forEach(listener => listener(event))
+      const publish = publishVoice
+      if (voiceTiming.current && voiceTiming.current.cooldownUntil <= Date.now()) voiceTiming.current = undefined
+      const timing = () => voiceTiming.current ? { ...voiceTiming.current, serverTime: Date.now() } : undefined
+      if (message.type === 'cafe-voice-status') publish({ type: 'cafe-voice-limits', timing: timing() })
       if (message.type === 'cafe-voice-join') {
+        if (voiceTiming.current && Date.now() >= voiceTiming.current.expiresAt) { publish({ type: 'cafe-voice-state', table: null, sessionId: null, members: [], timing: timing() }); return }
+        const expiresAt = Date.now() + CAFE_VOICE_LIMIT_MS
+        voiceTiming.current = { serverTime: Date.now(), expiresAt, cooldownUntil: expiresAt + CAFE_VOICE_COOLDOWN_MS }
         voiceSession.current = crypto.randomUUID()
-        publish({ type: 'cafe-voice-state', table: 0, sessionId: voiceSession.current, members: [{ id: 'local-preview', name: 'Preview', sessionId: voiceSession.current, mic: false }] })
+        publish({ type: 'cafe-voice-state', table: 0, sessionId: voiceSession.current, members: [{ id: 'local-preview', name: 'Preview', sessionId: voiceSession.current, mic: false }], timing: timing() })
         publish({ type: 'cafe-voice-ice', sessionId: voiceSession.current, configuration: { iceServers: [{ urls: ['stun:stun.cloudflare.com:3478'] }], expiresAt: Date.now() + 600000 } })
       }
-      if (message.type === 'cafe-voice-leave') { voiceSession.current = null; publish({ type: 'cafe-voice-state', table: null, sessionId: null, members: [] }) }
+      if (message.type === 'cafe-voice-leave' && voiceSession.current) { voiceSession.current = null; const expiresAt = Date.now(); voiceTiming.current = { serverTime: expiresAt, expiresAt, cooldownUntil: expiresAt + CAFE_VOICE_COOLDOWN_MS }; publish({ type: 'cafe-voice-state', table: null, sessionId: null, members: [], timing: timing() }) }
     })
     return true
-  }, [])
+  }, [publishVoice])
+  const previewTime = (mode: 'warning' | 'expiry' | 'ready') => {
+    const now = Date.now(), expiresAt = mode === 'warning' ? now + 59000 : now
+    voiceTiming.current = mode === 'ready' ? undefined : { serverTime: now, expiresAt, cooldownUntil: expiresAt + CAFE_VOICE_COOLDOWN_MS }
+    if (mode === 'warning' && voiceSession.current) publishVoice({ type: 'cafe-voice-state', table: 0, sessionId: voiceSession.current, members: [{ id: 'local-preview', name: 'Preview', sessionId: voiceSession.current, mic: false }], timing: voiceTiming.current })
+    else { voiceSession.current = null; publishVoice({ type: 'cafe-voice-state', table: null, sessionId: null, members: [], timing: voiceTiming.current, ...(mode === 'expiry' ? { reason: 'limit' } : {}) }) }
+  }
   const closeUpdates = useCallback(() => setUpdatesOpen(false), [])
   const input = useRef(emptyWalkInput()), position = useRef<{ x: number; z: number } | null>(cafePoint(twin.terrain.cafe!, 0, 5.25)), pose = useRef<CampusPose | null>(null), interior = useRef(null), processed = useRef(0), football = useRef(createFootballControls())
   const cafe = twin.terrain.cafe!, counters = useMemo(() => cafeCounters(cafe, twin.terrain), [cafe, twin]), live = useCampusSession(false, pose, walking, 'walk', true, cafe.seats, counters)
@@ -80,6 +95,7 @@ function Rehearsal({ twin }: { twin: DigitalTwin }) {
       <button onClick={() => { if (!walking) position.current = cafePoint(cafe, -1.55, 3); setWalking(w => !w); setStatus('WASD · Shift to run · Space to jump') }}>{walking ? 'Overview' : 'Walk around'}</button>
       <button disabled={!walking} onClick={() => seated ? live.socialAction('stop') : sit()}>{seated ? 'Stand up' : 'Sit on nearby chair'}</button>
       <button disabled={!seated} onClick={() => setVoicePreview(true)}>Preview table voice</button>
+      {voicePreview && <><button onClick={() => previewTime('warning')}>Preview last minute</button><button onClick={() => previewTime('expiry')}>Preview expiry</button><button onClick={() => previewTime('ready')}>Preview cooldown end</button></>}
       <CafeCounter live={cafeLive} pose={pose} counters={counters} seats={cafe.seats} walking={walking} disabled={false} />
       {live.socialError && <span>{live.socialError}</span>}
     </header>

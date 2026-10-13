@@ -61,7 +61,7 @@ test('voice is opt-in and signalling stays in the same table with server identit
   f.voice.handle('alice', { ...valid, sessionId: 'forged-session' })
   f.voice.handle('alice', { ...valid, toSessionId: 'stale-join' })
   assert.equal(f.packets.filter(p => p.value.type === 'cafe-voice-signal').length, before)
-  f.voice.handle('bob', { type: 'cafe-voice-leave' }); f.tick(3000); f.voice.handle('bob', { type: 'cafe-voice-join' })
+  f.voice.handle('bob', { type: 'cafe-voice-leave' }); f.tick(121001); f.voice.handle('bob', { type: 'cafe-voice-join' })
   assert.notEqual(f.state('bob').sessionId, valid.toSessionId)
   f.voice.handle('alice', valid)
   assert.equal(f.packets.filter(p => p.value.type === 'cafe-voice-signal').length, before, 'late packets cannot enter a new join')
