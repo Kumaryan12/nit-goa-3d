@@ -38,7 +38,7 @@ Verification: all 548 tests and the production Pages build pass, including proto
 
 Update-feed browser verification: Chrome desktop and a 360 × 655 emulated viewport verified scrolling through the original complete list with a scrollable list, persistent closing controls and a visible footer. The campus-tools button reopened the feed, the Nescafé shortcut entered walking and opened café actions, and acknowledgment survived a full reload. Other destination shortcuts use the existing campus handlers; their hosted activity flows were not repeated in this local rehearsal.
 
-The visitor feed is now curated to eight usable additions: café drinks, OAT concerts, shared buggy seats, people finder, social actions, shared football, buggy collisions and avatar choice. The feed type accepts Added entries only. Improvement and fix reports, including football smoothness and hostel refinements, remain in CHANGELOG.md.
+The visitor feed is now curated to usable additions: café drinks and table conversations, OAT concerts, shared buggy seats, social actions, shared football, buggy collisions and avatar choice. The feed type accepts Added entries only. Improvement and fix reports, including football smoothness and hostel refinements, remain in CHANGELOG.md.
 
 ## Live table conversations — 13 October 2026
 

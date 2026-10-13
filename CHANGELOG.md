@@ -2,6 +2,14 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## People finder removed — 13 October 2026
+
+- Remove the people/location finder card, remote-person map markers, direction arrows, distances and Find controls from desktop and phone views. Remove its What’s new entry.
+- Remove finder preference controls and polling. Updated clients disable locator visibility when joining or reconnecting, while existing nearby-avatar privacy filtering continues to support older clients.
+- Keep the people roster, public profiles, campus chat and message mute available.
+
+Validation: production build and 560 remaining regression tests pass. Desktop and 320-pixel phone previews show no finder controls or remote-person map markers; the phone reports no page overflow, with movement and view controls inside the screen.
+
 ## Nescafé voice session limits — 13 October 2026
 
 - Limit each signed-in visitor’s café voice session to 10 minutes. Show the countdown and a one-minute warning, including with the café menu or campus tools hidden.
