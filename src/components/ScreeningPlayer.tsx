@@ -30,7 +30,7 @@ export default function ScreeningPlayer({ room, muted, volume, setMuted, setVolu
     if (media?.kind !== 'youtube' || !youtubeHost.current) return
     let alive = true, player: YoutubePlayer | null = null
     const iframe = document.createElement('iframe')
-    iframe.title = room.title; iframe.width = '960'; iframe.height = '480'
+    iframe.title = room.title; iframe.width = '960'; iframe.height = '540'
     iframe.allow = 'autoplay; fullscreen; picture-in-picture'; iframe.allowFullscreen = true
     iframe.referrerPolicy = 'strict-origin-when-cross-origin'
     const url = new URL(`https://www.youtube-nocookie.com/embed/${media.videoId}`)

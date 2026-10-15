@@ -7,10 +7,12 @@ const stamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.fl
 export default function ScreeningControls({ session, admin, onJoin, onClose, player }: { session: ScreeningSession; admin: boolean; onJoin: () => void; onClose: () => void; player: React.RefObject<ScreeningPlayerControls | null> }) {
   const { room, joined, live } = session
   const [collapsed, setCollapsed] = useState(false), [seek, setSeek] = useState('0'), [chat, setChat] = useState(''), [, tick] = useState(0)
+  useEffect(() => { if (joined) setCollapsed(true) }, [joined])
   useEffect(() => { const t = window.setInterval(() => tick(v => v + 1), 1000); return () => clearInterval(t) }, [])
   const position = room ? screeningPosition(room, session.serverNow()) : 0
   return <aside className={`screening-controls ${collapsed ? 'screening-collapsed' : ''}`} aria-label="Chapora screening controls" onKeyDown={e => e.stopPropagation()}>
     <div className="screening-heading"><span className="eyebrow">CHAPORA · MOVIE NIGHT</span><div><button aria-label={collapsed ? 'Expand screening controls' : 'Minimize screening controls'} aria-expanded={!collapsed} onClick={() => setCollapsed(v => !v)}>{collapsed ? 'Expand' : '−'}</button><button aria-label="Close screening panel" onClick={onClose}>×</button></div></div>
+    {collapsed && joined && <div className="screening-quick-controls"><button onClick={() => session.muted ? player.current?.enableSound() : session.setMuted(true)}>{session.muted ? 'Enable sound' : 'Mute sound'}</button><button onClick={() => player.current?.fullscreen()}>Cinema view ↗</button><button onClick={session.leave}>Leave</button></div>}
     {!collapsed && <>
       <h2>{room?.media ? room.title : 'Take a seat. Share a story.'}</h2>
       <p className="screening-status" role="status">{session.connectionStatus ?? (!room?.media ? 'No screening yet. The campus host chooses what plays.' : `${room.playing ? 'Now playing' : 'Paused'} · ${stamp(position)} · ${room.participants.length} / ${SCREENING_CAPACITY} seats`)}</p>

@@ -4,9 +4,8 @@ import { Canvas, useThree } from '@react-three/fiber'
 import SeminarInterior from '../../src/components/SeminarInterior'
 import ScreeningControls from '../../src/components/ScreeningControls'
 import type { ScreeningPlayerControls } from '../../src/components/ScreeningPlayer'
-import StudentAvatar from '../../src/components/StudentAvatar'
 import CampusPeopleScene from '../../src/components/CampusPeopleScene'
-import { createScreeningLayout } from '../../src/lib/screening'
+import { createScreeningLayout, screeningView } from '../../src/lib/screening'
 import type { HostelPlan } from '../../src/lib/hostelInterior'
 import { prepareDigitalTwin } from '../../src/lib/prepareDigitalTwin'
 import { extractBuildingFootprints } from '../../src/lib/buildings'
@@ -23,7 +22,12 @@ import '../../src/components/screening.css'
 const who = new URL(location.href).searchParams.get('who') === 'alice' ? 'alice' : new URL(location.href).searchParams.get('who') === 'bob' ? 'bob' : 'owner'
 function View({plan,seat}:{plan:HostelPlan;seat:number|undefined}) {
   const camera=useThree(s=>s.camera)
-  useEffect(()=>{const hall=plan.seminar!.halls[0],p=seat===undefined?null:createScreeningLayout(plan).seats[seat];camera.position.set(p?p.x-4:hall.minX+17,p?p.y+2.3:plan.base+5,p?p.z+.2:hall.stage.z);camera.lookAt(hall.maxX-.5,plan.base+2.94,hall.stage.z)},[camera,plan,seat])
+  const size=useThree(s=>s.size)
+  useEffect(()=>{
+    const hall=plan.seminar!.halls[0],p=seat===undefined?null:createScreeningLayout(plan).seats[seat],view=screeningView(plan,p??null,size.width/size.height)
+    if(view){camera.position.set(view.position.x,view.position.y,view.position.z);camera.lookAt(view.target.x,view.target.y,view.target.z);if('fov' in camera){camera.fov=view.fov;camera.updateProjectionMatrix()}}
+    else{camera.position.set(hall.minX+17,plan.base+5,hall.stage.z);camera.lookAt(hall.maxX-.5,plan.base+2.94,hall.stage.z)}
+  },[camera,plan,seat,size.width,size.height])
   return null
 }
 function Preview() {
@@ -34,7 +38,7 @@ function Preview() {
   const sendScreening=useCallback((v:unknown)=>{if(socket.current?.readyState!==WebSocket.OPEN)return false;socket.current.send(JSON.stringify(v));return true},[])
   const subscribeScreening=useCallback((fn:(v:unknown)=>void)=>{listeners.current.add(fn);return()=>{listeners.current.delete(fn)}},[])
   const rejoin=useCallback(()=>{attempts.current=0;setRetry(n=>n+1)},[])
-  const screening=useScreening({connection,session,sendScreening,subscribeScreening,error:transportError,queue:0,rejoin},who==='owner'),player=useRef<ScreeningPlayerControls|null>(null),motion=useRef({phase:0,moving:false,speed:0,seated:true})
+  const screening=useScreening({connection,session,sendScreening,subscribeScreening,error:transportError,queue:0,rejoin},who==='owner'),player=useRef<ScreeningPlayerControls|null>(null)
   useEffect(()=>{
     let active=true,lastError='',timer:number|undefined
     setConnection('connecting');setTransportError('');session.current={id:null,snapshot:null}
@@ -72,10 +76,9 @@ function Preview() {
       setPlan(twin.interiors!.seminar!)
     })
   },[])
-  const place=plan&&screening.seat!==undefined?createScreeningLayout(plan).seats[screening.seat]:null
   return <main className="explorer" style={{height:'100dvh'}}>
     <div style={{position:'absolute',top:20,left:20,zIndex:100,color:'#f5ecd9',background:'#17221fec',padding:14,borderRadius:12,fontSize:12}}>LOCAL REHEARSAL · {who} · {connection} · {screening.room?.participants.length??0} seated <a style={{color:'#e9cb90',marginLeft:16}} href="?who=owner">Host tab</a> <a style={{color:'#e9cb90',marginLeft:8}} href="?who=alice">Audience tab</a></div>
-    <Canvas dpr={[1,1.25]} camera={{position:[0,50,50],fov:60}}><color attach="background" args={['#b7c4bf']}/><ambientLight intensity={.8}/><directionalLight position={[20,50,30]} intensity={1.2}/>{plan&&<><View plan={plan} seat={screening.seat}/><SeminarInterior plan={plan} inside night={false} onSelect={()=>{}} screening={screening} playerControls={player}/>{place&&<group position={[place.x,place.y,place.z]} rotation={[0,place.yaw,0]}><StudentAvatar motion={motion} jersey="#367f73"/></group>}<CampusPeopleScene people={people} session={session} messages={[]} excludedIds={[]} space="seminar:0" walking/></>}</Canvas>
+    <Canvas dpr={[1,1.25]} camera={{position:[0,50,50],fov:60}}><color attach="background" args={['#b7c4bf']}/><ambientLight intensity={.8}/><directionalLight position={[20,50,30]} intensity={1.2}/>{plan&&<><View plan={plan} seat={screening.seat}/><SeminarInterior plan={plan} inside night={false} onSelect={()=>{}} screening={screening} playerControls={player}/><CampusPeopleScene people={people} session={session} messages={[]} excludedIds={[]} space="seminar:0" walking/></>}</Canvas>
     <ScreeningControls session={screening} admin={who==='owner'} onJoin={screening.join} onClose={()=>{}} player={player}/>
   </main>
 }

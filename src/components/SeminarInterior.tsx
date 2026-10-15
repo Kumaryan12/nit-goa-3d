@@ -1,3 +1,4 @@
+import { SCREENING_SCREEN } from '../lib/screening'
 import { Html } from '@react-three/drei'
 import ScreeningPlayer from './ScreeningPlayer'
 import type { ScreeningPlayerControls } from './ScreeningPlayer'
@@ -69,8 +70,8 @@ function SeminarInterior({screening,playerControls,plan,inside,night,onSelect}:{
       wood.push({...hall.stage,y:y+hall.stage.height/2,height:hall.stage.height})
       // Acoustic timber around each stage; screen and lectern face the audience.
       wood.push({x:hall.maxX-.2,z:center.z,y:y+2.2,width:.15,height:4.4,depth:d-.5})
-      metal.push({x:hall.maxX-.32,z:center.z,y:y+2.8,width:.09,height:2.75,depth:5.5})
-      if(hall.id!=='seated'||!screening.joined)lights.push({x:hall.maxX-.39,z:center.z,y:y+2.8,width:.035,height:2.55,depth:5.2})
+      metal.push({x:hall.maxX-.32,z:center.z,y:y+2.8,width:.09,height:3.05,depth:5.5})
+      if(hall.id!=='seated'||!screening.joined)lights.push({x:hall.maxX-.39,z:center.z,y:y+2.8,width:.035,height:2.925,depth:5.2})
       wood.push({x:hall.stage.x-1,z:center.z+3.8,y:y+1,width:.65,height:1.1,depth:.8})
       for(const side of [-1,1]){
         metal.push({x:hall.stage.x-1,z:center.z+side*(d/2-2),y:y+.9,width:.65,height:.9,depth:.65})
@@ -127,7 +128,7 @@ function SeminarInterior({screening,playerControls,plan,inside,night,onSelect}:{
           {hall.doors.filter(d=>!d.open).map((p,i)=><Plaque key={i} text={hall.id==='seated'?'CHAPORA HALL':'SAL SEMINAR HALL'} point={{x:p.x,z:p.z+normal.z*.16}} normal={normal} y={y+p.elevation+3.55} width={2.8}/>)}
           <Plaque text={hall.id==='seated'?'CHAPORA · REAR ENTRY':'SAL · REAR ENTRY'} point={{x:hall.rearDoor.x-.16,z:hall.rearDoor.z}} normal={{x:-1,z:0}} y={y+hall.rearDoor.elevation+3.55} width={3.1}/>
           {!(hall.id==='seated'&&screening.joined)&&<Plaque text={hall.id==='seated'?'CHAPORA · NIT GOA':'SAL · NIT GOA'} point={{x:hall.maxX-.44,z:hall.stage.z}} normal={{x:-1,z:0}} y={y+2.8} width={4.6}/>}
-          {hall.id==='seated'&&screening.joined&&screening.room?.media&&<Html transform distanceFactor={2.1} position={[hall.maxX-.46,y+2.8,hall.stage.z]} rotation={[0,-Math.PI/2,0]} zIndexRange={[30,0]}><ScreeningPlayer muted={screening.muted} volume={screening.volume} setMuted={screening.setMuted} setVolume={screening.setVolume} onEnded={() => { if(screening.admin&&!screening.room?.loop)screening.command('pause') }} room={screening.room} serverNow={screening.serverNow} controls={playerControls}/></Html>}
+          {hall.id==='seated'&&screening.joined&&screening.room?.media&&<Html transform distanceFactor={SCREENING_SCREEN.distanceFactor} position={[hall.maxX-SCREENING_SCREEN.wallInset,plan.base+SCREENING_SCREEN.elevation,hall.stage.z]} rotation={[0,-Math.PI/2,0]} zIndexRange={[30,0]}><ScreeningPlayer muted={screening.muted} volume={screening.volume} setMuted={screening.setMuted} setVolume={screening.setVolume} onEnded={() => { if(screening.admin&&!screening.room?.loop)screening.command('pause') }} room={screening.room} serverNow={screening.serverNow} controls={playerControls}/></Html>}
           {<pointLight position={[hall.stage.x-8,y+4,hall.stage.z]} color="#ffe3b8" intensity={hall.id==='seated'&&screening.joined?12:night?170:90} distance={30} decay={2} castShadow={false}/>}
         </group>
       })}

@@ -23,6 +23,7 @@ import { bindCameraGestures } from '../lib/cameraGestures'
 import { PRESENCE_SPEED_LIMITS } from '../lib/movementLimits'
 import type { CampusPose, CampusSession } from '../lib/campusProtocol'
 import type { ConcertPlacement } from '../lib/concertSeating'
+import { screeningView } from '../lib/screening'
 import { nearbyCampusBuggies, sampleCampusPerson } from '../lib/buggyRide'
 import { canUseStairs, interiorFloorPlan, interiorLocationId, interiorRoomLabel, interiorSpace, interiorCameraFraction, interiorJumpCeiling, isInteriorWalkable, landingLookDirection, pointDistance, roomAtPoint, stairLanding, stairSample, stepInterior } from '../lib/hostelInterior'
 import type { HostelAction, HostelPlan, InteriorPose, StairJourney } from '../lib/hostelInterior'
@@ -56,7 +57,7 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
   const journey = useRef<StairJourney | null>(null), actionContext = useRef<WalkStatus | null>(null)
   const campusEpoch = useRef((campusPose.current?.epoch ?? 0) + 1)
   const joinedId = useRef<string | null>(null)
-  const { gl, camera } = useThree(), avatar = useRef<Group>(null), yaw = useRef(0), pitch = useRef(0.28), cameraDistance = useRef(7)
+  const { gl, camera, size } = useThree(), avatar = useRef<Group>(null), yaw = useRef(0), pitch = useRef(0.28), cameraDistance = useRef(7)
   const lookTarget = useRef({ yaw: 0, pitch: .28, distance: 7 })
   const keys = useRef(new Set<string>()), motion = useRef<AvatarMotion>({ phase: 0, moving: false, speed: 0, running: false }), locomotion = useRef(freshLocomotion()), elapsed = useRef(0), nearest = useRef<string | null>(null)
   const world = useMemo(() => createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps), [twin])
@@ -66,6 +67,7 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
     return findLocationArrival(location, twin, world, [hostelPlan, gyanPlan, seminarPlan])
   }, [locations, spawn.locationId, twin, world, hostelPlan, gyanPlan, seminarPlan])
   const activePlan = useCallback(() => {const pose=interiorPose.current, plan=[hostelPlan,gyanPlan,seminarPlan].find(p=>p&&p.buildingId===pose?.buildingId)??null;return plan&&pose?interiorFloorPlan(plan,pose.floor):plan},[gyanPlan,hostelPlan,seminarPlan,interiorPose])
+  const movieView = useMemo(() => screeningView(seminarPlan, screeningPose, size.width / size.height), [seminarPlan, screeningPose, size.width, size.height])
   const target = useMemo(() => new Vector3(), []), desired = useMemo(() => new Vector3(), []), snapped = useRef(false), oriented = useRef(false)
   const publish = useCallback((moving = false, blocked = false, error?: string) => {
     const p = position.current; if (!p) return
@@ -256,11 +258,24 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
       yaw.current = smoothLookAngle(yaw.current, lookTarget.current.yaw, delta)
       pitch.current += (lookTarget.current.pitch - pitch.current) * blend
       cameraDistance.current += (lookTarget.current.distance - cameraDistance.current) * blend
-      target.set(concert.x, concert.y + (concert.role === 'audience' ? .9 : 1.35), concert.z)
-      desired.set(concert.x + Math.sin(yaw.current) * cameraDistance.current * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * cameraDistance.current, concert.z + Math.cos(yaw.current) * cameraDistance.current * Math.cos(pitch.current))
-      desired.lerpVectors(target, desired, concert.space && seminarPlan ? interiorCameraFraction(target, desired, seminarPlan) : cameraBoomFraction(target, desired, world))
-      camera.position.lerp(desired, blend); camera.lookAt(target)
-      if ('fov' in camera && camera.fov !== 60) { camera.fov = 60; camera.updateProjectionMatrix() }
+      if (screeningPose && movieView) {
+        target.set(movieView.target.x, movieView.target.y, movieView.target.z)
+        desired.set(movieView.position.x, movieView.position.y, movieView.position.z)
+        // The local avatar stays seated for everyone else; its head must not
+        // cover the film in this seated first-person view.
+        avatar.current.visible = false
+        if (changed) camera.position.copy(desired)
+        else camera.position.lerp(desired, blend)
+        camera.lookAt(target)
+        const fov = Math.max(12, Math.min(100, movieView.fov * cameraDistance.current / 5.5))
+        if ('fov' in camera && Math.abs(Number(camera.fov) - fov) > .01) { camera.fov = fov; camera.updateProjectionMatrix() }
+      } else {
+        target.set(concert.x, concert.y + (concert.role === 'audience' ? .9 : 1.35), concert.z)
+        desired.set(concert.x + Math.sin(yaw.current) * cameraDistance.current * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * cameraDistance.current, concert.z + Math.cos(yaw.current) * cameraDistance.current * Math.cos(pitch.current))
+        desired.lerpVectors(target, desired, concert.space && seminarPlan ? interiorCameraFraction(target, desired, seminarPlan) : cameraBoomFraction(target, desired, world))
+        camera.position.lerp(desired, blend); camera.lookAt(target)
+        if ('fov' in camera && camera.fov !== 60) { camera.fov = 60; camera.updateProjectionMatrix() }
+      }
       elapsed.current += delta
       if (changed || elapsed.current >= .2) {
         elapsed.current = 0

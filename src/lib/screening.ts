@@ -46,10 +46,39 @@ export function screeningPosition(state: Pick<ScreeningState, 'position' | 'play
 export function createScreeningLayout(plan: HostelPlan | null): ScreeningLayout {
   const hall = plan?.seminar?.halls.find(h => h.id === 'seated')
   if (!hall || !plan) return { seats: [] }
-  // Middle rows, alternating either side of the centre aisle. Leave the
-  // physical seat cushion beneath the avatar's seated hip height.
-  return { seats: hall.seats.slice(4 * 14, 4 * 14 + SCREENING_CAPACITY).map(p => ({ x: p.x, y: plan.base + .14 + p.elevation + .03, z: p.z, yaw: -Math.PI / 2 })) }
+  // The hall is generated rear-to-front. Reserve the eight centre chairs in
+  // each of its four front rows; fill the closest row, centre-out, first.
+  const rows = [...new Set(hall.seats.map(p => p.x))].sort((a, b) => b - a)
+  const seats = rows.slice(0, 4).flatMap(x => hall.seats.filter(p => p.x === x)
+    .sort((a, b) => Math.abs(a.z - hall.stage.z) - Math.abs(b.z - hall.stage.z) || a.z - b.z).slice(0, 8))
+  return { seats: seats.slice(0, SCREENING_CAPACITY).map(p => ({ x: p.x, y: plan.base + .14 + p.elevation + .03, z: p.z, yaw: Math.atan2(p.x - (hall.maxX - .46), p.z - hall.stage.z) })) }
 }
+
+export const SCREENING_SCREEN = { width: 5.04, height: 2.835, elevation: 2.94, wallInset: .46, distanceFactor: 2.1 } as const
+export interface ScreeningView { position: { x: number; y: number; z: number }; target: { x: number; y: number; z: number }; fov: number }
+export function screeningView(plan: HostelPlan | null, seat: ScreeningSeat | null, aspect = 16 / 9): ScreeningView | null {
+  const hall = plan?.seminar?.halls.find(h => h.id === 'seated')
+  if (!plan || !hall || !seat) return null
+  const target = { x: hall.maxX - SCREENING_SCREEN.wallInset, y: plan.base + SCREENING_SCREEN.elevation, z: hall.stage.z }
+  // Keep the physical avatar in its assigned chair. A level, centre-aisle
+  // viewing camera removes keystone distortion and heads covering the film.
+  const position = { x: seat.x + .3, y: target.y, z: target.z }
+  const dx = target.x - position.x, dy = target.y - position.y, dz = target.z - position.z, distance = Math.hypot(dx, dy, dz), horizontal = Math.hypot(dx, dz)
+  if (distance < .01 || horizontal < .01) return null
+  const f = { x: dx / distance, y: dy / distance, z: dz / distance }
+  const right = { x: -dz / horizontal, z: dx / horizontal }
+  const up = { x: -f.y * right.z, y: f.x * right.z - f.z * right.x, z: f.y * right.x }
+  let tangent = 0
+  const ratio = Number.isFinite(aspect) && aspect > 0 ? aspect : 16 / 9
+  // Fit all four screen corners, even from an off-centre chair or portrait phone.
+  for (const y of [-1, 1]) for (const z of [-1, 1]) {
+    const v = { x: dx, y: dy + y * SCREENING_SCREEN.height / 2, z: dz + z * SCREENING_SCREEN.width / 2 }
+    const depth = v.x * f.x + v.y * f.y + v.z * f.z
+    tangent = Math.max(tangent, Math.abs(v.x * right.x + v.z * right.z) / depth / ratio, Math.abs(v.x * up.x + v.y * up.y + v.z * up.z) / depth)
+  }
+  return { position, target, fov: Math.max(12, Math.min(100, 2 * Math.atan(tangent * 1.22) * 180 / Math.PI)) }
+}
+
 export function parseScreeningState(value: unknown): ScreeningState | null {
   if (!value || typeof value !== 'object') return null
   const s = value as ScreeningState, finite = (n: number) => Number.isFinite(n) && n >= 0 && n <= 1e14

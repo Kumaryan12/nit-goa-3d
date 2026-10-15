@@ -2,6 +2,14 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## Chapora viewing correction — 15 October 2026
+
+- Assign screening seats in the four front-centre rows, filling the closest row and centre chairs first.
+- Replace the avatar-facing orbit camera with a level screen-facing view, fit the full film to desktop and phone viewports, and use a 16:9 screen.
+- Keep the local avatar’s head out of the film while preserving its seated multiplayer pose. Collapse screening controls and temporarily hide campus tools and the minimap while watching.
+
+Validation: 580 regression tests and the production Pages build pass; local Chrome desktop and 390 × 844 phone viewport checks show the full screen and compact controls.
+
 ## NIT Goa welcome film on repeat — 15 October 2026
 
 - Preload the owner-selected NIT Goa welcome film as Chapora’s only program, available without a host online. Remove the source/title form and reject replacement or ending commands on the server.
