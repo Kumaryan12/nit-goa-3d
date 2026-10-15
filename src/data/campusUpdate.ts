@@ -1,6 +1,6 @@
 // Announce new things visitors can use or explore, newest first, with unique IDs.
 // Keep maintenance and performance notes in CHANGELOG.md. New IDs become unread.
-export type CampusUpdateDestination = 'nescafe' | 'football' | 'oat' | 'hostel' | 'entrance'
+export type CampusUpdateDestination = 'nescafe' | 'football' | 'oat' | 'hostel' | 'entrance' | 'seminar'
 export interface CampusUpdate {
   id: string
   kind: 'Added'
@@ -10,6 +10,7 @@ export interface CampusUpdate {
   action?: string
 }
 export const campusUpdates: readonly CampusUpdate[] = [
+  { id: 'seminar-courtyard-halls', destination: 'seminar', action: 'Explore the Seminar Complex', kind: 'Added', title: 'Inside the Seminar Complex.', detail: 'Explore Chapora Hall with auditorium seating and Sal Seminar Hall without seats. Take either entrance staircase to the wide shared upper walkway connecting both rear entrances, or follow the courtyard to their lower entrances. Chapora slopes toward its stage; Sal has broad steps descending toward its stage.' },
   { id: 'cafe-table-conversations', destination: 'nescafe', action: 'Visit Nescafé', kind: 'Added', title: 'Coffee and conversation at Nescafé.', detail: 'Sit with friends and chat over live voice while ordering and sipping coffee, cold coffee or water. Choose Start talking or Listen, mute your mic or tablemates, and adjust volume. Voice sessions last 10 minutes, with a one-minute warning and a two-minute break before restarting. Before standing up, choose Stay seated to keep chatting or Leave and stand up to finish.' },
   { id: 'nescafe-coffee-breaks', destination: 'nescafe', action: 'Visit Nescafé', kind: 'Added', title: 'Nescafé, now serving.', detail: 'Choose coffee, cold coffee or water at a serving window. Take a sip, sit at a shaded table and catch up with friends. Nearby players can see your drink too.' },
   { id: 'concert-seating', destination: 'oat', action: 'Visit the OAT', kind: 'Added', title: 'Live concerts at the OAT.', detail: 'Join the audience and take a seat facing the stage, or perform with music and your microphone. Listener volume and mute controls let you choose how to listen.' },

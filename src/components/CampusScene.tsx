@@ -27,6 +27,8 @@ import type { FootballControls, FootballPitch, FootballStatus } from '../lib/foo
 import type { FootballPlayer, FootballSession } from '../lib/footballProtocol'
 import AvatarExplorer from './AvatarExplorer'
 import BuildingInterior from './BuildingInterior'
+import SeminarInterior from './SeminarInterior'
+import { interiorSpace } from '../lib/hostelInterior'
 import type { HostelPlan, InteriorPose } from '../lib/hostelInterior'
 import type { ExplorerView, WalkInput, WalkSpawnRequest, WalkStatus } from '../lib/walking'
 import LocationPicker from './LocationPicker'
@@ -84,6 +86,7 @@ interface CampusSceneProps {
   footballPlayers: FootballPlayer[]
   footballInput: React.RefObject<FootballControls>
   onFootballStatus: (status: FootballStatus) => void
+  seminarPlan: HostelPlan | null
   gyanPlan: HostelPlan | null
   interiorBuildingId: string | null
   hostelPlan: HostelPlan | null
@@ -208,7 +211,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, oatSelfId, concertJoined, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, oatSelfId, concertJoined, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, seminarPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const compact = useRef(window.matchMedia('(pointer: coarse)').matches || navigator.hardwareConcurrency <= 4).current
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
   const profile = useMemo(() => footballGraphicsProfile(graphicsProfile(graphicsMode, qualityLevel),footballJoined,graphicsMode), [graphicsMode, qualityLevel,footballJoined])
@@ -235,12 +238,14 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
     return index < 0 || !entrance ? null : createAdministrationFacade(twin.buildings[index], entrance.coordinates, twin.roads)
   }, [twin])
   const facades = useMemo(() => new Map(twin?.buildings.flatMap((building, i) => {
-    const plan = createCampusFacade(building, twin.selections[i], twin.roads, building.id===gyanPlan?.buildingId?gyanPlan:hostelPlan, campusFacadeApproach(twin.selections[i].location.id, twin.locations))
+    const doorway=[hostelPlan,gyanPlan].find(p=>p?.buildingId===building.id)
+    const plan = createCampusFacade(building, twin.selections[i], twin.roads, doorway, campusFacadeApproach(twin.selections[i].location.id, twin.locations))
     return plan ? [[building.id, plan] as const] : []
   }) ?? []), [twin, hostelPlan, gyanPlan])
-  const activeInterior=interiorBuildingId===gyanPlan?.buildingId?gyanPlan:hostelPlan
+  const activeInterior=[hostelPlan,gyanPlan,seminarPlan].find(p=>p?.buildingId===interiorBuildingId)??null
   const selectHostel = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === hostelPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, hostelPlan, onSelectBuilding])
   const selectGyan = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === gyanPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, gyanPlan, onSelectBuilding])
+  const selectSeminar = useCallback(() => { const selection = twin?.selections.find(item => item.buildingId === seminarPlan?.buildingId); if (selection) onSelectBuilding(selection) }, [twin, seminarPlan, onSelectBuilding])
   const selectTheatre = useCallback(() => { const location = twin?.locations.find(item => item.id === 'open-air-theatre'); if (location) onSelectBuilding({ buildingId: null, matchMethod: 'unmatched', location }) }, [twin, onSelectBuilding])
   const windowBuildings = useMemo(() => twin?.buildings.filter(building => building.id !== twin.terrain.cafe?.buildingId && building.id !== administration?.buildingId && !facades.has(building.id) && !(view === 'walk' && hostelFloor !== null && activeInterior?.buildingId === building.id)) ?? [], [twin, administration, facades, view, hostelFloor, activeInterior])
   return <CampusGraphicsBoundary onUnavailable={onSceneUnavailable}><GraphicsContext.Provider value={profile}><Canvas shadows={{ type: PCFShadowMap }} dpr={[.65, profile.dpr]}
@@ -277,14 +282,15 @@ function CampusScene({ overviewDrag = 'rotate', scenePrepared = false, onSceneRe
       {twin.boundary.length > 0 && <OatConcertScene selfId={view === 'walk' ? oatSelfId : null} theatre={twin.theatre} concert={oatConcert} people={campusPeople} session={campusSession} />}
       {view === 'walk' && hostelPlan && <BuildingInterior night={night} plan={hostelPlan} floor={interiorBuildingId===hostelPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===hostelPlan.buildingId?stairLowFloor:null} onSelect={selectHostel} />}
       {view==='walk' && gyanPlan && <BuildingInterior night={night} plan={gyanPlan} floor={interiorBuildingId===gyanPlan.buildingId?hostelFloor:null} stairLowFloor={interiorBuildingId===gyanPlan.buildingId?stairLowFloor:null} onSelect={selectGyan} />}
+      {seminarPlan && <SeminarInterior plan={seminarPlan} inside={view==='walk'&&interiorBuildingId===seminarPlan.buildingId&&hostelFloor!==null} night={night} onSelect={selectSeminar}/> }
       {footballPitch && <FootballScene campusSession={campusSession} pitch={footballPitch} session={footballSession} players={footballPlayers} controls={footballInput} live={footballLive} onStatus={onFootballStatus} />}
-      <CampusPeopleScene people={campusPeople} session={campusSession} localPose={view === 'walk' ? campusPose : undefined} messages={campusMessages} excludedIds={[...(footballLive ? footballPlayers.map(p => p.id) : []), ...(oatConcert?.participants.map(p => p.id) ?? [])]} space={hostelFloor !== null ? `${activeInterior?.kind==='classroom'?'gyan':'hostel'}:${stairLowFloor ?? hostelFloor}` : 'outdoors'} walking={view === 'walk'} />
+      <CampusPeopleScene people={campusPeople} session={campusSession} localPose={view === 'walk' ? campusPose : undefined} messages={campusMessages} excludedIds={[...(footballLive ? footballPlayers.map(p => p.id) : []), ...(oatConcert?.participants.map(p => p.id) ?? [])]} space={hostelFloor !== null ? activeInterior?interiorSpace(activeInterior,stairLowFloor ?? hostelFloor):'outdoors' : 'outdoors'} walking={view === 'walk'} />
       {!footballJoined&&!(view==='walk'&&hostelFloor!==null)&&<LocationLabels locations={labelLocations} heights={heights} />}
     </>}
     {view === 'overview' && twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}
     {slopePreview && twin && <SlopePreview points={slopePreview} terrain={twin.terrain} />}
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
-    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} drag={overviewDrag} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer concertJoined={concertJoined} concertPose={concertPose} avatarStyle={avatarStyle} onSocialStop={onSocialStop} onBuggyRide={onBuggyRide} campusSession={campusSession} campusPose={campusPose} avatarAccent={footballJoined ? avatarColor : undefined} footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : avatarColor} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
+    {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} drag={overviewDrag} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer concertJoined={concertJoined} concertPose={concertPose} avatarStyle={avatarStyle} onSocialStop={onSocialStop} onBuggyRide={onBuggyRide} campusSession={campusSession} campusPose={campusPose} avatarAccent={footballJoined ? avatarColor : undefined} footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : avatarColor} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} gyanPlan={gyanPlan} seminarPlan={seminarPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
     <RuntimeMetrics onMetrics={reportMetrics} />
   </Canvas></GraphicsContext.Provider></CampusGraphicsBoundary>
 }

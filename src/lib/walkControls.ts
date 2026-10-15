@@ -19,7 +19,7 @@ export const WALK_CONTROLS = {
 export function walkSpeed(running: boolean, indoors: boolean, locationId?: string) {
   if (!indoors) return running ? WALK_CONTROLS.runSpeed : WALK_CONTROLS.walkSpeed
   // Long hostel corridors need a brisker pace than classroom interiors.
-  if (locationId === 'boys-hostel') return running ? WALK_CONTROLS.hostelRunSpeed : WALK_CONTROLS.hostelWalkSpeed
+  if (locationId === 'boys-hostel' || locationId === 'way/1423803680') return running ? WALK_CONTROLS.hostelRunSpeed : WALK_CONTROLS.hostelWalkSpeed
   return running ? WALK_CONTROLS.indoorRunSpeed : WALK_CONTROLS.indoorWalkSpeed
 }
 

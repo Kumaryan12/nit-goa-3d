@@ -24,18 +24,19 @@ function unnamedBuilding(building: BuildingFootprint, coordinates: CampusLocatio
   const isHostel = building.tags.building === 'dormitory'
   const gyan = building.id === 'relation/19505813/0'
   const cafe = building.id === 'way/1423803659'
+  const seminar = building.id === 'way/1423803680'
   const isAcademic = gyan || ['university', 'school', 'college'].includes(building.tags.building)
   return {
     id: building.id,
     name: building.tags.name || (gyan ? 'Gyan Mandir' : 'Unnamed campus building'),
     category: cafe ? 'food' : isHostel ? 'hostel' : isAcademic ? 'academic' : 'other',
-    description: cafe ? 'The campus café, with a shaded outdoor terrace for coffee and conversations. Walk beside a chair and choose Actions → Sit to join friends at a table.' : gyan ? 'Gyan Mandir is the campus classroom building, with ground plus two upper floors, two open courtyards and a large reading room at the north end of the first floor.' : 'A real OpenStreetMap building footprint. Campus details have not yet been assigned to this building.',
-    keywords: cafe ? ['Nescafé', 'Nescafe', 'coffee', 'café', 'cafeteria', 'chairs', 'terrace'] : gyan ? ['Gyan Mandir', 'classrooms', 'reading room', 'tutorial complex', 'study'] : building.tags.name ? [building.tags.name] : [],
+    description: cafe ? 'The campus café, with a shaded outdoor terrace for coffee and conversations. Walk beside a chair and choose Actions → Sit to join friends at a table.' : seminar ? 'A courtyard connects Chapora Hall with seating on the left and Sal Seminar Hall without seats on the right. Left and right stair flights join a shared landing at the rear entrances; courtyard doors reach the lower entrances. Chapora has a sloping floor; Sal has descending steps.' : gyan ? 'Gyan Mandir is the campus classroom building, with ground plus two upper floors, two open courtyards and a large reading room at the north end of the first floor.' : 'A real OpenStreetMap building footprint. Campus details have not yet been assigned to this building.',
+    keywords: cafe ? ['Nescafé', 'Nescafe', 'coffee', 'café', 'cafeteria', 'chairs', 'terrace'] : seminar ? ['Seminar Complex', 'seminar hall', 'auditorium', 'courtyard', 'Mandovi', 'Chapora', 'Sal'] : gyan ? ['Gyan Mandir', 'classrooms', 'reading room', 'tutorial complex', 'study'] : building.tags.name ? [building.tags.name] : [],
     coordinates,
     height: building.height,
     icon: cafe ? '☕' : isHostel ? '🏠' : isAcademic ? '🏢' : '🏛',
     images: [],
-    facilities: cafe ? ['Shaded outdoor terrace', 'Four café tables', '16 shared chair seats', 'Evening string lights'] : gyan ? ['Classrooms on three floors', 'Two open courtyards', 'First-floor reading room', 'Explorable interior'] : [],
+    facilities: cafe ? ['Shaded outdoor terrace', 'Four café tables', '16 shared chair seats', 'Evening string lights'] : seminar ? ['Open entrance courtyard', 'Chapora Hall · auditorium seating', 'Sal Seminar Hall · no seats', 'Twin stair flights and rear entrances', 'Chapora sloping floor', 'Sal descending steps', 'Stages and presentation screens', 'Explorable interior'] : gyan ? ['Classrooms on three floors', 'Two open courtyards', 'First-floor reading room', 'Explorable interior'] : [],
   }
 }
 

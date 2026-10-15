@@ -2,6 +2,17 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## Explore the Seminar Complex — 14 October 2026
+
+- Enter the west-opening courtyard, then explore Chapora Hall with seating on the left/north and Sal Seminar Hall without seats on the right/south, following the owner’s layout and the real mapped U-shaped footprint.
+- Add sideways left/right stair flights meeting at a centre landing, a raised connecting walkway and rear-facing hall doorways, lower courtyard entrances, a sloping Chapora floor and 10 larger descending terraces in Sal. Preserve the ground passage beneath the upper landing. Stair dimensions remain an editable approximation based on the owner’s confirmed routes.
+- Open the upper courtyard partitions and replace the narrow crossing with a broad shared concourse between both foyers. Remove the old doorway frames, floating wall decorations and collision/header barriers; retain guards at exposed edges.
+- Add rounded tan auditorium seats, centre and side aisles, stage fronts, screens, lecterns, speakers, acoustic timber, courtyard planters and warm ceiling lighting. Use official brochure photos and satellite imagery as references; furniture dimensions and seat count remain illustrative.
+- Add entrance controls, gateway entry/exit and compact courtyard/hall shortcuts. Keep the hall interiors clear in the phone view and include the experience in What’s new.
+- Keep geometry instanced, build the walk plan in the existing worker and accept a separate `seminar:0` multiplayer space. Protect walls, furniture, ceilings and door headers with indoor movement and camera checks.
+
+Validation: build and all 567 regression tests pass, including real-footprint reachability for all four courtyard entrances, both rear-facing hall doorways and seating aisles, sideways-flight orientation, ascent/descent of both entrance flights, Sal’s level treads at low frame rates and both landing layers, safe arrivals, collision/camera sweeps, open-sky courtyard jumps, invalid-floor rejection and multiplayer nearby chat. Chrome previews checked the courtyard and both halls in day/night views plus compact controls at 360 pixels. Correct an unrelated café socket test to await its own error response instead of assuming delivery order across clients. See [seminar-interior.md](docs/seminar-interior.md) for sources and approximation boundaries.
+
 ## People finder removed — 13 October 2026
 
 - Remove the people/location finder card, remote-person map markers, direction arrows, distances and Find controls from desktop and phone views. Remove its What’s new entry.

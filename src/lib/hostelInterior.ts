@@ -1,3 +1,5 @@
+import { seminarInCourtyard, seminarSurfaceHeightAt, seminarCeilingAt, seminarOnLanding, seminarOnStairs, seminarStepHeightAt, seminarDoors, nearSeminarDoor } from './seminarInterior.ts'
+import type { SeminarLayout } from './seminarInterior.ts'
 import { AVATAR_HEIGHT } from './avatarJump.ts'
 import { gpsToLocal } from './geo.ts'
 import type { LocalCoordinate as Point } from './geo.ts'
@@ -9,10 +11,10 @@ import { refineBoysHostelPlan, insideHostelLift } from './boysHostelLayout.ts'
 import type { HostelLift, HostelCourtyardEntry, HostelCorridor } from './boysHostelLayout.ts'
 import type { HostelBadmintonCourt } from './boysHostelGeometry.ts'
 
-export interface InteriorWall { a: Point; b: Point; kind: 'outer' | 'room' | 'rail' }
+export interface InteriorWall { a: Point; b: Point; kind: 'outer' | 'room' | 'rail'; bottom?:number; top?:number }
 export interface DemoRoom { id: string; center: Point; along: Point; inward: Point; width: number; depth: number; door: Point; bed: Point; desk: Point }
 export interface HostelPlan {
-  kind?: 'classroom'; floors?: HostelPlan[]; readingRoom?: DemoRoom; locationId?: string; name?: string;
+  kind?: 'classroom' | 'seminar'; seminar?: SeminarLayout; obstacles?: {center:Point; along:Point; inward:Point; width:number; depth:number; height:number; elevation?:number}[]; floors?: HostelPlan[]; readingRoom?: DemoRoom; locationId?: string; name?: string;
   lifts?: HostelLift[]; courtyards?: HostelCourtyardEntry[]; corridors?: HostelCorridor[]; courtyardWalkable?: boolean; badmintonCourt?: HostelBadmintonCourt;
   buildingId: string; building: BuildingFootprint; outer: Point[]; holes: Point[][]; walls: InteriorWall[]; rooms: DemoRoom[];
   entrance: { point: Point; inside: Point; outside: Point; inward: Point; along: Point };
@@ -21,7 +23,7 @@ export interface HostelPlan {
 }
 export interface InteriorPose { buildingId: string; floor: number }
 export interface StairJourney { lowFloor: number; up: boolean; progress: number }
-export type HostelAction = 'enter-hostel' | 'enter-gyan' | 'exit-hostel' | 'find-stairs' | 'find-reading-room' | 'stairs-up' | 'stairs-down' | `lift-floor-${number}`
+export type HostelAction = 'enter-hostel' | 'enter-gyan' | 'enter-seminar' | 'seminar-courtyard' | 'seminar-upper' | 'seminar-seated' | 'seminar-open' | 'exit-hostel' | 'find-stairs' | 'find-reading-room' | 'stairs-up' | 'stairs-down' | `lift-floor-${number}`
 const add = (p: Point, v: Point, distance: number): Point => ({ x: p.x + v.x * distance, z: p.z + v.z * distance })
 const dot = (a: Point, b: Point) => a.x * b.x + a.z * b.z
 export const pointDistance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z)
@@ -106,9 +108,11 @@ export function createHostelPlan(building: BuildingFootprint, roads: RoadFootpri
   const floors=refined.floors!.map(floor=>({...floor,walls:[...floor.walls,...floor.rooms.flatMap(roomWalls)]}))
   return {...floors[0],floors}
 }
-export function isInteriorWalkable(point: Point, plan: HostelPlan, radius=0.42): boolean {
+export function isInteriorWalkable(point: Point, plan: HostelPlan, radius=0.42, feetY?:number): boolean {
   if(!Number.isFinite(point.x)||!Number.isFinite(point.z)||!insideHostelFootprint(point,plan.outer,plan.courtyardWalkable?[]:plan.holes,radius)) return false
-  if(plan.walls.some(wall=>distanceToSegment(point,wall.a,wall.b)<radius+0.09)) return false
+  const feet=feetY??(plan.kind==='seminar'?seminarSurfaceHeightAt(plan,point):plan.base+.14)
+  if(plan.walls.some(wall=>distanceToSegment(point,wall.a,wall.b)<radius+0.09&&(wall.top===undefined||feet<plan.base+.14+wall.top)&&(wall.bottom===undefined||feet+AVATAR_HEIGHT>plan.base+.14+wall.bottom))) return false
+  if(plan.obstacles?.some(item=>{const dx=point.x-item.center.x,dz=point.z-item.center.z;return Math.abs(dx*item.along.x+dz*item.along.z)<item.width/2+radius&&Math.abs(dx*item.inward.x+dz*item.inward.z)<item.depth/2+radius}))return false
   if(plan.lifts?.some(lift=>insideHostelLift(point,lift,radius)))return false
   const court=plan.courtyardWalkable&&plan.badmintonCourt
   if(court&&distanceToSegment(point,{x:court.center.x-court.across.x*3.05,z:court.center.z-court.across.z*3.05},{x:court.center.x+court.across.x*3.05,z:court.center.z+court.across.z*3.05})<radius+.06)return false
@@ -128,24 +132,32 @@ export function stepInterior(point: Point,direction:Point,speed:number,delta:num
   const length=Math.hypot(direction.x,direction.z)
   if(!length||!Number.isFinite(length)||!Number.isFinite(speed)||!Number.isFinite(delta))return point
   const distance=Math.max(0,Math.min(5.5,speed))*Math.max(0,Math.min(.1,delta)),steps=Math.max(1,Math.ceil(distance/.12)),dx=direction.x/length*distance/steps,dz=direction.z/length*distance/steps
-  const legal=(p:Point)=>isInteriorWalkable(p,plan)&&(feetY===undefined||feetY+AVATAR_HEIGHT<=interiorJumpCeiling(plan,p,floor))
+  let ground=plan.kind==='seminar'?seminarSurfaceHeightAt(plan,point,feetY):0
+  const legal=(p:Point)=>{const nextGround=plan.kind==='seminar'?seminarSurfaceHeightAt(plan,p,ground):0;return Math.abs(nextGround-ground)<=(plan.kind==='seminar'?Math.max(seminarStepHeightAt(plan,point),seminarStepHeightAt(plan,p)):.23)&&isInteriorWalkable(p,plan,.42,plan.kind==='seminar'?nextGround:feetY)&&(feetY===undefined||feetY+AVATAR_HEIGHT<=interiorJumpCeiling(plan,p,floor,plan.kind==='seminar'?nextGround:feetY))}
   let p={...point}
   for(let i=0;i<steps;i++) {
     const next={x:p.x+dx,z:p.z+dz}
     if(legal(next))p=next
     else {const a={x:p.x+dx,z:p.z};if(legal(a))p=a;const b={x:p.x,z:p.z+dz};if(legal(b))p=b}
+    if(plan.kind==='seminar')ground=seminarSurfaceHeightAt(plan,p,ground)
   }
   // Stair flights are traversed with E / the stair buttons so a floor cannot
   // change accidentally while strafing past a landing.
-  if(distanceToSegment(p,plan.stairs.start,plan.stairs.end)<plan.stairs.width/2+.42) {
+  if(plan.levels>1&&distanceToSegment(p,plan.stairs.start,plan.stairs.end)<plan.stairs.width/2+.42) {
     const relative={x:p.x-plan.stairs.start.x,z:p.z-plan.stairs.start.z}, t=dot(relative,plan.stairs.along)
     if(t>0.15&&t<plan.stairs.length-.15)return point
   }
   return p
 }
-export function interiorJumpCeiling(plan: HostelPlan, point: Point, floor: number): number {
+export function interiorJumpCeiling(plan: HostelPlan, point: Point, floor: number, feetY?:number): number {
   plan=interiorFloorPlan(plan,floor)
   const surface = plan.base + floor * plan.floorHeight + .14
+  if(plan.kind==='seminar') {
+    let ceiling=seminarCeilingAt(plan,point,feetY)
+    for(const door of seminarDoors(plan))if(nearSeminarDoor(point,door,1.8,.51))ceiling=Math.min(ceiling,surface+door.elevation+3)
+    if(Math.abs(point.x-plan.entrance.point.x)<.51)ceiling=Math.min(ceiling,surface+3.15)
+    return ceiling
+  }
   let ceiling = plan.courtyardWalkable&&plan.courtyards?.some(c=>pointInCampus(point,c.ring))?Infinity:plan.base + (floor + 1) * plan.floorHeight
   for (const door of [
     { point: plan.entrance.point, along: plan.entrance.along, width: 2.2 },
@@ -185,6 +197,7 @@ export function interiorCameraFraction(origin:{x:number;y:number;z:number},end:{
   const steps=Math.max(1,Math.ceil(Math.hypot(end.x-origin.x,end.y-origin.y,end.z-origin.z)/.15))
   const levels=stairLowFloor===null?[floor]:[stairLowFloor,stairLowFloor+1]
   const flights=[...new Set(levels.flatMap(level=>[level-1,level]))].filter(level=>level>=0&&level<plan.levels-1)
+  const seminarEntries=seminarDoors(plan)
   for(let i=1;i<=steps;i++) {const t=i/steps,p={x:origin.x+(end.x-origin.x)*t,z:origin.z+(end.z-origin.z)*t}, y=origin.y+(end.y-origin.y)*t
     const relative={x:p.x-plan.stairs.start.x,z:p.z-plan.stairs.start.z}, run=dot(relative,plan.stairs.along), side=Math.abs(dot(relative,plan.stairs.across))
     const stepHeight=Math.ceil(Math.max(0,Math.min(1,run/plan.stairs.length))*20)*plan.floorHeight/20
@@ -192,8 +205,14 @@ export function interiorCameraFraction(origin:{x:number;y:number;z:number},end:{
     const atHeaderHeight=levels.some(level=>{const height=y-plan.base-.14-level*plan.floorHeight;return height>=1.95&&height<=2.85})
     const inRoomHeader=atHeaderHeight&&[...plan.rooms,...(plan.readingRoom?[plan.readingRoom]:[])].some(room=>{const offset={x:p.x-room.door.x,z:p.z-room.door.z};return Math.abs(dot(offset,room.along))<.87&&Math.abs(dot(offset,room.inward))<.25})
     const inCourtyardHeader=atHeaderHeight&&plan.courtyardWalkable&&plan.courtyards?.some(c=>{const offset={x:p.x-c.point.x,z:p.z-c.point.z};return Math.abs(dot(offset,c.along))<c.width/2+.15&&Math.abs(dot(offset,c.inward))<.25})
-    const inHeader=inRoomHeader||inCourtyardHeader
-    if(inSteps||inHeader||!insideHostelFootprint(p,plan.outer,plan.courtyardWalkable?[]:plan.holes,.2)||plan.walls.some(wall=>distanceToSegment(p,wall.a,wall.b)<.25)||plan.lifts?.some(lift=>insideHostelLift(p,lift,.2)))return Math.max(.04,(i-1)/steps)
+    const seminarHeight=y-plan.base-.14
+    const inSeminarHeader=plan.kind==='seminar'&&(seminarEntries.some(d=>seminarHeight>=d.elevation+2.95&&nearSeminarDoor(p,d,1.5,.25))||seminarHeight>=3.15&&Math.abs(p.x-plan.entrance.point.x)<.35&&seminarHeight<=3.5)
+    const inSeminarCeiling=plan.kind==='seminar'&&!seminarInCourtyard(plan,p)&&seminarHeight>=plan.floorHeight-.2
+    const inFurniture=plan.obstacles?.some(item=>{const dx=p.x-item.center.x,dz=p.z-item.center.z;return seminarHeight>=(item.elevation??0)-.1&&seminarHeight<=(item.elevation??0)+item.height+.1&&Math.abs(dx*item.along.x+dz*item.along.z)<item.width/2+.2&&Math.abs(dx*item.inward.x+dz*item.inward.z)<item.depth/2+.2})
+    const inLanding=plan.kind==='seminar'&&seminarOnLanding(plan,p)&&seminarHeight>=plan.seminar!.stairs.rise-.2&&seminarHeight<=plan.seminar!.stairs.rise+.07
+    const inSeminarFloor=plan.kind==='seminar'&&(seminarOnStairs(plan,p)||plan.seminar!.halls.some(h=>p.x>=h.minX&&p.x<=h.maxX&&p.z>=h.minZ&&p.z<=h.maxZ))&&y<seminarSurfaceHeightAt(plan,p,origin.y)+.1
+    const inHeader=inRoomHeader||inCourtyardHeader||inSeminarHeader
+    if(inSteps||inSeminarFloor||inHeader||inSeminarCeiling||inFurniture||inLanding||!insideHostelFootprint(p,plan.outer,plan.courtyardWalkable?[]:plan.holes,.2)||plan.walls.some(wall=>distanceToSegment(p,wall.a,wall.b)<.25&&(wall.bottom===undefined||seminarHeight>=wall.bottom-.1)&&(wall.top===undefined||seminarHeight<=wall.top+.1))||plan.lifts?.some(lift=>insideHostelLift(p,lift,.2)))return Math.max(.04,(i-1)/steps)
   }
   return 1
 }
@@ -265,5 +284,5 @@ export function classroomFurniture(room: DemoRoom) {
   return pieces
 }
 export const interiorLocationId=(plan:HostelPlan)=>plan.locationId??'boys-hostel'
-export const interiorSpace=(plan:HostelPlan,floor:number)=>`${plan.kind==='classroom'?'gyan':'hostel'}:${floor}`
+export const interiorSpace=(plan:HostelPlan,floor:number)=>`${plan.kind==='seminar'?'seminar':plan.kind==='classroom'?'gyan':'hostel'}:${floor}`
 export const interiorRoomLabel=(plan:HostelPlan,floor:number,id:string)=>plan.kind==='classroom'?id==='reading'?'Reading room':`Classroom ${id.padStart(2,'0')}`:demoRoomNumber(floor,id)

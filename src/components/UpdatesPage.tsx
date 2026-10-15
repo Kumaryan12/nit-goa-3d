@@ -12,7 +12,7 @@ export default function UpdatesPage() {
       <p className="updates-eyebrow">WHAT’S NEW ON CAMPUS</p>
       <h1 id="updates-title">More to<br /><em>explore.</em></h1>
       <p className="updates-description">New things to try with your people.</p>
-      <div className="updates-release"><span>Campus update</span><time dateTime="2026-10-12">8–12 October 2026</time></div>
+      <div className="updates-release"><span>Campus update</span><time dateTime="2026-10-14">14 October 2026</time></div>
     </header>
     <section className="updates-grid" aria-label="New campus experiences">
       {updates.map((update, index) => <article className="update-card" key={update.id}>

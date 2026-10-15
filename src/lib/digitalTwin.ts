@@ -101,5 +101,5 @@ export function createDigitalTwin(map: CampusMapData | null, roads: CampusRoadDa
 export type DigitalTwin = ReturnType<typeof createDigitalTwin> & {
   meadow?: import('./campusMeadow.ts').MeadowChunk[]
   terrainPatches?: TerrainPatchData[]
-  interiors?: { hostel: HostelPlan | null; gyan: HostelPlan | null }
+  interiors?: { hostel: HostelPlan | null; gyan: HostelPlan | null; seminar?: HostelPlan | null }
 }

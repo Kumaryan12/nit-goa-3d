@@ -1,5 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { PointLight, CanvasTexture, InstancedMesh, Object3D, Path, ShapeUtils, Vector2 } from 'three'
 import { buildingShape } from '../lib/buildingGeometry'
 import { classroomFurniture, readingFurniture, interiorFloorPlan, interiorRoomLabel } from '../lib/hostelInterior'
@@ -7,14 +8,16 @@ import type { HostelPlan } from '../lib/hostelInterior'
 import type { LocalCoordinate } from '../lib/geo'
 
 interface Box { x:number; y:number; z:number; width:number; height:number; depth:number; angle?:number }
-function Boxes({ boxes, color, glow=false }: { boxes:Box[];color:string;glow?:boolean }) {
+export function Boxes({ boxes, color, glow=false, rounded=false }: { boxes:Box[];color:string;glow?:boolean;rounded?:boolean }) {
+  const geometry=useMemo(()=>rounded?new RoundedBoxGeometry(1,1,1,1,.16):null,[rounded])
+  useEffect(()=>()=>geometry?.dispose(),[geometry])
   const ref=useRef<InstancedMesh>(null)
   useLayoutEffect(()=> {const dummy=new Object3D();boxes.forEach((box,i)=> {
     dummy.position.set(box.x,box.y,box.z);dummy.rotation.set(0,box.angle??0,0);dummy.scale.set(box.width,box.height,box.depth);dummy.updateMatrix();ref.current?.setMatrixAt(i,dummy.matrix)
   });if(ref.current){ref.current.instanceMatrix.needsUpdate=true;ref.current.computeBoundingSphere()}},[boxes])
-  return <instancedMesh ref={ref} args={[undefined,undefined,boxes.length]} castShadow={!glow} receiveShadow><boxGeometry /><meshStandardMaterial color={color} emissive={glow?'#ffe9bb':'#000000'} emissiveIntensity={glow?1.2:0} roughness={.9} /></instancedMesh>
+  return <instancedMesh ref={ref} args={[undefined,undefined,boxes.length]} castShadow={!glow} receiveShadow>{geometry?<primitive object={geometry} attach="geometry"/>:<boxGeometry />}<meshStandardMaterial color={color} emissive={glow?'#ffe9bb':'#000000'} emissiveIntensity={glow?1.2:0} roughness={.9} /></instancedMesh>
 }
-function Plaque({ text,point,y,normal,width=1.5 }: {text:string;point:LocalCoordinate;y:number;normal:LocalCoordinate;width?:number}) {
+export function Plaque({ text,point,y,normal,width=1.5 }: {text:string;point:LocalCoordinate;y:number;normal:LocalCoordinate;width?:number}) {
   const texture=useMemo(()=> {const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;const context=canvas.getContext('2d')!;context.fillStyle='#235b55';context.fillRect(0,0,512,128);context.strokeStyle='#ddb46b';context.lineWidth=8;context.strokeRect(4,4,504,120);context.fillStyle='#fff4d4';context.font='bold 40px sans-serif';context.textAlign='center';context.textBaseline='middle';context.fillText(text,256,64,480);return new CanvasTexture(canvas)},[text])
   useEffect(()=>()=>texture.dispose(),[texture])
   return <mesh position={[point.x,y,point.z]} rotation={[0,Math.atan2(normal.x,normal.z),0]}><planeGeometry args={[width,width/4]} /><meshBasicMaterial map={texture} /></mesh>

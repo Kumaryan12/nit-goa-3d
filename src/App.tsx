@@ -212,6 +212,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const football = useFootballSession(footballJoined, footballRetry, footballInput, avatarPosition, pitch)
   const hostelPlan = twin?.interiors?.hostel ?? null
   const gyanPlan = twin?.interiors?.gyan ?? null
+  const seminarPlan = twin?.interiors?.seminar ?? null
   const [selection, setSelection] = useState<BuildingSelection | null>(selectionForLocation(initial.to ?? initial.location ?? ''))
   const viewHostelCourtyards = () => {
     if (!hostelPlan) return
@@ -297,12 +298,14 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const enterHostel = useCallback(() => {
     changeView('walk'); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId: 'boys-hostel', enterHostel: true }))
   }, [changeView])
+  const enterSeminar = useCallback(() => { changeView('walk'); setWalkSpawn(request => ({sequence:request.sequence+1,locationId:'way/1423803680',enterSeminar:true})) },[changeView])
   const enterGyan = useCallback(() => { changeView('walk'); setWalkSpawn(request => ({sequence:request.sequence+1,locationId:GYAN_MANDIR_ID,enterGyan:true})) },[changeView])
   const exploreUpdate = (destination: CampusUpdateDestination) => {
     closeUpdates()
     if (destination === 'football') joinFootball()
     else if (destination === 'oat') openOat()
     else if (destination === 'hostel') enterHostel()
+    else if (destination === 'seminar') enterSeminar()
     else { changeView('walk'); spawnNear(destination === 'nescafe' ? CAFE_BUILDING_ID : 'main-entrance') }
   }
   const viewNescafeSlope = () => {
@@ -401,7 +404,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
           oatConcert={oat.snapshot} oatSelfId={oat.selfId} concertJoined={oatJoined}
           onSocialStop={stopSocial} onBuggyRide={campusLive.rideBuggy} campusPeople={campusLive.people} campusSession={campusLive.session} campusPose={campusPose} campusMessages={campusLive.messages} avatarStyle={campusLive.people.find(p => p.id === campusLive.session.current.id)?.avatarStyle ?? avatarStyle} avatarColor={selfColor ? CAMPUS_COLORS[selfColor] : undefined}
           footballPitch={pitch} footballJoined={footballJoined} footballLive={football.connection === 'live'} footballSession={football.session} footballPlayers={football.players} footballInput={footballInput} onFootballStatus={onFootballStatus}
-          showContours={terrainSettings.showContours} hostelPlan={hostelPlan} gyanPlan={gyanPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null} interiorBuildingId={walkStatus?.interior ? interiorPose.current?.buildingId ?? null : null}
+          showContours={terrainSettings.showContours} hostelPlan={hostelPlan} gyanPlan={gyanPlan} seminarPlan={seminarPlan} interiorPose={interiorPose} processedWalkSpawn={processedWalkSpawn} hostelFloor={walkStatus?.interior?.floor ?? null} stairLowFloor={walkStatus?.interior?.stairLowFloor ?? null} interiorBuildingId={walkStatus?.interior ? interiorPose.current?.buildingId ?? null : null}
           view={view} walkPaused={walkPaused} walkInput={walkInput} avatarPosition={avatarPosition} walkSpawn={walkSpawn} onWalkStatus={onWalkStatus} onWalkInspect={chooseLocation}
           presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           slopePreview={slopeEditorOpen ? slopePreview : null} pickingPosition={!!slopePicking || picking?.mode === 'point'} pickedPosition={editorOpen ? picked?.coordinates ?? null : null} onPickPosition={onPickPosition}
@@ -422,7 +425,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
       {!editorOpen && !slopeEditorOpen && !footballJoined && !oatOpen && (navigationOpen ? <NavigationMode locations={catalog}
         destination={activeSelection?.location ?? null} startId={startId} onStartChange={setStartId} onDestinationChange={chooseNavigationDestination}
         presentation={presentation} playback={playback} onPlayback={setPlayback} onViewRoute={viewRoute} roadStatus={roadState.status} onClose={closeNavigation} />
-        : <BuildingInfoPanel onOpenConcert={openOat} onPlayFootball={joinFootball} gyanPlan={gyanPlan} onEnterGyan={enterGyan} hostelPlan={hostelPlan} onEnterHostel={enterHostel} onViewCourtyards={hostelPlan ? viewHostelCourtyards : undefined} walkMode={view === 'walk'} onEdit={canEdit ? editLocation : undefined} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
+        : <BuildingInfoPanel seminarPlan={seminarPlan} onEnterSeminar={enterSeminar} onOpenConcert={openOat} onPlayFootball={joinFootball} gyanPlan={gyanPlan} onEnterGyan={enterGyan} hostelPlan={hostelPlan} onEnterHostel={enterHostel} onViewCourtyards={hostelPlan ? viewHostelCourtyards : undefined} walkMode={view === 'walk'} onEdit={canEdit ? editLocation : undefined} onGallery={onGallery} onUpload={onUpload} selection={activeSelection} locations={locations} center={center} onClose={clearSelection} onFlyTo={onFlyTo} onNavigate={openNavigation} onSelectLocation={chooseLocation} />)}
       {oatOpen && <OatControls session={oat} joined={oatJoined} onJoin={name => { setOatName(name); setOatJoined(true); setFootballJoined(false); setView('walk'); setWalkManualPause(false); interiorPose.current = null; walkInput.current = emptyWalkInput(); setWalkSpawn(request => ({ sequence: request.sequence + 1, locationId: 'open-air-theatre' })) }} onRetry={() => setOatRetry(value => value + 1)} onClose={closeOat} />}
       {editorOpen && <Suspense fallback={<p className="scene-loading">Opening location editor…</p>}><CampusLocationEditor locations={catalog} locationId={editorLocationId}
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}

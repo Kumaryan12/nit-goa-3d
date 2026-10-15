@@ -25,7 +25,7 @@ test('legacy notices, corrupt preferences and blocked storage cannot break campu
 })
 
 test('published updates have unique IDs and supported exploration shortcuts', () => {
-  const ids = new Set(), destinations = new Set(['nescafe', 'football', 'oat', 'hostel', 'entrance'])
+  const ids = new Set(), destinations = new Set(['nescafe', 'football', 'oat', 'hostel', 'entrance', 'seminar'])
   for (const update of campusUpdates) {
     assert.ok(update.id && update.title && update.detail)
     assert.ok(!ids.has(update.id)); ids.add(update.id)

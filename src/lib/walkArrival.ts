@@ -19,7 +19,7 @@ const direction = (from: LocalCoordinate, to: LocalCoordinate) => {
   const length = Math.hypot(to.x - from.x, to.z - from.z)
   return length ? { x: (to.x - from.x) / length, z: (to.z - from.z) / length } : { x: 0, z: 1 }
 }
-export function findLocationArrival(location: CampusLocation, twin: DigitalTwin, world: WalkWorld, plans: (HostelPlan | null)[] = [twin.interiors?.hostel ?? null, twin.interiors?.gyan ?? null]): WalkArrival | null {
+export function findLocationArrival(location: CampusLocation, twin: DigitalTwin, world: WalkWorld, plans: (HostelPlan | null)[] = [twin.interiors?.hostel ?? null, twin.interiors?.gyan ?? null, twin.interiors?.seminar ?? null]): WalkArrival | null {
   const selection = twin.selections.find(item => item.location.id === location.id)
   const building = twin.buildings.find(item => item.id === (selection?.buildingId ?? location.osmBuildingId ?? location.id))
   const plan = plans.find(item => item && item.buildingId === building?.id)

@@ -557,6 +557,8 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .walk-controls-compact .walk-interior-actions { margin-bottom: 8px; }
 .walk-controls-compact .walk-interior-actions p { display: none; }
 .walk-lift-floors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; flex-basis: 100%; }
+.walk-seminar-areas, .walk-seminar-exit { grid-column: 1 / -1; }
+.walk-seminar-areas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .walk-lift-floors > span { grid-column: 1 / -1; font-size: 12px; font-weight: 600; }
 .walk-lift-floors button { min-height: 44px; min-width: 0; padding: 8px 6px; }
 @media (min-width: 761px) {
@@ -657,3 +659,11 @@ button[aria-busy="true"] { cursor: wait; }
 
 /* Keep translucent panels without continuously blurring the moving pitch. */
 .football-mode :is(.scene-header, .location-navigation, .map-status, .building-info-panel, .campus-minimap, .walk-controls, .football-controls, .view-dock, .view-options) { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+@media (max-width: 760px) {
+  .walk-inside-seminar .walk-heading, .walk-inside-seminar .walk-help,
+  .walk-inside-seminar .walk-transport, .walk-inside-seminar .walk-start,
+  .walk-inside-seminar .walk-demo-note, .walk-inside-seminar .walk-note { display: none; }
+  .walk-inside-seminar .walk-location { margin: 0 0 4px; font-size: 10px; }
+  .walk-inside-seminar .walk-interior-actions { margin: 4px 0; }
+}

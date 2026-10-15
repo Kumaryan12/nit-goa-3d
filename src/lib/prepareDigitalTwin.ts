@@ -1,3 +1,4 @@
+import { createSeminarPlan, SEMINAR_ID } from './seminarInterior.ts'
 import { createDigitalTwin } from './digitalTwin.ts'
 import type { DigitalTwin } from './digitalTwin.ts'
 import { createTerrainPatches } from './terrainPatches.ts'
@@ -19,7 +20,9 @@ export function prepareDigitalTwin(request: TwinBuildRequest): DigitalTwin {
   const safe = (point: { x: number; z: number }) => isWalkable(point, world)
   const hostel = twin.buildings[twin.selections.findIndex(s => s.location.id === 'boys-hostel')]
   const gyan = twin.buildings[twin.selections.findIndex(s => s.location.id === GYAN_MANDIR_ID)]
+  const seminar = twin.buildings.find(b=>b.id===SEMINAR_ID)
   twin.interiors = {
+    seminar: seminar ? createSeminarPlan(seminar,safe) : null,
     hostel: hostel ? createHostelPlan(hostel, twin.roads, safe) : null,
     gyan: gyan ? createGyanMandirPlan(gyan, twin.roads, safe, twin.selections.find(s => s.location.id === 'way/1423803680')?.location.coordinates) : null,
   }

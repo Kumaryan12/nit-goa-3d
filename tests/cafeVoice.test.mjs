@@ -119,7 +119,8 @@ test('real authenticated presence sockets share table voice and drinks; other ta
   peers.forEach(p => p.send({ type: 'cafe-voice-join', mic: false, table: 0 }))
   const state = p => p.messages.findLast(m => m.type === 'cafe-voice-state')
   await until(() => peers.slice(0, 3).every(p => p.messages.some(m => m.type === 'cafe-voice-ice')))
-  assert.ok(peers[3].messages.some(m => m.type === 'cafe-voice-error'))
+  // Separate sockets can deliver independently; wait for the standing visitor’s own response.
+  await until(() => peers[3].messages.some(m => m.type === 'cafe-voice-error'))
   const [alice, bob, cara, dan] = peers
   alice.send({ type: 'cafe-drink', action: 'get', kind: 'coffee' })
   await until(() => live.room.snapshot().people.find(p => p.id === 'alice').drink)
