@@ -31,7 +31,8 @@ import { nearestHostelLift, hostelLiftArrival, hostelAreaLabel, hostelCourtSurfa
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose, campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, seminarPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoined, concertPose, campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, seminarPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+  screeningPose: ConcertPlacement | null
   avatarStyle?: AvatarStyle
   concertJoined: boolean; concertPose: ConcertPlacement | null
   onSocialStop: () => void
@@ -89,7 +90,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     const self = campusSession.current.snapshot?.people.find(person => person.id === campusSession.current.id)
     // Chairs and OAT benches are solid to ordinary movement. A server-assigned
     // sitting pose remains valid when a status/UI render rechecks the world.
-    const validSeat = self?.social?.action === 'sit' && self.pose?.space === 'outdoors' && !!position.current
+    const validSeat = !!screeningPose || self?.social?.action === 'sit' && self.pose?.space === 'outdoors' && !!position.current
       && Math.hypot(position.current.x - self.pose.x, position.current.z - self.pose.z) < .1
     const relocating = changed || !position.current || !(validInside || validSeat || isWalkable(position.current, world))
     if (relocating) {
@@ -106,7 +107,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
           if (live.spawnPending || occupied.some(other => Math.hypot(other.x - position.current!.x, other.z - position.current!.z) < 1.5)) position.current = findSharedSpawn(position.current, world, live.spawnSlot ?? 0, occupied, arrival.entrance)
         }
       }
-    } else if (pose && !validInside) interiorPose.current = null
+    } else if (pose && !validInside && !screeningPose) interiorPose.current = null
     // Geometry/metadata refreshes must not reset a moving vehicle or held keys.
     if (!relocating && oriented.current) return
     // Switching modes during a stair walk returns to a safe same-floor landing.
@@ -134,7 +135,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
     if (relocating) { gl.domElement.tabIndex = 0; gl.domElement.focus({ preventScroll: true }) }
     lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current }
     snapped.current = false; keys.current.clear(); input.current = emptyWalkInput()
-  }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, gyanPlan, seminarPlan, activePlan, onStatus, publish, footballPitch, gl, arrival])
+  }, [world, spawn, locations, twin, input, position, interiorPose, processedSpawn, hostelPlan, gyanPlan, seminarPlan, activePlan, onStatus, publish, footballPitch, gl, arrival, screeningPose])
   const act = useCallback((action: HostelAction) => {
     const plan = action==='enter-seminar'?seminarPlan:action==='enter-gyan'?gyanPlan:action==='enter-hostel'?hostelPlan:activePlan(), p = position.current, pose = interiorPose.current
     if (ridingPassenger.current || ride.current !== 'walk' || !plan || !p || journey.current || !jump.current.grounded) return
@@ -228,10 +229,10 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
   useFrame((_, delta) => {
     if (!avatar.current) return
     delta = motionDelta(delta)
-    const concert = concertJoined ? concertPose ?? lastConcert.current : null
+    const concert = screeningPose ?? (concertJoined ? concertPose ?? lastConcert.current : null)
     if (concert) {
       const previous = lastConcert.current
-      const changed = !previous || previous.role !== concert.role || previous.seat !== concert.seat || previous.x !== concert.x || previous.y !== concert.y || previous.z !== concert.z
+      const changed = !previous || previous.space !== concert.space || previous.role !== concert.role || previous.seat !== concert.seat || previous.x !== concert.x || previous.y !== concert.y || previous.z !== concert.z
       lastConcert.current = concert
       if (changed) {
         campusEpoch.current = Math.max(campusEpoch.current, campusPose.current?.epoch ?? 0) + 1
@@ -240,7 +241,7 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
         recoilOffset.current = { x: 0, z: 0 }; ridingPassenger.current = false; setPassengerView(false)
         yaw.current = concert.yaw; lookTarget.current = { yaw: concert.yaw, pitch: .16, distance: 5.5 }
         motion.current = { phase: 0, moving: false, speed: 0, seated: concert.role === 'audience' }
-        seated.current = false; seatOrigin.current = null; interiorPose.current = null
+        seated.current = false; seatOrigin.current = null; interiorPose.current = concert.space && seminarPlan ? { buildingId: seminarPlan.buildingId, floor: 0 } : null
       }
       keys.current.clear(); input.current = emptyWalkInput()
       position.current = { x: concert.x, z: concert.z }
@@ -250,27 +251,30 @@ export default function AvatarExplorer({ avatarStyle, concertJoined, concertPose
       motion.current.seated = concert.role === 'audience'
       motion.current.drink = undefined
       motion.current.social = campusSession.current.peopleById?.get(campusSession.current.id ?? '')?.social
-      campusPose.current = { x: concert.x, y: concert.y, z: concert.z, yaw: concert.yaw, vehicle: 'walk', moving: false, running: false, airborne: false, active: !document.hidden, visible: true, space: 'outdoors', epoch: campusEpoch.current }
+      campusPose.current = { x: concert.x, y: concert.y, z: concert.z, yaw: concert.yaw, vehicle: 'walk', moving: false, running: false, airborne: false, active: !document.hidden, visible: true, space: concert.space ?? 'outdoors', epoch: campusEpoch.current }
       const blend = 1 - Math.exp(-delta * 8)
       yaw.current = smoothLookAngle(yaw.current, lookTarget.current.yaw, delta)
       pitch.current += (lookTarget.current.pitch - pitch.current) * blend
       cameraDistance.current += (lookTarget.current.distance - cameraDistance.current) * blend
       target.set(concert.x, concert.y + (concert.role === 'audience' ? .9 : 1.35), concert.z)
       desired.set(concert.x + Math.sin(yaw.current) * cameraDistance.current * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * cameraDistance.current, concert.z + Math.cos(yaw.current) * cameraDistance.current * Math.cos(pitch.current))
-      desired.lerpVectors(target, desired, cameraBoomFraction(target, desired, world))
+      desired.lerpVectors(target, desired, concert.space && seminarPlan ? interiorCameraFraction(target, desired, seminarPlan) : cameraBoomFraction(target, desired, world))
       camera.position.lerp(desired, blend); camera.lookAt(target)
       if ('fov' in camera && camera.fov !== 60) { camera.fov = 60; camera.updateProjectionMatrix() }
       elapsed.current += delta
       if (changed || elapsed.current >= .2) {
         elapsed.current = 0
-        onStatus({ position: position.current, nearestId: 'open-air-theatre', distance: 0, moving: false, blocked: false, vehicle: 'walk', speed: 0, canRide: false, canJump: false })
+        onStatus({ position: position.current, nearestId: concert.space ? seminarPlan?.locationId ?? null : 'open-air-theatre', distance: 0, moving: false, blocked: false, vehicle: 'walk', speed: 0, canRide: false, canJump: false, ...(concert.space && seminarPlan ? { interior: { kind: seminarPlan.kind, name: seminarPlan.name, levels: 1, floor: 0, room: 'Chapora Hall · Screening', canGoUp: false, canGoDown: false, stairLowFloor: null } } : {}) })
       }
       return
     }
     if (lastConcert.current) {
+      const wasScreening = !!lastConcert.current.space
       lastConcert.current = null; motion.current.seated = false; motion.current.social = undefined
       campusEpoch.current++; jump.current = freshJump(); locomotion.current = freshLocomotion()
-      position.current = arrival ? { ...arrival.position } : position.current
+      const stayInSeminar = wasScreening && seminarPlan && spawn.locationId === seminarPlan.locationId && !spawn.football
+      position.current = stayInSeminar ? seminarDestination(seminarPlan, 'seated') : arrival ? { ...arrival.position } : position.current
+      if (stayInSeminar) interiorPose.current = { buildingId: seminarPlan.buildingId, floor: 0 }
       snapped.current = false
     }
     if (!position.current) return

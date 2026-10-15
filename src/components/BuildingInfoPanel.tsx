@@ -10,6 +10,7 @@ import { buildingDetails } from '../data/buildingDetails'
 
 interface BuildingInfoPanelProps {
   seminarPlan?: HostelPlan | null
+  onOpenScreening?: () => void
   onEnterSeminar?: () => void
   gyanPlan?: HostelPlan | null
   onEnterGyan?: () => void
@@ -31,7 +32,7 @@ interface BuildingInfoPanelProps {
   onSelectLocation: (locationId: string) => void
 }
 
-function BuildingInfoPanel({ seminarPlan, onEnterSeminar, gyanPlan, onEnterGyan, hostelPlan, onPlayFootball, onOpenConcert, onEnterHostel, onViewCourtyards, walkMode = false, onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
+function BuildingInfoPanel({ seminarPlan, onOpenScreening, onEnterSeminar, gyanPlan, onEnterGyan, hostelPlan, onPlayFootball, onOpenConcert, onEnterHostel, onViewCourtyards, walkMode = false, onEdit, onGallery, onUpload, selection, locations, center, onClose, onFlyTo, onNavigate, onSelectLocation }: BuildingInfoPanelProps) {
   const [collapsed, setCollapsed] = useState(false)
   const panelRef = useRef<HTMLElement>(null)
   const nearby = useMemo(() => selection ? nearbyLocations(selection.location, locations) : [], [selection, locations])
@@ -57,7 +58,8 @@ function BuildingInfoPanel({ seminarPlan, onEnterSeminar, gyanPlan, onEnterGyan,
     <div className="location-distance"><span aria-hidden="true">◎</span><span>{distance === null ? 'Campus center loading...' : `${distance} m from campus center`}<small>Approximate straight-line distance</small></span></div>
     <div className="panel-actions"><button type="button" className="navigate-button" onClick={onNavigate}>📍 Navigate here</button>
       <button type="button" className="fly-button" onClick={() => onFlyTo(location.id)}>{walkMode ? 'Start at entrance ↗' : 'Fly to location ↗'}</button></div>
-    {seminarPlan?.locationId===location.id && onEnterSeminar && <section className="panel-section"><h3>Step inside the Seminar Complex</h3><p className="panel-muted">Chapora Hall is on the left with auditorium seating; Sal Seminar Hall is on the right without seats. Take either side staircase to the shared landing and rear entrances, or walk through the courtyard to the lower entrances. Chapora has a sloping floor; Sal has steps descending toward its stage.</p><button className="navigate-button" onClick={onEnterSeminar}>Enter Seminar Complex →</button><p className="building-match-note">Courtyard and wings follow satellite imagery. Hall arrangement follows campus memory; furnishings are approximate.</p></section>}
+    {seminarPlan?.locationId===location.id && onEnterSeminar && <section className="panel-section"><h3>Step inside the Seminar Complex</h3><p className="panel-muted">Chapora Hall is on the left with auditorium seating; Sal Seminar Hall is on the right without seats. Take either side staircase to the shared landing and rear entrances, or walk through the courtyard to the lower entrances. Chapora has a sloping floor; Sal has steps descending toward its stage.</p><button className="navigate-button" onClick={onEnterSeminar}>Enter Seminar Complex →</button>
+      {onOpenScreening && <button className="navigate-button" onClick={onOpenScreening}>▸ Movie screenings in Chapora</button>}<p className="building-match-note">Courtyard and wings follow satellite imagery. Hall arrangement follows campus memory; furnishings are approximate.</p></section>}
     {gyanPlan?.locationId===location.id && onEnterGyan && <section className="panel-section"><h3>Explore the classrooms</h3><p className="panel-muted">Ground: rooms 1–15 · First: 16–45 · Second: 46–75. Two open courtyards and a large reading room at the north end of the first floor.</p><p className="building-match-note">Room ranges follow campus information. Interior partitions and furnishings are approximate.</p><button className="navigate-button" onClick={onEnterGyan}>Enter Gyan Mandir →</button></section>}
     {location.id === 'sports-ground' && onPlayFootball && <button className="navigate-button football-join" onClick={onPlayFootball}>⚽ Join live football</button>}
     {location.id === 'open-air-theatre' && onOpenConcert && <button className="navigate-button football-join" onClick={onOpenConcert}>🎤 Open live concert</button>}

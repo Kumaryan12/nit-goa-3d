@@ -178,6 +178,7 @@ export default function CommunityApp() {
           avatarStyle={access?.avatarStyle ?? undefined}
           accountControl={accountControl}
           accountOpen={menu}
+          canHost={isAdmin}
           canEdit={(path === '/admin/campus' && isAdmin) || (preview && import.meta.env.DEV && !auth.configured)}
         />
       </CampusLoadingBoundary>

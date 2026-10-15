@@ -1,0 +1,48 @@
+.screening-controls { position:absolute; z-index:65; top:140px; right:18px; width:min(356px,calc(100vw - 24px)); max-height:calc(100dvh - 164px); overflow:auto; padding:17px; border-radius:20px; color:#f3eddb; background:linear-gradient(140deg,#3a352ba3,#101a1de8); border:1px solid #d9c39145; box-shadow:0 18px 48px #07121838; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); box-sizing:border-box; }
+.screening-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.screening-heading .eyebrow { color:#dcc38e; font-size:10px; letter-spacing:.14em; }
+.screening-heading>div,.screening-buttons,.screening-reactions { display:flex; gap:8px; }
+.screening-controls button,.screening-return { color:#f3eddb; background:#ffffff0b; border:1px solid #d9c39145; border-radius:10px; padding:9px 12px; cursor:pointer; font:inherit; font-size:12px; }
+.screening-controls button:disabled { opacity:.45; cursor:default; }
+.screening-controls button:hover:not(:disabled) { background:#d9c39124; }
+.screening-controls button:focus-visible,.screening-controls input:focus-visible,.screening-player button:focus-visible { outline:2px solid #f0cb7f; outline-offset:3px; }
+.screening-controls h2 { font-size:23px; line-height:1.2; font-weight:550; letter-spacing:-.035em; margin:18px 0 12px; }
+.screening-status,.screening-seat { font-size:12px; line-height:1.6; color:#eee4ce; }
+.screening-controls .navigate-button { background:#d8bd85; color:#1d241f; border:0; width:auto; }
+.screening-hint { color:#c4c8bf; font-size:11px; line-height:1.55; }
+.screening-personal-sound { display:flex; align-items:center; gap:14px; margin:14px 0 8px; }
+.screening-personal-sound label { flex:1; }
+.screening-personal-sound input { padding:0; accent-color:#d8bd85; }
+.screening-notice { color:#ffdc9d; font-size:12px; line-height:1.6; }
+.screening-controls details { border-top:1px solid #d9c39125; padding-top:13px; margin-top:15px; font-size:12px; }
+.screening-controls summary { cursor:pointer; color:#e4d4b3; padding:4px 0; }
+.screening-controls form { display:grid; gap:10px; margin-top:12px; }
+.screening-controls label { display:grid; gap:6px; font-size:11px; color:#e4d4b3; }
+.screening-controls input { min-width:0; box-sizing:border-box; width:100%; background:#08131588; color:#fff6e6; border:1px solid #d9c39145; border-radius:9px; padding:10px; font:inherit; font-size:12px; }
+.screening-controls input::placeholder { color:#b4b9b0; }
+.screening-host .screening-buttons { margin-top:12px; flex-wrap:wrap; }
+.screening-reactions { margin-top:14px; }
+.screening-reactions button { font-size:18px; padding:8px 13px; }
+.screening-messages { max-height:160px; overflow:auto; overscroll-behavior:contain; }
+.screening-messages p { display:grid; gap:4px; font-size:12px; line-height:1.5; overflow-wrap:anywhere; margin:12px 0; }
+.screening-messages strong { color:#d8bd85; font-size:10px; }
+.screening-chat form { grid-template-columns:minmax(0,1fr) auto; }
+.screening-sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+.screening-return { position:absolute; bottom:90px; right:18px; z-index:66; background:#16211fe8; }
+.screening-collapsed { width:auto; min-width:230px; }
+.screening-player { position:relative; width:960px; height:480px; background:#070b0e; color:#fff3d9; overflow:hidden; font-family:inherit; }
+.screening-player video,.screening-youtube,.screening-youtube iframe { display:block; width:100%; height:100%; border:0; object-fit:contain; }
+.screening-enable-sound { position:absolute; top:18px; left:18px; z-index:2; padding:14px 20px; font-size:20px; background:#e4c98e; color:#15241c; border:0; border-radius:9px; cursor:pointer; }
+.screening-player-sound { position:absolute; bottom:0; left:0; right:0; display:flex; align-items:center; justify-content:center; gap:20px; background:#091016ec; padding:8px 14px; opacity:0; transition:opacity .15s; }
+.screening-player:hover .screening-player-sound,.screening-player:focus-within .screening-player-sound,.screening-player:fullscreen .screening-player-sound { opacity:1; }
+.screening-player-sound button { padding:8px 14px; font-size:18px; color:#fff3d9; background:#ffffff13; border:1px solid #d9c39166; border-radius:6px; cursor:pointer; }
+.screening-player-sound label { display:flex; gap:10px; align-items:center; font-size:17px; }
+.screening-player-sound input { width:140px; accent-color:#d8bd85; }
+.screening-player-error { position:absolute; inset:0; display:grid; place-content:center; text-align:center; padding:60px; font-size:23px; line-height:1.5; background:#0d171bed; }
+.screening-player-error button { justify-self:center; margin:18px; padding:10px 18px; border:1px solid #d9c39166; border-radius:8px; background:#d8bd85; color:#192a23; font:inherit; cursor:pointer; }
+.screening-player-loading { position:absolute; inset:0; display:grid; place-content:center; color:#dfcc9c; background:#0d171bcc; font-size:24px; pointer-events:none; }
+.screening-player-notice { position:absolute; top:12px; right:12px; max-width:55%; padding:12px; color:#fff0cf; background:#17221fe8; font-size:17px; pointer-events:none; }
+.screening-player:fullscreen { width:100vw; height:100dvh; }
+@media (hover:none) { .screening-player-sound { opacity:1; } }
+@media (max-width:700px) { .screening-controls { top:auto; bottom:max(12px,env(safe-area-inset-bottom)); right:12px; left:12px; width:auto; max-height:70dvh; padding:14px; border-radius:16px; } .screening-controls h2 { font-size:21px; margin:12px 0; } .screening-controls button { min-height:38px; } .screening-controls.screening-collapsed { left:auto; } .screening-return { bottom:max(80px,env(safe-area-inset-bottom)); } .screening-player:fullscreen .screening-player-sound { gap:6px; padding:8px; flex-wrap:wrap; } .screening-player:fullscreen .screening-player-sound button { font-size:12px; } .screening-player:fullscreen .screening-player-sound label { font-size:12px; } .screening-player:fullscreen .screening-player-sound input { width:90px; } }
+@media (prefers-reduced-motion:reduce) { .screening-player-sound { transition:none; } }

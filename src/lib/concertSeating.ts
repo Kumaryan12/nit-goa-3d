@@ -5,7 +5,7 @@ import type { OatSnapshot } from './oatProtocol.ts'
 
 export interface ConcertPlace { x: number; y: number; z: number; yaw: number }
 export interface ConcertLayout { stage: ConcertPlace; seats: SocialSeat[] }
-export interface ConcertPlacement extends ConcertPlace { seat: number; role: 'audience' | 'performer' }
+export interface ConcertPlacement extends ConcertPlace { space?: 'seminar:0'; seat: number; role: 'audience' | 'performer' }
 export function createConcertLayout(theatre: Pick<TheatreLayout, 'center' | 'rotation' | 'depthScale' | 'widthScale' | 'elevation'>): ConcertLayout {
   const angle = theatre.rotation, z = -2 * theatre.depthScale
   return { stage: { x: theatre.center.x + Math.sin(angle) * z, z: theatre.center.z + Math.cos(angle) * z, y: theatre.elevation + .53, yaw: Math.atan2(Math.sin(angle + Math.PI), Math.cos(angle + Math.PI)) }, seats: theatreSeats(theatre).filter(seat => seat.row < 3) }

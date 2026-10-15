@@ -2,6 +2,13 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## Movie nights in Chapora — 15 October 2026
+
+- Add admin-hosted screenings using supported YouTube or public HTTPS MP4/WebM/M4V links, with shared play, pause and seek controls, late-join synchronisation and automatic pause when the host disconnects.
+- Seat up to 32 campus visitors in Chapora facing its physical screen, dim the interior, and offer fullscreen viewing, personal volume/mute, quiet audience chat and reactions. Leaving restores a clear aisle or honours a newly selected destination.
+- Reuse the authenticated campus connection, enforce host authority and seats on the server, protect newer films from delayed controls, isolate audience chat and release local media resources on departure. Video streams directly from its source without using the voice relay.
+- Add a visitor-facing What’s new entry and local multiplayer rehearsal. See [chapora-screenings.md](docs/chapora-screenings.md) for supported sources, validation and deployment notes.
+
 ## Explore the Seminar Complex — 14 October 2026
 
 - Enter the west-opening courtyard, then explore Chapora Hall with seating on the left/north and Sal Seminar Hall without seats on the right/south, following the owner’s layout and the real mapped U-shaped footprint.

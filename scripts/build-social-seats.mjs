@@ -6,6 +6,9 @@ import { extractCampusRoads } from '../src/lib/roads.ts'
 import { validClosedRing } from '../src/lib/geo.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
 import { theatreSeats } from '../src/lib/social.ts'
+import { createSeminarPlan, SEMINAR_ID } from '../src/lib/seminarInterior.ts'
+import { createWalkWorld, isWalkable } from '../src/lib/walking.ts'
+import { createScreeningLayout } from '../src/lib/screening.ts'
 import { createConcertLayout } from '../src/lib/concertSeating.ts'
 import { cafeCounters } from '../src/lib/cafe.ts'
 import { savedCampusOverrides } from '../src/data/campusOverrides.ts'
@@ -27,6 +30,11 @@ export async function buildSocialSeats(target = 'dist/map/nit-goa-social-seats.j
   await writeFile(target, JSON.stringify(seats) + '\n')
   await writeFile(resolve(dirname(target), 'nit-goa-cafe-counters.json'), JSON.stringify(twin.terrain.cafe ? cafeCounters(twin.terrain.cafe, twin.terrain) : []) + '\n')
   await writeFile(resolve(dirname(target), 'nit-goa-concert-layout.json'), JSON.stringify(createConcertLayout(twin.theatre)) + '\n')
+  const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
+  const seminar = twin.buildings.find(b => b.id === SEMINAR_ID)
+  const screening = createScreeningLayout(seminar ? createSeminarPlan(seminar, p => isWalkable(p, world)) : null)
+  if (screening.seats.length !== 32) throw Error('Cannot publish screening seats without Chapora Hall.')
+  await writeFile(resolve(dirname(target), 'nit-goa-screening-layout.json'), JSON.stringify(screening) + '\n')
   return seats
 }
 

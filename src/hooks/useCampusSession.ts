@@ -125,7 +125,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         return
       }
       if (!initialized) return
-      if (typeof value.type === 'string' && value.type.startsWith('cafe-voice-')) { for (const listener of voiceListeners.current) listener(value); return }
+      if (typeof value.type === 'string' && (value.type.startsWith('cafe-voice-') || value.type.startsWith('screening-'))) { for (const listener of voiceListeners.current) listener(value); return }
       if (value.type === 'buggy-impact') { receiveImpact(value.impact, value.serverTime); watchdog.received(); return }
       if (value.type === 'pose-correction') {
         const corrected = parseCampusPose(value.pose)
@@ -143,7 +143,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       watchdog.received(); session.current.motion?.push(snapshot, performance.now())
       session.current.peopleById = new Map(snapshot.people.map(person => [person.id, person]))
       // Per-frame poses stay in a ref; names/activity update React only as needed.
-      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.locatorVisible, p.name, p.handle, p.color, p.avatarStyle, p.activity, p.concert?.role, p.concert?.seat, p.pose?.space, p.pose?.visible, p.pose?.vehicle, p.ride?.driverId, p.ride?.seat, p.social?.action, p.social?.startedAt, p.social?.seatId, p.drink?.kind, p.drink?.takenAt, p.drink?.sipAt]))
+      const key = JSON.stringify(snapshot.people.map(p => [p.id, p.locatorVisible, p.name, p.handle, p.color, p.avatarStyle, p.activity, p.concert?.role, p.concert?.seat, p.screening?.seat, p.pose?.space, p.pose?.visible, p.pose?.vehicle, p.ride?.driverId, p.ride?.seat, p.social?.action, p.social?.startedAt, p.social?.seatId, p.drink?.kind, p.drink?.takenAt, p.drink?.sipAt]))
       if (key !== rosterKey) { rosterKey = key; setPeople(snapshot.people) }
     }
     ws.onerror = () => { if (active) setError('The live connection was interrupted. Checking connection…') }
@@ -238,6 +238,6 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     }, 5000)
     return true
   }, [pose, clearSocialPending])
-  return { registerSocialStopGuard, subscribeCafeVoice, sendCafeVoice, requestDrink, cafePending, cafeError, ridePending, socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
+  return { subscribeScreening: subscribeCafeVoice, sendScreening: sendCafeVoice, registerSocialStopGuard, subscribeCafeVoice, sendCafeVoice, requestDrink, cafePending, cafeError, ridePending, socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
 }
 export type CampusLiveSession = ReturnType<typeof useCampusSession>

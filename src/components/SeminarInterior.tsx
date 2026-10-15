@@ -1,3 +1,7 @@
+import { Html } from '@react-three/drei'
+import ScreeningPlayer from './ScreeningPlayer'
+import type { ScreeningPlayerControls } from './ScreeningPlayer'
+import type { ScreeningSession } from '../hooks/useScreening'
 import { memo, useMemo } from 'react'
 import { Boxes, Plaque } from './BuildingInterior'
 import { seminarHallHeight } from '../lib/seminarInterior'
@@ -45,7 +49,7 @@ function SharedStairs({plan}:{plan:HostelPlan}) {
     <Plaque text="CHAPORA & SAL · REAR ENTRANCES" point={{x:l.minX-.08,z}} normal={{x:-1,z:0}} y={y+s.rise+.65} width={2.7}/>
   </group>
 }
-function SeminarInterior({plan,inside,night,onSelect}:{plan:HostelPlan;inside:boolean;night:boolean;onSelect:()=>void}) {
+function SeminarInterior({screening,playerControls,plan,inside,night,onSelect}:{screening:ScreeningSession;playerControls:React.RefObject<ScreeningPlayerControls|null>;plan:HostelPlan;inside:boolean;night:boolean;onSelect:()=>void}) {
   const layout=plan.seminar!,y=plan.base+.14,h=plan.floorHeight,c=layout.courtyard
   const fittings=useMemo(()=>{
     const stone:Box[]=[],wood:Box[]=[],gold:Box[]=[],seats:Box[]=[],metal:Box[]=[],glass:Box[]=[],lights:Box[]=[],green:Box[]=[],walls:Box[]=[],ceilings:Box[]=[]
@@ -66,7 +70,7 @@ function SeminarInterior({plan,inside,night,onSelect}:{plan:HostelPlan;inside:bo
       // Acoustic timber around each stage; screen and lectern face the audience.
       wood.push({x:hall.maxX-.2,z:center.z,y:y+2.2,width:.15,height:4.4,depth:d-.5})
       metal.push({x:hall.maxX-.32,z:center.z,y:y+2.8,width:.09,height:2.75,depth:5.5})
-      lights.push({x:hall.maxX-.39,z:center.z,y:y+2.8,width:.035,height:2.55,depth:5.2})
+      if(hall.id!=='seated'||!screening.joined)lights.push({x:hall.maxX-.39,z:center.z,y:y+2.8,width:.035,height:2.55,depth:5.2})
       wood.push({x:hall.stage.x-1,z:center.z+3.8,y:y+1,width:.65,height:1.1,depth:.8})
       for(const side of [-1,1]){
         metal.push({x:hall.stage.x-1,z:center.z+side*(d/2-2),y:y+.9,width:.65,height:.9,depth:.65})
@@ -98,7 +102,7 @@ function SeminarInterior({plan,inside,night,onSelect}:{plan:HostelPlan;inside:bo
       }
     }
     return {stone,wood,gold,seats,metal,glass,lights,green,walls,ceilings}
-  },[plan,layout,y,h,c])
+  },[plan,layout,y,h,c,screening.joined])
   return <group name="seminar-courtyard-and-two-halls" onClick={e=>{e.stopPropagation();if(e.delta<=2)onSelect()}}>
     <Boxes boxes={fittings.stone} color="#ded5c3"/>
     <group name="courtyard-entrance-frame">
@@ -109,25 +113,26 @@ function SeminarInterior({plan,inside,night,onSelect}:{plan:HostelPlan;inside:bo
     <Boxes boxes={fittings.green} color="#49724d" rounded/>
     {inside&&<>
       <Boxes boxes={fittings.gold} color="#bba174"/>
-      <Boxes boxes={fittings.walls} color="#ede3ce"/>
-      <Boxes boxes={fittings.ceilings} color="#f4ebdd"/>
+      <Boxes boxes={fittings.walls} color={screening.joined?'#283239':'#ede3ce'}/>
+      <Boxes boxes={fittings.ceilings} color={screening.joined?'#20292f':'#f4ebdd'}/>
       {layout.halls.map(hall=><HallFloor key={hall.id} plan={plan} hall={hall}/>)}
-      <Boxes boxes={fittings.wood} color="#8e6445"/>
-      <Boxes boxes={fittings.seats} color="#bd8b56" rounded/>
+      <Boxes boxes={fittings.wood} color={screening.joined?'#493426':'#8e6445'}/>
+      <Boxes boxes={fittings.seats} color={screening.joined?'#765238':'#bd8b56'} rounded/>
       <Boxes boxes={fittings.metal} color="#283e3b"/>
       <Boxes boxes={fittings.glass} color="#548d9a"/>
-      <Boxes boxes={fittings.lights} color="#fff3d0" glow/>
+      <Boxes boxes={screening.joined?fittings.lights.filter(p=>p.z>layout.halls[0].maxZ):fittings.lights} color="#fff3d0" glow/>
       {layout.halls.map(hall=>{
         const normal={x:0,z:hall.id==='seated'?1:-1}
         return <group key={hall.id}>
           {hall.doors.filter(d=>!d.open).map((p,i)=><Plaque key={i} text={hall.id==='seated'?'CHAPORA HALL':'SAL SEMINAR HALL'} point={{x:p.x,z:p.z+normal.z*.16}} normal={normal} y={y+p.elevation+3.55} width={2.8}/>)}
           <Plaque text={hall.id==='seated'?'CHAPORA · REAR ENTRY':'SAL · REAR ENTRY'} point={{x:hall.rearDoor.x-.16,z:hall.rearDoor.z}} normal={{x:-1,z:0}} y={y+hall.rearDoor.elevation+3.55} width={3.1}/>
-          <Plaque text={hall.id==='seated'?'CHAPORA · NIT GOA':'SAL · NIT GOA'} point={{x:hall.maxX-.44,z:hall.stage.z}} normal={{x:-1,z:0}} y={y+2.8} width={4.6}/>
-          {<pointLight position={[hall.stage.x-8,y+4,hall.stage.z]} color="#ffe3b8" intensity={night?170:90} distance={30} decay={2} castShadow={false}/>}
+          {!(hall.id==='seated'&&screening.joined)&&<Plaque text={hall.id==='seated'?'CHAPORA · NIT GOA':'SAL · NIT GOA'} point={{x:hall.maxX-.44,z:hall.stage.z}} normal={{x:-1,z:0}} y={y+2.8} width={4.6}/>}
+          {hall.id==='seated'&&screening.joined&&screening.room?.media&&<Html transform distanceFactor={2.1} position={[hall.maxX-.46,y+2.8,hall.stage.z]} rotation={[0,-Math.PI/2,0]} zIndexRange={[30,0]}><ScreeningPlayer muted={screening.muted} volume={screening.volume} setMuted={screening.setMuted} setVolume={screening.setVolume} onEnded={() => { if(screening.admin)screening.command('pause') }} room={screening.room} serverNow={screening.serverNow} controls={playerControls}/></Html>}
+          {<pointLight position={[hall.stage.x-8,y+4,hall.stage.z]} color="#ffe3b8" intensity={hall.id==='seated'&&screening.joined?12:night?170:90} distance={30} decay={2} castShadow={false}/>}
         </group>
       })}
       <Plaque text="LOWER ENTRANCES · COURTYARD" point={{x:c.maxX-.14,z:(c.minZ+c.maxZ)/2}} normal={{x:-1,z:0}} y={y+2.9} width={3}/>
-      <ambientLight intensity={night?.4:.2} color="#fff0d5"/>
+      <ambientLight intensity={screening.joined?.08:night?.4:.2} color="#fff0d5"/>
     </>}
     <Plaque text={inside?'← CHAPORA   ·   SAL →':'SEMINAR COMPLEX · ENTER'} point={{x:plan.entrance.point.x-.18,z:plan.entrance.point.z}} normal={{x:-1,z:0}} y={y+3.2} width={4.5}/>
   </group>
