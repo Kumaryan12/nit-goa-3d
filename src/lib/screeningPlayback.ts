@@ -24,9 +24,12 @@ export function syncScreeningVideo(video: ScreeningVideo, room: ScreeningState, 
 export function syncScreeningYoutube(player: YoutubePlayer, room: ScreeningState, now: number, allowPlayback = true) {
   const state = player.getPlayerState()
   if (!allowPlayback && room.playing) return
-  const target = screeningPosition(room, now), duration = player.getDuration()
-  if (duration > 0 && target >= duration) { player.pauseVideo(); return }
+  const duration = player.getDuration()
+  let target = screeningPosition(room, now)
+  // Audio/video tracks can differ by a few milliseconds at their natural end.
+  if (room.loop && state === 0 && duration > 0 && target >= duration - .1) target = 0
+  if (!room.loop && duration > 0 && target >= duration) { player.pauseVideo(); return }
   if (state !== 3 && Math.abs(player.getCurrentTime() - target) > (room.playing ? 1.3 : .2)) player.seekTo(target, true)
-  if (room.playing && [2, 5, -1].includes(state)) player.playVideo()
+  if (room.playing && [2, 5, -1, ...(room.loop ? [0] : [])].includes(state)) player.playVideo()
   if (!room.playing && state !== 2) player.pauseVideo()
 }

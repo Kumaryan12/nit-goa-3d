@@ -35,17 +35,21 @@ export default function ScreeningPlayer({ room, muted, volume, setMuted, setVolu
     iframe.referrerPolicy = 'strict-origin-when-cross-origin'
     const url = new URL(`https://www.youtube-nocookie.com/embed/${media.videoId}`)
     url.search = new URLSearchParams({ enablejsapi: '1', origin: window.location.origin, playsinline: '1', controls: '1', rel: '0', mute: '1' }).toString()
+    if (room.loop) { url.searchParams.set('loop', '1'); url.searchParams.set('playlist', media.videoId!) }
     iframe.src = url.href; youtubeHost.current.replaceChildren(iframe)
     void loadYoutubePlayer().then(api => {
       if (!alive) return
       player = new api.Player(iframe, { events: {
         onReady: event => { if (alive) { youtube.current = event.target; isReady.current = true; setReady(true); sync() } },
-        onError: event => { if (alive) setError([101, 150].includes(event.data) ? 'This video does not allow embedding. Ask the host to choose another video.' : 'This YouTube video is unavailable. Ask the host to check the link.') },
+        onError: event => { if (alive) setError([101, 150].includes(event.data) ? 'YouTube is not allowing this welcome video to play here.' : 'The welcome video is unavailable. Check your connection or try again later.') },
         onAutoplayBlocked: () => { if (alive) { autoplayBlocked.current = true; setBlocked(true) } },
         onStateChange: event => {
           if (!alive) return
           if (event.data === 1) { autoplayBlocked.current = false; setBlocked(false) }
-          if (event.data === 0) ended.current()
+          if (event.data === 0) {
+            if (state.current.loop && state.current.playing) sync()
+            else ended.current()
+          }
         },
       } })
     }).catch(e => { if (alive) setError(e.message) })

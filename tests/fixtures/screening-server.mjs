@@ -10,6 +10,5 @@ const campus = attachCampusServer(server, 'http://127.0.0.1:5180', async token =
   if (!['screening-owner', 'screening-alice', 'screening-bob'].includes(token)) throw Error('Unknown rehearsal identity')
   return { id: token, name: token.replace('screening-', ''), role: token === 'screening-owner' ? 'admin' : 'member', expiresAt: Date.now() + 3600000 }
 })
-campus.screening.handle({ id: 'screening-owner', name: 'owner', role: 'admin', expiresAt: Date.now() + 3600000 }, { action: 'load', title: 'Chapora movie night · rehearsal', url: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' })
 server.listen(5182, '127.0.0.1', () => console.log('Screening rehearsal on 127.0.0.1:5182'))
 for (const signal of ['SIGTERM','SIGINT']) process.once(signal, () => { campus.close(); server.close() })

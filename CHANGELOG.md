@@ -2,6 +2,14 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## NIT Goa welcome film on repeat — 15 October 2026
+
+- Preload the owner-selected NIT Goa welcome film as Chapora’s only program, available without a host online. Remove the source/title form and reject replacement or ending commands on the server.
+- Repeat a shared server timeline across natural video endings, late joins and host departures. Keep personal sound/fullscreen, seats, chat and reactions; retain owner pause, resume, restart and bounded seeking.
+- Use YouTube’s official single-video loop parameters and keep autoplay recovery independent of shared playback.
+
+Validation: 578 regression tests and the production build pass. Chrome played the selected video with sound and repeated naturally at its end.
+
 ## Movie nights in Chapora — 15 October 2026
 
 - Add admin-hosted screenings using supported YouTube or public HTTPS MP4/WebM/M4V links, with shared play, pause and seek controls, late-join synchronisation and automatic pause when the host disconnects.

@@ -2,6 +2,8 @@ import type { HostelPlan } from './hostelInterior.ts'
 
 export const SCREENING_CAPACITY = 32
 export const SCREENING_MAX_SECONDS = 4 * 60 * 60
+// Pinned by the campus owner. Duration from YouTube's published format metadata.
+export const SCREENING_PROGRAM = { videoId: 'GQ6iaPxYqao', url: 'https://www.youtube.com/watch?v=GQ6iaPxYqao', title: 'Welcome to National Institute of Technology Goa', duration: 95.434 } as const
 export const SCREENING_REACTIONS = ['👏', '❤️', '😂', '🎉'] as const
 export function screeningConnectionStatus(connection: string, available: boolean, unavailable: boolean, error = '', queue = 0): string | null {
   if (connection === 'offline') return error || 'The campus connection is offline. Reconnect to use screenings.'
@@ -18,6 +20,7 @@ export interface ScreeningMessage { id: number; sender: string; name: string; te
 export interface ScreeningState {
   type: 'screening-state'; revision: number; serverTime: number; session: number
   media: ScreeningMedia | null; title: string; playing: boolean; position: number; changedAt: number; hostOnline: boolean
+  loop?: boolean; duration?: number
   participants: { id: string; seat: number }[]; messages: ScreeningMessage[]
 }
 export function screeningMedia(value: unknown): ScreeningMedia | null {
@@ -36,8 +39,9 @@ export function screeningMedia(value: unknown): ScreeningMedia | null {
     return { kind: 'video', url: u.href }
   } catch { return null }
 }
-export function screeningPosition(state: Pick<ScreeningState, 'position' | 'playing' | 'changedAt'>, now: number): number {
-  return Math.min(SCREENING_MAX_SECONDS, Math.max(0, state.position + (state.playing ? Math.max(0, now - state.changedAt) / 1000 : 0)))
+export function screeningPosition(state: Pick<ScreeningState, 'position' | 'playing' | 'changedAt'> & Pick<ScreeningState, 'loop' | 'duration'>, now: number): number {
+  const elapsed = Math.max(0, state.position + (state.playing ? Math.max(0, now - state.changedAt) / 1000 : 0))
+  return state.loop && state.duration && state.duration > 0 && Number.isFinite(state.duration) ? elapsed % state.duration : Math.min(SCREENING_MAX_SECONDS, elapsed)
 }
 export function createScreeningLayout(plan: HostelPlan | null): ScreeningLayout {
   const hall = plan?.seminar?.halls.find(h => h.id === 'seated')
@@ -52,11 +56,13 @@ export function parseScreeningState(value: unknown): ScreeningState | null {
   if (s.type !== 'screening-state' || !Number.isSafeInteger(s.revision) || s.revision < 0 || !Number.isSafeInteger(s.session) || s.session < 0 || !finite(s.serverTime) || !finite(s.changedAt) || !finite(s.position) || s.position > SCREENING_MAX_SECONDS || typeof s.playing !== 'boolean' || typeof s.hostOnline !== 'boolean' || typeof s.title !== 'string' || s.title.length > 80 || !Array.isArray(s.participants) || s.participants.length > SCREENING_CAPACITY || !Array.isArray(s.messages) || s.messages.length > 40) return null
   const media = s.media === null ? null : screeningMedia(s.media?.url)
   if (s.media !== null && (!media || media.kind !== s.media.kind) || !media && (s.playing || s.participants.length)) return null
+  if (s.loop !== undefined && typeof s.loop !== 'boolean') return null
+  if (s.loop && (!media || media.url !== SCREENING_PROGRAM.url || s.duration !== SCREENING_PROGRAM.duration)) return null
   const ids = new Set<string>(), seats = new Set<number>()
   for (const p of s.participants) {
     if (!p || !/^[A-Za-z0-9_-]{1,128}$/.test(p.id) || ids.has(p.id) || !Number.isInteger(p.seat) || p.seat < 0 || p.seat >= SCREENING_CAPACITY || seats.has(p.seat)) return null
     ids.add(p.id); seats.add(p.seat)
   }
   for (const m of s.messages) if (!m || !Number.isSafeInteger(m.id) || m.id < 0 || !/^[A-Za-z0-9_-]{1,128}$/.test(m.sender) || typeof m.name !== 'string' || m.name.length > 80 || typeof m.text !== 'string' || m.text.length > 280 || !finite(m.time)) return null
-  return { type: s.type, revision: s.revision, serverTime: s.serverTime, session: s.session, media, title: s.title, playing: s.playing, position: s.position, changedAt: s.changedAt, hostOnline: s.hostOnline, participants: s.participants.map(p => ({ id: p.id, seat: p.seat })), messages: s.messages.map(m => ({ id: m.id, sender: m.sender, name: m.name, text: m.text, time: m.time })) }
+  return { type: s.type, revision: s.revision, serverTime: s.serverTime, session: s.session, loop: s.loop === true, duration: s.loop ? s.duration : undefined, media, title: s.title, playing: s.playing, position: s.position, changedAt: s.changedAt, hostOnline: s.hostOnline, participants: s.participants.map(p => ({ id: p.id, seat: p.seat })), messages: s.messages.map(m => ({ id: m.id, sender: m.sender, name: m.name, text: m.text, time: m.time })) }
 }

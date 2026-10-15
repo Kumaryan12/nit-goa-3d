@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { screeningMedia, screeningPosition, SCREENING_CAPACITY, SCREENING_MAX_SECONDS, SCREENING_REACTIONS } from '../src/lib/screening.ts'
+import { screeningMedia, screeningPosition, SCREENING_CAPACITY, SCREENING_PROGRAM, SCREENING_REACTIONS } from '../src/lib/screening.ts'
 import type { ScreeningLayout, ScreeningState } from '../src/lib/screening.ts'
 import type { CampusIdentity } from './access.ts'
 import { campusName, chatText } from '../src/lib/campusProtocol.ts'
@@ -13,15 +13,15 @@ export function publishedScreeningLayout(): ScreeningLayout {
   return layout
 }
 export function createScreeningRoom(layout: ScreeningLayout, now = Date.now) {
-  let revision = 0, session = 0, media: ScreeningState['media'] = null, title = '', playing = false, position = 0, changedAt = now(), hostOnline = false, messageId = 0
+  let revision = 0, session = 1, media = screeningMedia(SCREENING_PROGRAM.url)!, title = SCREENING_PROGRAM.title, playing = true, position = 0, changedAt = now(), hostOnline = false, messageId = 0
   const people = new Map<string, number>(), hosts = new Set<string>(), actions = new Map<string, number>(), chatTimes = new Map<string, number>()
   let messages: ScreeningState['messages'] = []
-  const snapshot = (): ScreeningState => ({ type: 'screening-state', revision, session, serverTime: now(), media, title, playing, position, changedAt, hostOnline, participants: [...people].map(([id, seat]) => ({ id, seat })), messages: [...messages] })
-  const freeze = () => { position = screeningPosition({ position, playing, changedAt }, now()); changedAt = now(); playing = false }
-  const connected = (identity: CampusIdentity) => { if (identity.role !== 'admin' && hosts.has(identity.id)) { hosts.delete(identity.id); hostOnline = hosts.size > 0; if (!hostOnline) freeze(); revision++ } if (identity.role === 'admin' && !hosts.has(identity.id)) { hosts.add(identity.id); hostOnline = true; revision++ } }
+  const snapshot = (): ScreeningState => ({ type: 'screening-state', revision, session, serverTime: now(), media, title, playing, position, changedAt, hostOnline, loop: true, duration: SCREENING_PROGRAM.duration, participants: [...people].map(([id, seat]) => ({ id, seat })), messages: [...messages] })
+  const currentPosition = () => screeningPosition({ position, playing, changedAt, loop: true, duration: SCREENING_PROGRAM.duration }, now())
+  const connected = (identity: CampusIdentity) => { if (identity.role !== 'admin' && hosts.has(identity.id)) { hosts.delete(identity.id); hostOnline = hosts.size > 0; revision++ } if (identity.role === 'admin' && !hosts.has(identity.id)) { hosts.add(identity.id); hostOnline = true; revision++ } }
   const remove = (id: string) => {
     let changed = people.delete(id)
-    if (hosts.delete(id)) { hostOnline = hosts.size > 0; if (!hostOnline) freeze(); changed = true }
+    if (hosts.delete(id)) { hostOnline = hosts.size > 0; changed = true }
     if (changed) revision++
     return changed
   }
@@ -51,16 +51,11 @@ export function createScreeningRoom(layout: ScreeningLayout, now = Date.now) {
       return { ok: true, changed: true }
     }
     if (identity.role !== 'admin') return { error: 'Only the campus administrator can host screenings.' }
-    if (action === 'load') {
-      const next = screeningMedia(msg.url), name = typeof msg.title === 'string' ? campusName(msg.title) : ''
-      if (!next || !name) return { error: 'Use a YouTube link or a public HTTPS MP4, WebM or M4V video link.' }
-      media = next; title = name; playing = false; position = 0; changedAt = at; session++; messages = []; revision++
-    } else if (action === 'end') {
-      media = null; title = ''; playing = false; position = 0; changedAt = at; people.clear(); messages = []; session++; revision++
-    } else if (action === 'play' || action === 'pause' || action === 'seek') {
-      if (!media) return { error: 'Choose a video first.' }
-      if (action === 'seek' && (typeof msg.position !== 'number' || !Number.isFinite(msg.position) || msg.position < 0 || msg.position > SCREENING_MAX_SECONDS)) return { error: 'Choose a valid time within four hours.' }
-      position = action === 'seek' ? msg.position as number : screeningPosition({ position, playing, changedAt }, at)
+    if (action === 'load' || action === 'end') return { error: 'Chapora only plays the NIT Goa welcome video on repeat.' }
+    if (action === 'restart') { position = 0; changedAt = at; playing = true; revision++ }
+    else if (action === 'play' || action === 'pause' || action === 'seek') {
+      if (action === 'seek' && (typeof msg.position !== 'number' || !Number.isFinite(msg.position) || msg.position < 0 || msg.position > SCREENING_PROGRAM.duration)) return { error: 'Choose a time within the welcome video.' }
+      position = action === 'seek' ? msg.position as number : currentPosition()
       changedAt = at; if (action !== 'seek') playing = action === 'play'; revision++
     } else return { error: 'Unknown screening action.' }
     return { ok: true, changed: true }
@@ -72,5 +67,10 @@ export function createScreeningRoom(layout: ScreeningLayout, now = Date.now) {
     return { ...p, screening: { seat }, activity: 'walk', pose: { ...place, space: 'seminar:0', epoch: person.pose?.epoch ?? 0, moving: false, running: false, airborne: false, vehicle: 'walk', active: person.pose?.active ?? true, visible: true } }
   }) })
   const removeMessages = (id: string) => { const count = messages.length; messages = messages.filter(m => m.sender !== id); if (messages.length !== count) revision++; return messages.length !== count }
-  return { removeMessages, snapshot, connected, remove, handle, seatVisitors, has: (id: string) => people.has(id), reconcile: () => { if (playing && screeningPosition({ position, playing, changedAt }, now()) >= SCREENING_MAX_SECONDS) { freeze(); revision++ } } }
+  return { removeMessages, snapshot, connected, remove, handle, seatVisitors, has: (id: string) => people.has(id), reconcile: () => {
+    const at = now()
+    if (playing && position + Math.max(0, at - changedAt) / 1000 >= SCREENING_PROGRAM.duration) {
+      position = currentPosition(); changedAt = at; revision++
+    }
+  } }
 }
