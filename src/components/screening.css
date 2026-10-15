@@ -53,4 +53,4 @@
 .screening-collapsed .screening-heading button { padding:6px 8px; }
 .screening-collapsed .screening-quick-controls { margin-top:6px; }
 
-.screening-mode .scene-header, .screening-mode .location-navigation, .screening-mode .campus-minimap { display:none; }
+.screening-mode .scene-header, .screening-mode .location-navigation, .screening-mode .campus-minimap, .screening-mode .view-controls { display:none; }
