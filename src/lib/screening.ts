@@ -48,10 +48,11 @@ export function createScreeningLayout(plan: HostelPlan | null): ScreeningLayout 
   if (!hall || !plan) return { seats: [] }
   // The hall is generated rear-to-front. Reserve the eight centre chairs in
   // each of its four front rows; fill the closest row, centre-out, first.
-  const rows = [...new Set(hall.seats.map(p => p.x))].sort((a, b) => b - a)
+  const rows = [...new Set(hall.seats.map(p => p.x))].sort((a, b) => Math.abs(a-hall.stage.x)-Math.abs(b-hall.stage.x))
   const seats = rows.slice(0, 4).flatMap(x => hall.seats.filter(p => p.x === x)
     .sort((a, b) => Math.abs(a.z - hall.stage.z) - Math.abs(b.z - hall.stage.z) || a.z - b.z).slice(0, 8))
-  return { seats: seats.slice(0, SCREENING_CAPACITY).map(p => ({ x: p.x, y: plan.base + .14 + p.elevation + .03, z: p.z, yaw: Math.atan2(p.x - (hall.maxX - .46), p.z - hall.stage.z) })) }
+  const wall=plan.entrance.inward.x>0?hall.maxX-.46:hall.minX+.46
+  return { seats: seats.slice(0, SCREENING_CAPACITY).map(p => ({ x: p.x, y: plan.base + .14 + p.elevation + .03, z: p.z, yaw: Math.atan2(p.x - wall, p.z - hall.stage.z) })) }
 }
 
 export const SCREENING_SCREEN = { width: 5.04, height: 2.835, elevation: 2.94, wallInset: .46, distanceFactor: 2.1 } as const
@@ -59,10 +60,11 @@ export interface ScreeningView { position: { x: number; y: number; z: number }; 
 export function screeningView(plan: HostelPlan | null, seat: ScreeningSeat | null, aspect = 16 / 9): ScreeningView | null {
   const hall = plan?.seminar?.halls.find(h => h.id === 'seated')
   if (!plan || !hall || !seat) return null
-  const target = { x: hall.maxX - SCREENING_SCREEN.wallInset, y: plan.base + SCREENING_SCREEN.elevation, z: hall.stage.z }
+  const sign=plan.entrance.inward.x
+  const target = { x: sign>0?hall.maxX-SCREENING_SCREEN.wallInset:hall.minX+SCREENING_SCREEN.wallInset, y: plan.base + SCREENING_SCREEN.elevation, z: hall.stage.z }
   // Keep the physical avatar in its assigned chair. A level, centre-aisle
   // viewing camera removes keystone distortion and heads covering the film.
-  const position = { x: seat.x + .3, y: target.y, z: target.z }
+  const position = { x: seat.x + sign*.3, y: target.y, z: target.z }
   const dx = target.x - position.x, dy = target.y - position.y, dz = target.z - position.z, distance = Math.hypot(dx, dy, dz), horizontal = Math.hypot(dx, dz)
   if (distance < .01 || horizontal < .01) return null
   const f = { x: dx / distance, y: dy / distance, z: dz / distance }

@@ -2,8 +2,9 @@ import { gpsToLocal } from './geo.ts'
 import type { LocalCoordinate as Point } from './geo.ts'
 import type { BuildingFootprint } from '../types/osm.ts'
 import type { HostelPlan, InteriorWall } from './hostelInterior.ts'
+import { SEMINAR_ID, orientSeminarBuilding, halfTurnSeminarBuilding, halfTurnSeminarPlan, seminarCenter, turnSeminarPoint } from './seminarOrientation.ts'
 
-export const SEMINAR_ID = 'way/1423803680'
+export { SEMINAR_ID } from './seminarOrientation.ts'
 export interface SeminarBox { x:number; z:number; width:number; depth:number; height:number; elevation?:number }
 export interface SeminarDoor extends Point { elevation:number; route:'upper'|'lower'; axis?:'x'|'z'; open?:boolean }
 export interface SeminarHall { id:'seated'|'open'; name:string; floor:'sloped'|'stepped'; minX:number; maxX:number; minZ:number; maxZ:number; doors:SeminarDoor[]; rearDoor:SeminarDoor; stage:SeminarBox; seats:(Point & { elevation:number })[] }
@@ -27,6 +28,12 @@ export function seminarHallHeight(layout:SeminarLayout,hall:SeminarHall,x:number
 // in broad steps, as clarified by the owner.
 // The U footprint is mapped; detailed run/rise dimensions remain illustrative.
 export function createSeminarPlan(building:BuildingFootprint,safe:(point:Point)=>boolean):HostelPlan|null {
+  if(building.id!==SEMINAR_ID)return null
+  const oriented=orientSeminarBuilding(building),center=seminarCenter(oriented)
+  const local=createSeminarGeometry(halfTurnSeminarBuilding(oriented),p=>safe(turnSeminarPoint(p,center)))
+  return local?halfTurnSeminarPlan(local,oriented):null
+}
+function createSeminarGeometry(building:BuildingFootprint,safe:(point:Point)=>boolean):HostelPlan|null {
   if(building.id!==SEMINAR_ID)return null
   const ring=building.outer.map(gpsToLocal),xs=[...new Set(ring.map(p=>p.x))].sort((a,b)=>a-b),zs=[...new Set(ring.map(p=>p.z))].sort((a,b)=>a-b)
   if(xs.length!==3||zs.length!==4)return null
@@ -106,7 +113,8 @@ export function seminarSurfaceHeightAt(plan:HostelPlan,p:Point,previousFeetY?:nu
   const flight=l.stairs.flights.find(f=>inRect(p,f))
   if(flight)return base+seminarFlightHeight(l,flight,p.z)
   if(seminarOnLanding(plan,p))return base+(previousFeetY===undefined||previousFeetY>=base+l.stairs.rise-.35?l.stairs.rise:0)
-  const hall=l.halls.find(h=>p.x>=h.rearDoor.x&&p.x<=h.maxX&&p.z>=h.minZ&&p.z<=h.maxZ)
+  const sign=plan.entrance.inward.x
+  const hall=l.halls.find(h=>(p.x-h.rearDoor.x)*sign>=0&&p.x>=h.minX&&p.x<=h.maxX&&p.z>=h.minZ&&p.z<=h.maxZ)
   if(hall)return base+seminarHallHeight(l,hall,p.x)
   return base
 }
@@ -114,7 +122,7 @@ export function seminarAreaLabel(plan:HostelPlan,p:Point,feetY?:number):string|n
   const l=plan.seminar;if(!l)return null
   const hall=l.halls.find(h=>p.x>=h.minX&&p.x<=h.maxX&&p.z>=h.minZ&&p.z<=h.maxZ)
   const flight=l.stairs.flights.findIndex(f=>inRect(p,f))
-  return flight>=0?`${flight===0?'Left':'Right'} entrance stairs`:seminarOnLanding(plan,p)&&seminarSurfaceHeightAt(plan,p,feetY)>plan.base+1?'Rear entrances · Chapora & Sal':hall&&p.x>=hall.rearDoor.x?hall.name:hall?'Entrance foyer':'Entrance courtyard'
+  return flight>=0?`${flight===0?'Left':'Right'} entrance stairs`:seminarOnLanding(plan,p)&&seminarSurfaceHeightAt(plan,p,feetY)>plan.base+1?'Rear entrances · Chapora & Sal':hall&&(p.x-hall.rearDoor.x)*plan.entrance.inward.x>=0?hall.name:hall?'Entrance foyer':'Entrance courtyard'
 }
 export function seminarOpenSky(plan:HostelPlan,p:Point):boolean {return seminarInCourtyard(plan,p)&&!seminarOnLanding(plan,p)}
 export function seminarCeilingAt(plan:HostelPlan,p:Point,feetY?:number):number {
@@ -127,5 +135,5 @@ export function seminarDestination(plan:HostelPlan,area:string):Point|null {
   if(area==='courtyard')return {...plan.entrance.inside}
   if(area==='upper')return {x:(l.landing.minX+l.landing.maxX)/2,z:(l.landing.minZ+l.landing.maxZ)/2}
   const hall=l.halls.find(h=>h.id===area)
-  return hall?{x:hall.rearDoor.x+.6,z:(hall.minZ+hall.maxZ)/2}:null
+  return hall?{x:hall.rearDoor.x+.6*plan.entrance.inward.x,z:(hall.minZ+hall.maxZ)/2}:null
 }

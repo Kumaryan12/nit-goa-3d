@@ -31,7 +31,7 @@ test('Chapora walk-up chairs follow the physical sloping floor and never overlap
     assert.equal(seat.seatHeight, .56)
     assert.ok(Math.abs(seminarSurfaceHeightAt(plan, seat) - seat.y) < 1e-8)
     assert.ok(!reserved.some(p => p.x === seat.x && p.z === seat.z))
-    assert.equal(seat.yaw, -Math.PI / 2)
+    assert.equal(seat.yaw, Math.PI / 2)
   }
   assert.deepEqual(chaporaSeats(null), [])
   assert.ok(nearbySeat(seats, origin))

@@ -1,3 +1,4 @@
+import { orientSeminarBuilding } from '../src/lib/seminarOrientation.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -40,7 +41,7 @@ test('Nescafé terrace has 16 stable seats off the roads and preserves mapped bu
     assert.ok(edges.every(e => distanceToSegment(item, e.a, e.b) > e.width / 2 + .9))
     assert.ok(Math.abs(item.y - terrainHeightAt(twin.terrain, item.x, item.z) - .025) < 1e-6)
   }
-  for (const b of twin.buildings) assert.deepEqual(b.outer, rotateCafeBuilding(buildings.find(source => source.id === b.id)).outer)
+  for (const b of twin.buildings) assert.deepEqual(b.outer, orientSeminarBuilding(rotateCafeBuilding(buildings.find(source => source.id === b.id))).outer)
   assert.equal(createCafeLayout([], roads, twin.boundary), null)
   assert.equal(createCafeLayout(buildings, roads, []), null)
 })

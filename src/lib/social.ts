@@ -29,7 +29,7 @@ export function chaporaSeats(plan: HostelPlan | null): SocialSeat[] {
   return hall.seats.flatMap((p, i) => reserved.has(`${p.x}:${p.z}`) ? [] : [{
     id: `chapora-${Math.floor(i / 14)}-${i % 14}`, row: Math.floor(i / 14),
     x: p.x, y: plan.base + .14 + p.elevation, z: p.z,
-    yaw: -Math.PI / 2, seatHeight: .56,
+    yaw: Math.atan2(-plan.entrance.inward.x,-plan.entrance.inward.z), seatHeight: .56,
   }])
 }
 

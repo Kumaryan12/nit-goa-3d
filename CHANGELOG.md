@@ -4,6 +4,8 @@ Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
 ## 2026-10-16
 
+- Rotated the Seminar Complex entrance 180° to face Gyan Mandir, aligning its courtyard, stairs, walkway, halls, seats, screening view and arrival point.
+
 - Added walk-up sitting in Chapora Hall through Actions → Sit, with shared chair reservations and a stage-facing seated pose. Move or choose Stand up to return to the aisle.
 
 ## Chapora viewing correction — 15 October 2026

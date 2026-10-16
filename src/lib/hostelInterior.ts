@@ -14,6 +14,7 @@ import type { HostelBadmintonCourt } from './boysHostelGeometry.ts'
 export interface InteriorWall { a: Point; b: Point; kind: 'outer' | 'room' | 'rail'; bottom?:number; top?:number }
 export interface DemoRoom { id: string; center: Point; along: Point; inward: Point; width: number; depth: number; door: Point; bed: Point; desk: Point }
 export interface HostelPlan {
+  seminarFrame?: { center: Point; local: HostelPlan }
   kind?: 'classroom' | 'seminar'; seminar?: SeminarLayout; obstacles?: {center:Point; along:Point; inward:Point; width:number; depth:number; height:number; elevation?:number}[]; floors?: HostelPlan[]; readingRoom?: DemoRoom; locationId?: string; name?: string;
   lifts?: HostelLift[]; courtyards?: HostelCourtyardEntry[]; corridors?: HostelCorridor[]; courtyardWalkable?: boolean; badmintonCourt?: HostelBadmintonCourt;
   buildingId: string; building: BuildingFootprint; outer: Point[]; holes: Point[][]; walls: InteriorWall[]; rooms: DemoRoom[];

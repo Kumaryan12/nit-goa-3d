@@ -50,7 +50,12 @@ function SharedStairs({plan}:{plan:HostelPlan}) {
     <Plaque text="CHAPORA & SAL · REAR ENTRANCES" point={{x:l.minX-.08,z}} normal={{x:-1,z:0}} y={y+s.rise+.65} width={2.7}/>
   </group>
 }
-function SeminarInterior({screening,playerControls,plan,inside,night,onSelect}:{screening:ScreeningSession;playerControls:React.RefObject<ScreeningPlayerControls|null>;plan:HostelPlan;inside:boolean;night:boolean;onSelect:()=>void}) {
+interface SeminarInteriorProps {screening:ScreeningSession;playerControls:React.RefObject<ScreeningPlayerControls|null>;plan:HostelPlan;inside:boolean;night:boolean;onSelect:()=>void}
+function SeminarInterior(props:SeminarInteriorProps) {
+  const frame=props.plan.seminarFrame
+  return frame?<group position={[2*frame.center.x,0,2*frame.center.z]} rotation={[0,Math.PI,0]}><SeminarGeometry {...props} plan={frame.local}/></group>:<SeminarGeometry {...props}/>
+}
+function SeminarGeometry({screening,playerControls,plan,inside,night,onSelect}:SeminarInteriorProps) {
   const layout=plan.seminar!,y=plan.base+.14,h=plan.floorHeight,c=layout.courtyard
   const fittings=useMemo(()=>{
     const stone:Box[]=[],wood:Box[]=[],gold:Box[]=[],seats:Box[]=[],metal:Box[]=[],glass:Box[]=[],lights:Box[]=[],green:Box[]=[],walls:Box[]=[],ceilings:Box[]=[]
@@ -135,7 +140,7 @@ function SeminarInterior({screening,playerControls,plan,inside,night,onSelect}:{
       <Plaque text="LOWER ENTRANCES · COURTYARD" point={{x:c.maxX-.14,z:(c.minZ+c.maxZ)/2}} normal={{x:-1,z:0}} y={y+2.9} width={3}/>
       <ambientLight intensity={screening.joined?.08:night?.4:.2} color="#fff0d5"/>
     </>}
-    <Plaque text={inside?'← CHAPORA   ·   SAL →':'SEMINAR COMPLEX · ENTER'} point={{x:plan.entrance.point.x-.18,z:plan.entrance.point.z}} normal={{x:-1,z:0}} y={y+3.2} width={4.5}/>
+    <Plaque text={inside?'← CHAPORA   ·   SAL →':'SEMINAR COMPLEX · ENTER'} point={{x:plan.entrance.point.x-.46,z:plan.entrance.point.z}} normal={{x:-1,z:0}} y={y+3.2} width={4.5}/>
   </group>
 }
 export default memo(SeminarInterior)

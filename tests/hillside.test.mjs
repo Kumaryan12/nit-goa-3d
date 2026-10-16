@@ -1,3 +1,4 @@
+import { orientSeminarBuilding } from '../src/lib/seminarOrientation.ts'
 import { rotateCafeBuilding } from '../src/lib/cafe.ts'
 import { correctGyanCourtyards } from '../src/lib/gyanGeometry.ts'
 import { correctBoysHostelCourtyards } from '../src/lib/boysHostelGeometry.ts'
@@ -47,7 +48,7 @@ test('slope settings keep full building foundations and sports/entrance terraces
   for (const model of [twin, maximum]) {
     for (const building of model.buildings) {
       const original = map.buildings.find(source => source.id === building.id)
-      assert.deepEqual(building.outer, rotateCafeBuilding(original).outer)
+      assert.deepEqual(building.outer, orientSeminarBuilding(rotateCafeBuilding(original)).outer)
       assert.deepEqual(building.holes, correctBoysHostelCourtyards(correctGyanCourtyards(original)).holes)
       assert.ok(Number.isFinite(building.baseElevation))
       for (const ring of [building.outer, ...building.holes]) {

@@ -11,16 +11,16 @@ const hall = plan.seminar.halls[0], seats = createScreeningLayout(plan).seats
 
 test('screening assignments fill 32 physical front-centre chairs before any rear seats', () => {
   assert.equal(seats.length, 32)
-  const frontX = Math.max(...hall.seats.map(p => p.x))
+  const frontX = Math.min(...hall.seats.map(p => p.x))
   assert.equal(seats[0].x, frontX)
   assert.ok(Math.abs(seats[0].z - hall.stage.z) < 1.36)
   assert.equal(new Set(seats.map(p => `${p.x},${p.z}`)).size, 32)
   for (const p of seats) {
-    assert.ok(p.x >= frontX - 3)
+    assert.ok(p.x <= frontX + 3)
     assert.ok(Math.abs(p.z - hall.stage.z) <= 4)
     assert.ok(hall.seats.some(chair => chair.x === p.x && chair.z === p.z))
     const forward = { x: -Math.sin(p.yaw), z: -Math.cos(p.yaw) }
-    const dx = hall.maxX - SCREENING_SCREEN.wallInset - p.x, dz = hall.stage.z - p.z
+    const dx = hall.minX + SCREENING_SCREEN.wallInset - p.x, dz = hall.stage.z - p.z
     assert.ok((forward.x * dx + forward.z * dz) / Math.hypot(dx, dz) > .9999)
   }
   const published = JSON.parse(readFileSync(new URL('../public/map/nit-goa-screening-layout.json', import.meta.url)))
@@ -32,11 +32,11 @@ test('every assigned chair frames the whole screen straight ahead on wide and po
     const view = screeningView(plan, seat, aspect)
     assert.ok(view && Number.isFinite(view.fov) && view.fov >= 12 && view.fov <= 100)
     const eye = view.position, target = view.target
-    assert.ok(eye.x > seat.x && eye.x < hall.stage.x - hall.stage.width / 2)
+    assert.ok(eye.x < seat.x && eye.x > hall.stage.x + hall.stage.width / 2)
     assert.equal(eye.y, target.y)
     assert.equal(eye.z, target.z)
     assert.ok(Math.abs(SCREENING_SCREEN.width / SCREENING_SCREEN.height - 16 / 9) < 1e-10)
-    assert.equal(target.x, hall.maxX - SCREENING_SCREEN.wallInset)
+    assert.equal(target.x, hall.minX + SCREENING_SCREEN.wallInset)
     assert.equal(target.z, hall.stage.z)
     const dx=target.x-eye.x,dy=target.y-eye.y,dz=target.z-eye.z,d=Math.hypot(dx,dy,dz),h=Math.hypot(dx,dz)
     const f={x:dx/d,y:dy/d,z:dz/d},r={x:-dz/h,z:dx/h},u={x:-f.y*r.z,y:f.x*r.z-f.z*r.x,z:f.y*r.x}

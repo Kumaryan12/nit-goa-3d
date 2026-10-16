@@ -421,9 +421,10 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
     }
     if (allowed && !sitting && !passengerPose && !footballPitch && ride.current==='walk' && jump.current.grounded && seminarPlan && position.current) {
       const p=position.current
-      if (!interiorPose.current && seminarOpenSky(seminarPlan,p) && p.x>seminarPlan.entrance.point.x+.7 && isInteriorWalkable(p,seminarPlan)) {
+      const inward=seminarPlan.entrance.inward,along=seminarPlan.entrance.along,offset={x:p.x-seminarPlan.entrance.point.x,z:p.z-seminarPlan.entrance.point.z},depth=offset.x*inward.x+offset.z*inward.z
+      if (!interiorPose.current && seminarOpenSky(seminarPlan,p) && depth>.7 && isInteriorWalkable(p,seminarPlan)) {
         interiorPose.current={buildingId:seminarPlan.buildingId,floor:0};campusEpoch.current++;snapped.current=false
-      } else if (interiorPose.current?.buildingId===seminarPlan.buildingId && p.x<seminarPlan.entrance.point.x+.8 && direction.x<-.1 && Math.abs(p.z-seminarPlan.entrance.point.z)<3.3) act('exit-hostel')
+      } else if (interiorPose.current?.buildingId===seminarPlan.buildingId && depth<.8 && direction.x*inward.x+direction.z*inward.z<-.1 && Math.abs(offset.x*along.x+offset.z*along.z)<3.3) act('exit-hostel')
     }
     const before = position.current, pose = interiorPose.current, plan = activePlan()
     // Room admission can relocate a football player between render frames.
