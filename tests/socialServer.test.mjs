@@ -158,8 +158,8 @@ test('published walk-up seats follow the saved theatre terrain and reserve the c
   const directory = await mkdtemp(join(tmpdir(), 'nitg-social-seats-'))
   try {
     const target = join(directory, 'map/seats.json'), published = await buildSocialSeats(target)
-    assert.equal(published.length, 40)
-    assert.equal(new Set(published.map(seat => seat.id)).size, 40)
+    assert.equal(published.length, 218)
+    assert.equal(new Set(published.map(seat => seat.id)).size, 218)
     const oat = published.filter(seat => seat.id.startsWith('oat-')), cafe = published.filter(seat => seat.id.startsWith('cafe-'))
     assert.equal(oat.length, 24); assert.equal(cafe.length, 16)
     assert.ok(oat.every(seat => seat.row >= 3 && seat.row <= 5 && Number.isFinite(seat.y)))

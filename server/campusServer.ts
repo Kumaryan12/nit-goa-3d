@@ -7,6 +7,7 @@ import { WebSocketServer, WebSocket } from 'ws'
 import type { VerifyAccess } from './access.ts'
 import { attachLiveAccess } from './liveAccess.ts'
 import { createCampusRoom, publishedCampusBoundary } from './campusRoom.ts'
+import type { CampusSnapshot } from '../src/lib/campusProtocol.ts'
 import { CAMPUS_CAPACITY, parseCampusPose } from '../src/lib/campusProtocol.ts'
 import type { LocalCoordinate } from '../src/lib/geo.ts'
 import { publishedSocialSeats } from './socialSeats.ts'
@@ -23,7 +24,8 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
   const room = createCampusRoom(boundary, seats, counters), sockets = new Map<string, WebSocket>(), spawnSlots = new Map<string, number>()
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16384, perMessageDeflate: false })
   const access = attachLiveAccess(server, wss, '/presence', origin, CAMPUS_CAPACITY, verify)
-  const cafeSupport = new WeakSet<WebSocket>()
+  const cafeSupport = new WeakSet<WebSocket>(), chaporaSupport = new WeakSet<WebSocket>()
+  const compatible = (state: CampusSnapshot, ws: WebSocket) => legacySocialSnapshot(state, cafeSupport.has(ws), chaporaSupport.has(ws))
   const send = (ws: WebSocket, value: unknown) => { if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) ws.send(JSON.stringify(value)) }
   const screening = createScreeningRoom(publishedScreeningLayout())
   const screeningFor = (id: string) => { const state = screening.snapshot(); return screening.has(id) ? state : { ...state, messages: [] } }
@@ -59,8 +61,10 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
       if (screening.has(identity.id) && ['social-action', 'buggy-ride', 'cafe-drink'].includes(msg.type)) { send(ws, { type: `${msg.type === 'social-action' ? 'social' : msg.type === 'buggy-ride' ? 'buggy' : 'cafe'}-result`, error: 'Leave the screening before using another activity.' }); return }
       if (screening.has(identity.id) && msg.type === 'pose' && ['football', 'concert', 'overview'].includes(msg.activity)) { screening.remove(identity.id); publishScreening() }
       if (voice.handle(identity.id, msg)) return
-      if (msg.type === 'social-capabilities' && msg.cafeSeats === true && !cafeSupport.has(ws)) {
-        cafeSupport.add(ws); send(ws, campusSnapshotForViewer(snapshot(), identity.id))
+      if (msg.type === 'social-capabilities') {
+        if (msg.cafeSeats === true) cafeSupport.add(ws)
+        if (msg.chaporaSeats === true) chaporaSupport.add(ws)
+        send(ws, compatible(campusSnapshotForViewer(snapshot(), identity.id), ws))
       }
       if (msg.type === 'pose' && room.updatePose(identity.id, msg.pose, msg.activity) === 'invalid' && Date.now() - correctedAt >= 1000) {
         const incoming = parseCampusPose(msg.pose), accepted = room.poseFor(identity.id)
@@ -79,7 +83,7 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
       if (msg.type === 'buggy-ride') {
         const result = room.ride(identity.id, msg.driverId)
         send(ws, { type: 'buggy-result', ...result })
-        if ('ok' in result) { const state = campusSnapshotForViewer(snapshot(), identity.id); send(ws, cafeSupport.has(ws) ? state : legacySocialSnapshot(state)) }
+        if ('ok' in result) send(ws, compatible(campusSnapshotForViewer(snapshot(), identity.id), ws))
       }
       if (msg.type === 'chat') {
         const result = room.chat(identity.id, msg.text, msg.scope)
@@ -96,10 +100,10 @@ export function attachCampusServer(server: EventEmitter, origin?: SiteOrigins, v
     if (screening.snapshot().revision !== screeningRevision) publishScreening()
     voice.reconcile()
     if (!sockets.size) return
-    const state = snapshot(), legacy = legacySocialSnapshot(state), encoded = JSON.stringify(state), oldEncoded = legacy === state ? encoded : JSON.stringify(legacy), privateMarkers = state.people.some(p => p.locatorVisible === false)
+    const state = snapshot(), legacy = legacySocialSnapshot(state), cafe = legacySocialSnapshot(state, true), encoded = JSON.stringify(state), oldEncoded = legacy === state ? encoded : JSON.stringify(legacy), cafeEncoded = cafe === state ? encoded : JSON.stringify(cafe), privateMarkers = state.people.some(p => p.locatorVisible === false)
     for (const [id, ws] of sockets) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 65536) {
-      const selected = cafeSupport.has(ws) ? state : legacy
-      ws.send(privateMarkers ? JSON.stringify(campusSnapshotForViewer(selected, id)) : cafeSupport.has(ws) ? encoded : oldEncoded)
+      const selected = chaporaSupport.has(ws) ? compatible(state, ws) : cafeSupport.has(ws) ? cafe : legacy
+      ws.send(privateMarkers ? JSON.stringify(campusSnapshotForViewer(selected, id)) : chaporaSupport.has(ws) ? cafeSupport.has(ws) ? encoded : JSON.stringify(selected) : cafeSupport.has(ws) ? cafeEncoded : oldEncoded)
     }
   }, 100)
   timer.unref()

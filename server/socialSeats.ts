@@ -8,11 +8,11 @@ export function publishedSocialSeats(): SocialSeat[] {
   const source = ['dist/map/nit-goa-social-seats.json', 'public/map/nit-goa-social-seats.json'].map(path => resolve(path)).find(existsSync)
   if (!source) return []
   const seats: unknown = JSON.parse(readFileSync(source, 'utf8'))
-  if (!Array.isArray(seats) || seats.length > 40) throw new Error('Invalid published campus seats.')
+  if (!Array.isArray(seats) || seats.length > 250) throw new Error('Invalid published campus seats.')
   const ids = new Set<string>()
   return seats.map((seat: SocialSeat) => {
-    if (!seat || typeof seat.id !== 'string' || !/^(oat-[3-5]-[0-7]|cafe-[0-3]-[0-3])$/.test(seat.id) || ids.has(seat.id) || ![seat.x, seat.y, seat.z, seat.yaw].every(Number.isFinite) || Math.abs(seat.x) > 1200 || Math.abs(seat.z) > 1200 || Math.abs(seat.y) > 64 || Math.abs(seat.yaw) > Math.PI || !Number.isInteger(seat.row) || seat.id.split('-')[1] !== String(seat.row) || (seat.id.startsWith('cafe-') ? seat.seatHeight !== .44 : seat.seatHeight !== undefined)) throw new Error('Invalid published campus seat.')
+    if (!seat || typeof seat.id !== 'string' || !/^(oat-[3-5]-[0-7]|cafe-[0-3]-[0-3]|chapora-(?:[0-9]|1[0-4])-(?:[0-9]|1[0-3]))$/.test(seat.id) || ids.has(seat.id) || ![seat.x, seat.y, seat.z, seat.yaw].every(Number.isFinite) || Math.abs(seat.x) > 1200 || Math.abs(seat.z) > 1200 || Math.abs(seat.y) > 64 || Math.abs(seat.yaw) > Math.PI || !Number.isInteger(seat.row) || seat.id.split('-')[1] !== String(seat.row) || seat.seatHeight !== (seat.id.startsWith('cafe-') ? .44 : seat.id.startsWith('chapora-') ? .56 : undefined)) throw new Error('Invalid published campus seat.')
     ids.add(seat.id)
-    return { id: seat.id, x: seat.x, y: seat.y, z: seat.z, yaw: seat.yaw, row: seat.row, ...(seat.id.startsWith('cafe-') ? { seatHeight: .44 } : {}) }
+    return { id: seat.id, x: seat.x, y: seat.y, z: seat.z, yaw: seat.yaw, row: seat.row, ...(seat.seatHeight === undefined ? {} : { seatHeight: seat.seatHeight }) }
   })
 }

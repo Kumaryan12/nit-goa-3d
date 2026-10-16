@@ -5,7 +5,7 @@ import { extractBuildingFootprints } from '../src/lib/buildings.ts'
 import { extractCampusRoads } from '../src/lib/roads.ts'
 import { validClosedRing } from '../src/lib/geo.ts'
 import { createDigitalTwin } from '../src/lib/digitalTwin.ts'
-import { theatreSeats } from '../src/lib/social.ts'
+import { chaporaSeats, theatreSeats } from '../src/lib/social.ts'
 import { createSeminarPlan, SEMINAR_ID } from '../src/lib/seminarInterior.ts'
 import { createWalkWorld, isWalkable } from '../src/lib/walking.ts'
 import { createScreeningLayout } from '../src/lib/screening.ts'
@@ -24,15 +24,17 @@ export async function buildSocialSeats(target = 'dist/map/nit-goa-social-seats.j
     { roads, boundary, source: 'campus-area', returnedRoadCount: roads.length },
     false, savedCampusOverrides, defaultTerrainSettings,
   )
-  // Front rows are reserved for the concert room's seated audience.
-  const seats = [...theatreSeats(twin.theatre).filter(seat => seat.row >= 3), ...(twin.terrain.cafe?.seats ?? [])]
+  const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
+  const seminar = twin.buildings.find(b => b.id === SEMINAR_ID)
+  const plan = seminar ? createSeminarPlan(seminar, p => isWalkable(p, world)) : null
+  // Concert rows and the screening's front-centre chairs have separate room
+  // reservations. Walk-up seating must never overlap those assigned positions.
+  const seats = [...theatreSeats(twin.theatre).filter(seat => seat.row >= 3), ...(twin.terrain.cafe?.seats ?? []), ...chaporaSeats(plan)]
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, JSON.stringify(seats) + '\n')
   await writeFile(resolve(dirname(target), 'nit-goa-cafe-counters.json'), JSON.stringify(twin.terrain.cafe ? cafeCounters(twin.terrain.cafe, twin.terrain) : []) + '\n')
   await writeFile(resolve(dirname(target), 'nit-goa-concert-layout.json'), JSON.stringify(createConcertLayout(twin.theatre)) + '\n')
-  const world = createWalkWorld(twin.buildings, twin.boundary, twin.terrain, twin.trees, twin.lamps)
-  const seminar = twin.buildings.find(b => b.id === SEMINAR_ID)
-  const screening = createScreeningLayout(seminar ? createSeminarPlan(seminar, p => isWalkable(p, world)) : null)
+  const screening = createScreeningLayout(plan)
   if (screening.seats.length !== 32) throw Error('Cannot publish screening seats without Chapora Hall.')
   await writeFile(resolve(dirname(target), 'nit-goa-screening-layout.json'), JSON.stringify(screening) + '\n')
   return seats
@@ -40,5 +42,5 @@ export async function buildSocialSeats(target = 'dist/map/nit-goa-social-seats.j
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const seats = await buildSocialSeats()
-  console.log(`Published ${seats.length} OAT and café seats from the campus terrain.`)
+  console.log(`Published ${seats.length} OAT, café and Chapora seats from the campus terrain.`)
 }

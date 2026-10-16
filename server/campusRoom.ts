@@ -14,7 +14,7 @@ import { CAMPUS_CAPACITY, campusName, campusHandle, chatText, canHearNearby, par
 import type { CampusPerson, CampusSnapshot, CampusChat, CampusActivity, CampusPose, BuggyRide } from '../src/lib/campusProtocol.ts'
 import type { CampusIdentity } from './access.ts'
 import { PRESENCE_CATCHUP_SECONDS, presenceSpeedLimit, presenceVerticalSpeedLimit } from '../src/lib/movementLimits.ts'
-import { isSocialAction, SOCIAL_DURATION } from '../src/lib/social.ts'
+import { isSocialAction, socialSeatSpace, SOCIAL_DURATION } from '../src/lib/social.ts'
 import type { SocialSeat } from '../src/lib/social.ts'
 import { createEntranceAccess, inEntranceExterior } from '../src/lib/entranceAccess.ts'
 
@@ -178,7 +178,7 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
         if (throttled) return 'throttled'
         // A client can leave a seat but cannot use a forged pose to relocate it.
         // Stop restores the last accepted standing position with a fresh epoch.
-        if (activity !== 'walk' || !pose.visible || !pose.active || pose.space !== 'outdoors' || (pose.vehicle ?? 'walk') !== 'walk') stopSocial(id, now)
+        if (activity !== 'walk' || !pose.visible || !pose.active || pose.space !== socialSeatSpace(member.person.social.seatId!) || (pose.vehicle ?? 'walk') !== 'walk') stopSocial(id, now)
         if (member.person.pose) { member.person.pose.active = pose.active; member.person.pose.visible = pose.visible }
         member.person.activity = activity as CampusActivity; member.poseAt = now
         return 'accepted'
@@ -266,8 +266,8 @@ export function createCampusRoom(boundary: LocalCoordinate[], seats: SocialSeat[
       if (member.person.social?.action === 'sit') return { error: 'Stand up before starting another action.' }
       if (action === 'sit') {
         const seat = typeof seatId === 'string' ? socialSeats.get(seatId) : undefined
-        if (!seat || activity !== 'walk' || pose.space !== 'outdoors' || !pose.visible || Math.hypot(seat.x - pose.x, seat.z - pose.z) > 3.2 || Math.abs(seat.y - pose.y) > .85) return { error: 'Walk closer to a café chair or OAT bench to sit down.' }
-        if ([...members.values()].some(other => other.person.social?.seatId === seat.id)) return { error: 'Someone is already sitting here. Choose another bench seat.' }
+        if (!seat || activity !== 'walk' || pose.space !== socialSeatSpace(seat.id) || !pose.visible || Math.hypot(seat.x - pose.x, seat.z - pose.z) > 3.2 || Math.abs(seat.y - pose.y) > .85) return { error: 'Walk closer to a Chapora chair, café chair or OAT bench to sit down.' }
+        if ([...members.values()].some(other => other.person.social?.seatId === seat.id)) return { error: 'Someone is already sitting here. Choose another seat.' }
         member.seatOrigin = { ...pose }
         member.person.pose = { ...pose, x: seat.x, y: seat.y, z: seat.z, yaw: seat.yaw, pitch: 0, airborne: false, moving: false, running: false, epoch: nextEpoch(pose.epoch) }
         member.poseAt = now; member.spawnAt = now

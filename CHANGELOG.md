@@ -2,6 +2,10 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## 2026-10-16
+
+- Added walk-up sitting in Chapora Hall through Actions → Sit, with shared chair reservations and a stage-facing seated pose. Move or choose Stand up to return to the aisle.
+
 ## Chapora viewing correction — 15 October 2026
 
 - Assign screening seats in the four front-centre rows, filling the closest row and centre chairs first.

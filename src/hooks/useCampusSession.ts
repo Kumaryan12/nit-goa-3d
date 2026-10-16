@@ -59,7 +59,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         if (now - lastAction < 650) { setSocialError('Give that action a moment.'); return false }
         if (person.social?.action === 'sit') { setSocialError('Stand up before choosing another action.'); return false }
         const seat = action === 'sit' ? nearbySeat(seatsRef.current.filter(s => s.id === seatId), current) : null
-        if (action === 'sit' && (!seat || current.space !== 'outdoors')) { setSocialError('Walk closer to a café chair or rear OAT bench.'); return false }
+        if (action === 'sit' && !seat) { setSocialError('Walk closer to a Chapora chair, café chair or rear OAT bench.'); return false }
         if (seat) { origin = { ...current }; person.pose = { ...current, x: seat.x, y: seat.y, z: seat.z, yaw: seat.yaw, epoch: current.epoch + 1, moving: false, running: false }; pose.current = person.pose }
         person.social = { action, startedAt: now, until: now + SOCIAL_DURATION[action], ...(seat ? { seatId: seat.id, ...(seat.seatHeight ? { seatHeight: seat.seatHeight } : {}) } : {}) }
         lastAction = now; publish(true); return true
@@ -120,7 +120,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         // Keep legacy clients from locating this visitor across the campus.
         // The server still publishes nearby avatars for shared activities.
         ws.send(JSON.stringify({ type: 'locator-visibility', visible: false }))
-        ws.send(JSON.stringify({ type: 'social-capabilities', cafeSeats: true }))
+        ws.send(JSON.stringify({ type: 'social-capabilities', cafeSeats: true, chaporaSeats: true }))
         setMessages(value.history.map(parseCampusChat).filter((m: CampusChat | null): m is CampusChat => !!m && m.scope === 'campus'))
         return
       }

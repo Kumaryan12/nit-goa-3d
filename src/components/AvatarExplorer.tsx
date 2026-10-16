@@ -92,7 +92,7 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
     const self = campusSession.current.snapshot?.people.find(person => person.id === campusSession.current.id)
     // Chairs and OAT benches are solid to ordinary movement. A server-assigned
     // sitting pose remains valid when a status/UI render rechecks the world.
-    const validSeat = !!screeningPose || self?.social?.action === 'sit' && self.pose?.space === 'outdoors' && !!position.current
+    const validSeat = !!screeningPose || self?.social?.action === 'sit' && !!self.pose && (self.pose.space === 'outdoors' || self.pose.space === 'seminar:0' && plan?.kind === 'seminar') && !!position.current
       && Math.hypot(position.current.x - self.pose.x, position.current.z - self.pose.z) < .1
     const relocating = changed || !position.current || !(validInside || validSeat || isWalkable(position.current, world))
     if (relocating) {
@@ -109,7 +109,7 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
           if (live.spawnPending || occupied.some(other => Math.hypot(other.x - position.current!.x, other.z - position.current!.z) < 1.5)) position.current = findSharedSpawn(position.current, world, live.spawnSlot ?? 0, occupied, arrival.entrance)
         }
       }
-    } else if (pose && !validInside && !screeningPose) interiorPose.current = null
+    } else if (pose && !validInside && !validSeat) interiorPose.current = null
     // Geometry/metadata refreshes must not reset a moving vehicle or held keys.
     if (!relocating && oriented.current) return
     // Switching modes during a stair walk returns to a safe same-floor landing.
@@ -323,7 +323,7 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
       const wasSeated = seated.current; seated.current = !!sitting
       locomotion.current = freshLocomotion(); jump.current = freshJump()
       if (sitting) {
-        seatOrigin.current = { x: position.current.x, z: position.current.z, y: avatar.current.position.y, yaw: avatar.current.rotation.y, vehicle: 'walk', moving: false, running: false, active: true, visible: true, space: 'outdoors', epoch: campusEpoch.current }
+        seatOrigin.current = { x: position.current.x, z: position.current.z, y: avatar.current.position.y, yaw: avatar.current.rotation.y, vehicle: 'walk', moving: false, running: false, active: true, visible: true, space: interiorPose.current && activePlan() ? interiorSpace(activePlan()!, interiorPose.current.floor) : 'outdoors', epoch: campusEpoch.current }
         seatEpoch.current = sitting.epoch
       }
       const restored = sitting ?? (wasSeated ? self?.pose && self.pose.epoch > seatEpoch.current ? self.pose : seatOrigin.current : null)
@@ -509,20 +509,31 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
       motion.current.kick = footballControls.current.kick
     }
     campusPose.current = { ...(ride.current !== 'walk' || passengerPose ? { pitch: avatar.current.rotation.x } : {}), airborne: !jump.current.grounded, vehicle: ride.current, ...(ride.current === 'buggy' && impactAck.current ? {impactAck:impactAck.current} : {}), x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
-    target.set(next.x, feetY + (sitting || footballPitch ? .9 : 1.35), next.z)
-    const indoorFov = pose ? 75 : 60
-    if ('fov' in camera && camera.fov !== indoorFov) { camera.fov = indoorFov; camera.updateProjectionMatrix() }
-    const boom = pose ? Math.min(4.5, cameraDistance.current) : cameraDistance.current
-    desired.set(next.x + Math.sin(yaw.current) * boom * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * boom, next.z + Math.cos(yaw.current) * boom * Math.cos(pitch.current))
-    const fraction = (end: Vector3) => pose && plan ? interiorCameraFraction(target, end, plan, pose.floor, journey.current?.lowFloor ?? null) : cameraBoomFraction(target, end, world)
-    desired.lerpVectors(target, desired, fraction(desired))
-    if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * (footballPitch ? WALK_CONTROLS.footballCameraFollowRate : WALK_CONTROLS.cameraFollowRate)))
-    camera.position.lerpVectors(target, camera.position, fraction(camera.position))
-    camera.position.y = Math.max(camera.position.y, (pose ? surfaceY : walkSurfaceHeightAt(twin.terrain, camera.position.x, camera.position.z)) + .3)
-    // Tight doorways sometimes shorten the boom into the avatar. Show the
-    // corridor instead of filling the screen with the back of its head.
-    avatar.current.visible = camera.position.distanceTo(target) > 1.4
-    camera.lookAt(target)
+    if (sitting && social?.seatId?.startsWith('chapora-')) {
+      // A chase camera lands inside the solid backrest. View from the seated
+      // visitor's eyes instead, while keeping their avatar visible to friends.
+      desired.set(next.x - Math.sin(yaw.current) * .12, feetY + 1.3, next.z - Math.cos(yaw.current) * .12)
+      target.set(desired.x - Math.sin(yaw.current) * Math.cos(pitch.current), desired.y - Math.sin(pitch.current), desired.z - Math.cos(yaw.current) * Math.cos(pitch.current))
+      camera.position.copy(desired); camera.lookAt(target); avatar.current.visible = false
+      snapped.current = false
+      const fov = Math.max(45, Math.min(85, 65 * cameraDistance.current / 7))
+      if ('fov' in camera && Math.abs(Number(camera.fov) - fov) > .01) { camera.fov = fov; camera.updateProjectionMatrix() }
+    } else {
+      target.set(next.x, feetY + (sitting || footballPitch ? .9 : 1.35), next.z)
+      const indoorFov = pose ? 75 : 60
+      if ('fov' in camera && camera.fov !== indoorFov) { camera.fov = indoorFov; camera.updateProjectionMatrix() }
+      const boom = pose ? Math.min(4.5, cameraDistance.current) : cameraDistance.current
+      desired.set(next.x + Math.sin(yaw.current) * boom * Math.cos(pitch.current), target.y + Math.sin(pitch.current) * boom, next.z + Math.cos(yaw.current) * boom * Math.cos(pitch.current))
+      const fraction = (end: Vector3) => pose && plan ? interiorCameraFraction(target, end, plan, pose.floor, journey.current?.lowFloor ?? null) : cameraBoomFraction(target, end, world)
+      desired.lerpVectors(target, desired, fraction(desired))
+      if (!snapped.current) { camera.position.copy(desired); snapped.current = true } else camera.position.lerp(desired, 1 - Math.exp(-delta * (footballPitch ? WALK_CONTROLS.footballCameraFollowRate : WALK_CONTROLS.cameraFollowRate)))
+      camera.position.lerpVectors(target, camera.position, fraction(camera.position))
+      camera.position.y = Math.max(camera.position.y, (pose ? surfaceY : walkSurfaceHeightAt(twin.terrain, camera.position.x, camera.position.z)) + .3)
+      // Tight doorways sometimes shorten the boom into the avatar. Show the
+      // corridor instead of filling the screen with the back of its head.
+      avatar.current.visible = camera.position.distanceTo(target) > 1.4
+      camera.lookAt(target)
+    }
     elapsed.current += delta
     if (elapsed.current >= 0.2) {
       elapsed.current = 0

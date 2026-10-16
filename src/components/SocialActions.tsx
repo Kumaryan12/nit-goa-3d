@@ -13,8 +13,8 @@ export default function SocialActions({ live, pose, seats, walking, concert, dis
   const connected = live.connection === 'live' || live.socialPreview
   const riding = !!self?.ride || (pose.current?.vehicle ?? 'walk') !== 'walk'
   const available = connected && (walking || concert) && !disabled && !seated && (concert || !riding && !pose.current?.moving && !pose.current?.airborne)
-  const seat = walking && !riding && pose.current?.space === 'outdoors' ? nearbySeat(seats, pose.current, live.people.flatMap(p => p.social?.seatId ? [p.social.seatId] : [])) : null
-  const reason = !connected ? 'Connect through People & chat to share an action.' : disabled ? 'Finish the current activity to use an action.' : !walking && !concert ? 'Start walking or join an OAT concert to use actions.' : riding ? 'Dismount before using an action.' : pose.current?.airborne ? 'Land before using an action.' : pose.current?.moving && !concert ? 'Stand still to use an action.' : concert ? 'Audience reactions keep you in your seat.' : !seat ? 'Walk beside a Nescafé chair or the rear OAT benches to sit.' : 'An open seat is within reach.'
+  const seat = walking && !riding ? nearbySeat(seats, pose.current, live.people.flatMap(p => p.social?.seatId ? [p.social.seatId] : [])) : null
+  const reason = !connected ? 'Connect through People & chat to share an action.' : disabled ? 'Finish the current activity to use an action.' : !walking && !concert ? 'Start walking or join an OAT concert to use actions.' : riding ? 'Dismount before using an action.' : pose.current?.airborne ? 'Land before using an action.' : pose.current?.moving && !concert ? 'Stand still to use an action.' : concert ? 'Audience reactions keep you in your seat.' : !seat ? 'Walk beside a Chapora chair, a Nescafé chair or the rear OAT benches to sit.' : 'An open seat is within reach.'
   useEffect(() => {
     if (!open) return
     const outside = (event: PointerEvent) => { if (event.target instanceof Node && !container.current?.contains(event.target) && !popover.current?.contains(event.target)) setOpen(false) }

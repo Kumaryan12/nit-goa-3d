@@ -66,7 +66,7 @@ import GraphicsControl from './components/GraphicsControl'
 import { validGraphicsMode } from './lib/graphics'
 import AtmosphereControls from './components/AtmosphereControls'
 import SocialActions from './components/SocialActions'
-import { theatreSeats } from './lib/social'
+import { chaporaSeats, theatreSeats } from './lib/social'
 import ViewControls, { initialViewLayout } from './components/ViewControls'
 import type { ViewLayout } from './components/ViewControls'
 import type { OverviewDrag } from './lib/cameraGestures'
@@ -205,7 +205,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
     const timer = window.setTimeout(() => setStartupVisible(false), duration)
     return () => window.clearTimeout(timer)
   }, [startupVisible, startup.complete, startupExiting])
-  const socialSeats = useMemo(() => twin ? [...theatreSeats(twin.theatre).filter(seat => seat.row >= 3), ...(twin.terrain.cafe?.seats ?? [])] : [], [twin])
+  const socialSeats = useMemo(() => twin ? [...theatreSeats(twin.theatre).filter(seat => seat.row >= 3), ...(twin.terrain.cafe?.seats ?? []), ...chaporaSeats(twin.interiors?.seminar ?? null)] : [], [twin])
   const cafeStations = useMemo(() => twin?.terrain.cafe ? cafeCounters(twin.terrain.cafe, twin.terrain) : [], [twin])
   const campusLive = useCampusSession(!!firebasePublicConfig && !!twin && twin.boundary.length >= 3, campusPose, view === 'walk', footballJoined ? 'football' : oatJoined ? 'concert' : view === 'walk' ? 'walk' : 'overview', import.meta.env.DEV && !firebasePublicConfig, socialSeats, cafeStations)
   const screening = useScreening(campusLive, canHost)

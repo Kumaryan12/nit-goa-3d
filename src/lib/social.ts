@@ -1,4 +1,6 @@
 import type { TheatreLayout } from './theatre.ts'
+import type { HostelPlan } from './hostelInterior.ts'
+import { createScreeningLayout } from './screening.ts'
 
 export const SOCIAL_ACTIONS = ['wave', 'dance', 'applause', 'heart', 'cheer', 'sit'] as const
 export type SocialAction = typeof SOCIAL_ACTIONS[number]
@@ -8,14 +10,27 @@ export const SOCIAL_DURATION: Record<SocialAction, number> = { wave: 3500, dance
 export const SOCIAL_LABELS: Record<SocialAction, string> = { wave: 'Wave', dance: 'Dance', applause: 'Applaud', heart: 'Send love', cheer: 'Celebrate', sit: 'Sit down' }
 export const SOCIAL_SYMBOLS: Record<SocialAction, string> = { wave: '👋', dance: '♪', applause: '👏', heart: '♥', cheer: '🎉', sit: '◡' }
 export const isSocialAction = (value: unknown): value is SocialAction => typeof value === 'string' && (SOCIAL_ACTIONS as readonly string[]).includes(value)
+export const socialSeatSpace = (id: string) => id.startsWith('chapora-') ? 'seminar:0' : 'outdoors'
 export function parseSocialState(value: unknown): SocialState | null {
   if (!value || typeof value !== 'object') return null
   const s = value as SocialState
   if (!isSocialAction(s.action) || !Number.isFinite(s.startedAt) || s.startedAt < 0 || s.startedAt > 1e14 || !Number.isFinite(s.until) || s.until <= s.startedAt || s.until - s.startedAt > SOCIAL_DURATION[s.action]) return null
-  if (s.action === 'sit' ? typeof s.seatId !== 'string' || !/^(oat-[0-5]-[0-7]|cafe-[0-3]-[0-3])$/.test(s.seatId) : s.seatId !== undefined) return null
+  if (s.action === 'sit' ? typeof s.seatId !== 'string' || !/^(oat-[0-5]-[0-7]|cafe-[0-3]-[0-3]|chapora-(?:[0-9]|1[0-4])-(?:[0-9]|1[0-3]))$/.test(s.seatId) : s.seatId !== undefined) return null
   const cafe = s.action === 'sit' && s.seatId?.startsWith('cafe-')
-  if (s.seatHeight !== undefined && (!cafe || s.seatHeight !== .44)) return null
-  return { action: s.action, startedAt: s.startedAt, until: s.until, ...(s.seatId ? { seatId: s.seatId } : {}), ...(cafe ? { seatHeight: .44 } : {}) }
+  const chapora = s.action === 'sit' && s.seatId?.startsWith('chapora-')
+  if (s.seatHeight !== undefined && s.seatHeight !== (cafe ? .44 : chapora ? .56 : undefined)) return null
+  return { action: s.action, startedAt: s.startedAt, until: s.until, ...(s.seatId ? { seatId: s.seatId } : {}), ...(cafe ? { seatHeight: .44 } : chapora ? { seatHeight: .56 } : {}) }
+}
+
+export function chaporaSeats(plan: HostelPlan | null): SocialSeat[] {
+  const hall = plan?.seminar?.halls.find(h => h.id === 'seated')
+  if (!plan || !hall) return []
+  const reserved = new Set(createScreeningLayout(plan).seats.map(p => `${p.x}:${p.z}`))
+  return hall.seats.flatMap((p, i) => reserved.has(`${p.x}:${p.z}`) ? [] : [{
+    id: `chapora-${Math.floor(i / 14)}-${i % 14}`, row: Math.floor(i / 14),
+    x: p.x, y: plan.base + .14 + p.elevation, z: p.z,
+    yaw: -Math.PI / 2, seatHeight: .56,
+  }])
 }
 
 // Match the existing curved benches; y is the row's floor, with the sitting
@@ -33,9 +48,9 @@ export function theatreSeats(theatre: Pick<TheatreLayout, 'center' | 'rotation' 
     })
   }).flat()
 }
-export function nearbySeat(seats: SocialSeat[], pose: { x: number; y: number; z: number } | null, occupied: Iterable<string> = []): SocialSeat | null {
+export function nearbySeat(seats: SocialSeat[], pose: { x: number; y: number; z: number; space?: string } | null, occupied: Iterable<string> = []): SocialSeat | null {
   if (!pose) return null
   const used = new Set(occupied)
-  return seats.filter(s => !used.has(s.id) && Math.abs(s.y - pose.y) <= .85 && Math.hypot(s.x - pose.x, s.z - pose.z) <= 3.2)
+  return seats.filter(s => socialSeatSpace(s.id) === (pose.space ?? 'outdoors') && !used.has(s.id) && Math.abs(s.y - pose.y) <= .85 && Math.hypot(s.x - pose.x, s.z - pose.z) <= 3.2)
     .sort((a, b) => Math.hypot(a.x - pose.x, a.z - pose.z) - Math.hypot(b.x - pose.x, b.z - pose.z))[0] ?? null
 }

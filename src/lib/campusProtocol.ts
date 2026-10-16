@@ -2,7 +2,7 @@ import { parseBuggyImpact } from './buggyImpacts.ts'
 import type { BuggyImpact, ReceivedBuggyImpact } from './buggyImpacts.ts'
 import { PROFILE_COLORS, PROFILE_COLOR_HEX, isAvatarStyle } from './profile.ts'
 import type { AvatarStyle, CampusProfile } from './profile.ts'
-import { parseSocialState } from './social.ts'
+import { parseSocialState, socialSeatSpace } from './social.ts'
 import type { SocialState } from './social.ts'
 import { parseCafeDrink } from './cafeDrinks.ts'
 import type { CafeDrink } from './cafeDrinks.ts'
@@ -57,7 +57,7 @@ export function parseCampusSnapshot(value: unknown): CampusSnapshot | null {
     const impact = p.impact === undefined ? undefined : parseBuggyImpact(p.impact)
     if (p.impact !== undefined && (!impact || !pose || pose.vehicle !== 'buggy' || pose.epoch !== impact.anchor.epoch || p.ride)) return null
     const social = p.social === undefined ? undefined : parseSocialState(p.social)
-    if (p.social !== undefined && (!social || p.ride || !pose || pose.airborne || (pose.vehicle ?? 'walk') !== 'walk' || p.activity === 'football' || social.action === 'sit' && (p.activity !== 'walk' || pose.space !== 'outdoors'))) return null
+    if (p.social !== undefined && (!social || p.ride || !pose || pose.airborne || (pose.vehicle ?? 'walk') !== 'walk' || p.activity === 'football' || social.action === 'sit' && (p.activity !== 'walk' || pose.space !== socialSeatSpace(social.seatId!)))) return null
     const drink = p.drink === undefined ? undefined : parseCafeDrink(p.drink)
     if (p.drink !== undefined && !drink) return null
     ids.add(p.id); people.push({ ...(p.screening ? { screening: { seat: p.screening.seat } } : {}), ...(drink ? { drink } : {}), ...(p.concert ? { concert: { seat: p.concert.seat, role: p.concert.role } } : {}), ...(p.locatorVisible === undefined ? {} : { locatorVisible: p.locatorVisible }), ...(impact ? { impact } : {}), ...(social ? { social } : {}), ...(p.ride ? { ride: { driverId: p.ride.driverId, seat: p.ride.seat } } : {}), ...(p.avatarStyle ? { avatarStyle: p.avatarStyle } : {}), id: p.id, name: p.name, handle: p.handle, color: p.color, activity: p.activity, pose })
