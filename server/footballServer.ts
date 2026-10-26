@@ -4,6 +4,7 @@ import type { VerifyAccess } from './access.ts'
 import type { EventEmitter } from 'node:events'
 import { WebSocketServer, WebSocket } from 'ws'
 import { createFootballRoom } from './footballRoom.ts'
+import { liveCompression, LiveStateCadence } from './liveBandwidth.ts'
 
 export function attachFootballServer(
   server: EventEmitter,
@@ -14,7 +15,7 @@ export function attachFootballServer(
     wss = new WebSocketServer({
       noServer: true,
       maxPayload: 16384,
-      perMessageDeflate: false,
+      perMessageDeflate: liveCompression,
     })
   const alive = new WeakSet<WebSocket>()
   const access = attachLiveAccess(server, wss, '/football', origin, 24, verify)
@@ -43,6 +44,7 @@ export function attachFootballServer(
     ws.on('close', () => room.remove(id))
   })
   let lastTick = performance.now(), accumulator=0, broadcastAt=0
+  const cadence = new LiveStateCadence()
   const timer = setInterval(() => {
     const now = performance.now()
     accumulator+=Math.min(.1,Math.max(0,(now-lastTick)/1000))
@@ -50,7 +52,9 @@ export function attachFootballServer(
     lastTick = now
     if (!wss.clients.size || now-broadcastAt<50) return
     broadcastAt=now-(now-broadcastAt)%50
-    const message = JSON.stringify(room.snapshot())
+    const state = room.snapshot()
+    if (!cadence.shouldSend(state, now)) return
+    const message = JSON.stringify(state)
     for (const ws of wss.clients)
       if (
         access.isAdmitted(ws) &&

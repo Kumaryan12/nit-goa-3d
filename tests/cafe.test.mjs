@@ -134,7 +134,13 @@ test('two authenticated peers share café seats, reject double booking and stand
   const http = createServer((_req, res) => res.end('campus'))
   const live = attachCampusServer(http, undefined, async id => ({ id, name: id, role: 'member', expiresAt: Date.now() + 3600000 }), twin.boundary, cafe.seats)
   const peers = []
-  t.after(async () => { peers.forEach(p => p.ws.terminate()); live.close(); await new Promise(resolve => http.close(resolve)) })
+  // Quiet rooms now suppress repeated outbound rosters. Keep sending the same
+  // foreground presence heartbeats as the browser while awaiting a keepalive.
+  const heartbeat = setInterval(() => peers.forEach(p => {
+    const pose = live.room.poseFor(p.id)
+    if (pose && p.ws.readyState === WebSocket.OPEN) p.ws.send(JSON.stringify({ type: 'pose', activity: 'walk', pose }))
+  }), 200)
+  t.after(async () => { clearInterval(heartbeat); peers.forEach(p => p.ws.terminate()); live.close(); await new Promise(resolve => http.close(resolve)) })
   http.listen(0, '127.0.0.1'); await once(http, 'listening')
   const origin = `http://127.0.0.1:${http.address().port}`
   for (const id of ['alice', 'bob']) {

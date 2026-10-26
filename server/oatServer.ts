@@ -7,6 +7,7 @@ import type { EventEmitter } from 'node:events'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
 import { createOatRoom } from './oatRoom.ts'
+import { liveCompression, LiveStateCadence } from './liveBandwidth.ts'
 import type { OatIceProvider } from './oatIce.ts'
 import { createOatVoiceService } from './oatVoiceService.ts'
 import type { OatVoiceService } from './oatVoiceService.ts'
@@ -63,7 +64,7 @@ export function attachOatServer(
   const wss = new WebSocketServer({
       noServer: true,
       maxPayload: 32768,
-      perMessageDeflate: false,
+      perMessageDeflate: liveCompression,
     }),
     alive = new WeakSet<WebSocket>()
   const allowed = (req: IncomingMessage) => allowedSiteOrigin(req, origin)
@@ -71,10 +72,16 @@ export function attachOatServer(
     if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 131072)
       ws.send(JSON.stringify(message))
   }
+  const stateCadence = new WeakMap<WebSocket, LiveStateCadence>()
   const broadcast = () => {
     const voiceUsage = budget?.snapshot()
     const state = { ...room.snapshot(), ...(voiceUsage ? { voiceAvailability: voiceUsage.availability, voiceUsage } : {}) }
-    for (const peer of peers.values()) send(peer.ws, state)
+    for (const { ws } of peers.values()) {
+      if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 131072) continue
+      let cadence = stateCadence.get(ws)
+      if (!cadence) { cadence = new LiveStateCadence(); stateCadence.set(ws, cadence) }
+      if (cadence.shouldSend(state, Date.now())) send(ws, state)
+    }
   }
   let lastAvailability = budget?.snapshot().availability
   const enforceBudget = () => {

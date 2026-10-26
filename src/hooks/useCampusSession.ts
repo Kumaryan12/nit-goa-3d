@@ -11,6 +11,7 @@ import { watchLiveConnection } from '../lib/liveWatchdog'
 import { RemoteMotionBuffer } from '../lib/remoteMotion'
 import type { CampusActivity, CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib/campusProtocol'
 import { isSocialAction, nearbySeat, SOCIAL_DURATION } from '../lib/social'
+import { applyCampusDelta } from '../lib/campusWire'
 import type { SocialAction, SocialSeat } from '../lib/social'
 import { defaultAvatarColor } from '../lib/profile'
 export type CampusConnection = 'idle' | 'connecting' | 'reconnecting' | 'waiting' | 'live' | 'offline'
@@ -89,7 +90,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       return () => { clearInterval(timer); previewAction.current = null; previewCafe.current = null; clearCafePending(); session.current = { id: null, snapshot: null }; setPeople([]) }
     }
     if (!enabled) { recoveryAttempt.current = 0; setConnection('idle'); setPeople([]); setMessages([]); session.current = { id: null, snapshot: null }; return }
-    let active = true, initialized = false, rosterKey = '', stopAuth = () => {}, recoveryTimer: number | undefined
+    let active = true, initialized = false, rosterKey = '', stopAuth = () => {}, recoveryTimer: number | undefined, deltaSyncAt = -Infinity
     setCafeError(''); clearCafePending(); setRideError(''); setSocialError(''); clearSocialPending(); setConnection('connecting'); setPeople([]); setMessages([]); setError(''); setQueue(0); session.current = { id: null, snapshot: null }
     const url = liveServerURL('/presence', window.location.href, import.meta.env.VITE_CAMPUS_SERVER_URL)
     const ws = new WebSocket(url); socket.current = ws
@@ -120,7 +121,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
         // Keep legacy clients from locating this visitor across the campus.
         // The server still publishes nearby avatars for shared activities.
         ws.send(JSON.stringify({ type: 'locator-visibility', visible: false }))
-        ws.send(JSON.stringify({ type: 'social-capabilities', cafeSeats: true, chaporaSeats: true }))
+        ws.send(JSON.stringify({ type: 'social-capabilities', cafeSeats: true, chaporaSeats: true, campusDelta: 1 }))
         setMessages(value.history.map(parseCampusChat).filter((m: CampusChat | null): m is CampusChat => !!m && m.scope === 'campus'))
         return
       }
@@ -135,7 +136,10 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (value.type === 'chat-remove' && campusId(value.sender)) { setMessages(previous => previous.filter(m => m.sender !== value.sender)); return }
       const message = parseCampusChat(value)
       if (message) { addMessage(message); return }
-      const snapshot = parseCampusSnapshot(value)
+      const snapshot = value.type === 'campus-delta' ? applyCampusDelta(value, session.current.snapshot) : parseCampusSnapshot(value)
+      if (value.type === 'campus-delta' && !snapshot && performance.now() - deltaSyncAt >= 1000 && ws.readyState === WebSocket.OPEN) {
+        deltaSyncAt = performance.now(); ws.send(JSON.stringify({ type: 'campus-sync' }))
+      }
       if (!snapshot || (session.current.snapshot && snapshot.sequence <= session.current.snapshot.sequence)) return
       const ownImpact = snapshot.people.find(p => p.id === session.current.id)?.impact
       if (ownImpact) receiveImpact(ownImpact, snapshot.serverTime)

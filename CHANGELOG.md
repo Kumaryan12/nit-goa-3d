@@ -2,6 +2,10 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## 2026-10-26
+
+- Reduced live-room bandwidth with negotiated compact campus updates, bounded WebSocket compression and fewer repeated idle snapshots. Movement rates, privacy, authentication and shared seating are preserved; older clients keep their full-snapshot fallback. See [validation and rollout](docs/live-bandwidth.md).
+
 ## 2026-10-16
 
 - Rotated the Seminar Complex entrance 180° to face Gyan Mandir, aligning its courtyard, stairs, walkway, halls, seats, screening view and arrival point.
