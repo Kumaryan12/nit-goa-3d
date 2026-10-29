@@ -31,8 +31,8 @@ export default function MaintenancePage({ onReopen }: { onReopen: () => void }) 
       <h1 id="maintenance-title">A little pause.<br />A <em>better</em> campus.</h1>
       <p className="maintenance-description">We’re making room for a smoother campus experience. Exploring, hanging out and everything in between will be back soon.</p>
       <div className="maintenance-reopening">
-        <div className="maintenance-date" aria-hidden="true"><span>NOV</span><strong>01</strong></div>
-        <div><span className="maintenance-label">See you back on campus</span><time dateTime={new Date(CAMPUS_REOPENS_AT).toISOString()}>1 November 2026</time><span className="maintenance-timezone">From midnight · India Standard Time</span></div>
+        <div className="maintenance-date" aria-hidden="true"><span>NOV</span><strong>02</strong></div>
+        <div><span className="maintenance-label">See you back on campus</span><time dateTime={new Date(CAMPUS_REOPENS_AT).toISOString()}>2 November 2026</time><span className="maintenance-timezone">From midnight · India Standard Time</span></div>
       </div>
       <div className="maintenance-countdown" role="timer" aria-label={`${remaining[0]} days, ${remaining[1]} hours, ${remaining[2]} minutes until reopening`}>
         {remaining.map((value, index) => <div key={index}><strong>{String(value).padStart(2, '0')}</strong><span>{['Days', 'Hours', 'Minutes'][index]}</span></div>)}

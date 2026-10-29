@@ -1,5 +1,5 @@
-// Reopen at the start of 1 November in India, independent of the visitor's timezone.
-export const CAMPUS_REOPENS_AT = Date.parse('2026-11-01T00:00:00+05:30')
+// Reopen at the start of 2 November in India, independent of the visitor's timezone.
+export const CAMPUS_REOPENS_AT = Date.parse('2026-11-02T00:00:00+05:30')
 export const campusUnderConstruction = (now = Date.now()) => now < CAMPUS_REOPENS_AT
 
 export function reopeningCountdown(now: number) {
