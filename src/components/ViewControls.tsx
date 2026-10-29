@@ -12,9 +12,10 @@ export function initialViewLayout(): ViewLayout {
   } catch { /* Private browsing may disable saved preferences. */ }
   return window.matchMedia('(max-width: 760px), (pointer: coarse)').matches ? { panels: false, minimap: false, toolbar: true } : { ...defaults }
 }
-export default function ViewControls({ explorer, layout, onChange, view, drag, onDrag, vehicle, football }: {
+export default function ViewControls({ explorer, layout, onChange, view, drag, onDrag, vehicle, football, onPhoto, photoReady = true }: {
   explorer: React.RefObject<HTMLElement | null>; layout: ViewLayout; onChange: (layout: ViewLayout) => void
   view: ExplorerView; drag: OverviewDrag; onDrag: (drag: OverviewDrag) => void; vehicle: TransportMode; football: boolean
+  onPhoto?: () => void; photoReady?: boolean
 }) {
   const root = useRef<HTMLDivElement>(null), previous = useRef(defaults)
   const [open, setOpen] = useState(false), [fullscreen, setFullscreen] = useState(false), [message, setMessage] = useState('')
@@ -56,6 +57,7 @@ export default function ViewControls({ explorer, layout, onChange, view, drag, o
       <button type="button" id="campus-controls-toggle" aria-expanded={guideOpen} aria-controls="campus-gesture-guide" onClick={() => { setGuideOpen(value => !value); setOpen(false); setMessage('') }}>⌘ Controls</button>
       <button type="button" className="view-menu-toggle" aria-expanded={open} aria-controls="campus-view-options" onClick={() => { setOpen(value => !value); setGuideOpen(false); setMessage('') }}>☷ View</button>
       <button type="button" aria-pressed={focus} onClick={focusView} title={focus ? 'Restore your panels and toolbar' : 'Hide panels and toolbar'}>{focus ? 'Show controls' : 'Focus view'}</button>
+      {onPhoto && <button type="button" id="campus-photo-toggle" disabled={!photoReady} aria-label="Open photo mode" title="Photo mode · create a campus postcard" onClick={() => { setOpen(false); setGuideOpen(false); onPhoto() }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /><circle cx="12" cy="13" r="4" /></svg></button>}
       <button type="button" aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'} aria-pressed={fullscreen} onClick={() => void toggleFullscreen()} title={fullscreen ? 'Exit fullscreen · Esc' : 'Enter fullscreen'}>{fullscreen ? '↙' : '⛶'}</button>
     </div>
     {message && <p className="view-feedback" role="status">{message}</p>}

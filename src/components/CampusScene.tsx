@@ -5,6 +5,8 @@ import type { AvatarStyle } from '../lib/profile'
 import { Component, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import ScenePhotoCapture from './ScenePhotoCapture'
+import type { ScenePhotoCapture as PhotoCapture } from '../lib/postcard'
 import { CameraControls, CameraControlsImpl, Sky, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PCFShadowMap } from 'three'
 import { sceneConfig } from '../lib/sceneConfig'
@@ -66,6 +68,7 @@ import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number; peakCalls?:number; peakTriangles?:number; p95Ms?:number; worstMs?:number; slowFrames?:number }
 interface CampusSceneProps {
+  photoCapture?: React.RefObject<PhotoCapture | null>
   screening: ScreeningSession
   screeningPlayer: React.RefObject<ScreeningPlayerControls | null>
   overviewDrag?: OverviewDrag
@@ -216,7 +219,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ screening, screeningPlayer, overviewDrag = 'rotate', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, oatSelfId, concertJoined, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, seminarPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ photoCapture, screening, screeningPlayer, overviewDrag = 'rotate', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, oatSelfId, concertJoined, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, seminarPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const compact = useRef(window.matchMedia('(pointer: coarse)').matches || navigator.hardwareConcurrency <= 4).current
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
   const profile = useMemo(() => footballGraphicsProfile(graphicsProfile(graphicsMode, qualityLevel),footballJoined,graphicsMode), [graphicsMode, qualityLevel,footballJoined])
@@ -300,6 +303,7 @@ function CampusScene({ screening, screeningPlayer, overviewDrag = 'rotate', scen
     <LocationPicker active={pickingPosition} preview={pickedPosition} terrain={twin?.terrain ?? loadingTerrain} onPick={onPickPosition} />
     {view === 'overview' ? <Navigation twin={twin} request={cameraRequest} facades={facades} drag={overviewDrag} /> : twin && twin.boundary.length >= 3 && <AvatarExplorer screeningPose={screeningPose} concertJoined={concertJoined} concertPose={concertPose} avatarStyle={avatarStyle} onSocialStop={onSocialStop} onBuggyRide={onBuggyRide} campusSession={campusSession} campusPose={campusPose} avatarAccent={footballJoined ? avatarColor : undefined} footballJersey={footballJoined ? footballPlayers.find(player => player.id === footballSession.current.id)?.team === 'gold' ? '#d2a345' : '#388fc1' : avatarColor} footballPitch={footballJoined ? footballPitch : null} footballControls={footballInput} footballLive={footballLive} hostelPlan={hostelPlan} gyanPlan={gyanPlan} seminarPlan={seminarPlan} interiorPose={interiorPose} processedSpawn={processedWalkSpawn} twin={twin} paused={walkPaused} input={walkInput} position={avatarPosition} spawn={walkSpawn} onStatus={onWalkStatus} onInspect={onWalkInspect} />}
     <RuntimeMetrics onMetrics={reportMetrics} />
+    <ScenePhotoCapture target={photoCapture} />
   </Canvas></GraphicsContext.Provider></CampusGraphicsBoundary>
 }
 

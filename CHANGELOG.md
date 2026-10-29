@@ -2,6 +2,11 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## 2026-10-29
+
+- Added campus photo mode with a clean camera view, local PNG postcard export, warm paper and midnight frames, captions, landscape/portrait formats and image sharing where supported. See [photo mode](docs/postcards.md).
+- Added the temporary maintenance page with reopening scheduled for 2 November at midnight IST.
+
 ## 2026-10-26
 
 - Reduced live-room bandwidth with negotiated compact campus updates, bounded WebSocket compression and fewer repeated idle snapshots. Movement rates, privacy, authentication and shared seating are preserved; older clients keep their full-snapshot fallback. See [validation and rollout](docs/live-bandwidth.md).
