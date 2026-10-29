@@ -4,7 +4,7 @@ Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
 ## 2026-10-29
 
-- Added campus photo mode with a clean camera view, local PNG postcard export, warm paper and midnight frames, captions, landscape/portrait formats and image sharing where supported. See [photo mode](docs/postcards.md).
+- Added campus photo mode with a clean camera view, local PNG postcard export, the official NIT Goa wordmark, warm paper and midnight frames, caption ideas and copyable social text, feed/story/classic formats and image sharing where supported. See [photo mode](docs/postcards.md).
 - Added the temporary maintenance page with reopening scheduled for 2 November at midnight IST.
 
 ## 2026-10-26
