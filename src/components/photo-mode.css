@@ -7,6 +7,18 @@
 }
 .photo-mode .location-label-wrapper, .photo-mode .campus-avatar-name, .photo-mode .campus-speech, .photo-mode .campus-reaction, .photo-mode .oat-performer-label { display: none !important; }
 .photo-mode-ui { position: absolute; inset: 0; pointer-events: none; z-index: 90; color: #fff9e8; text-shadow: 0 1px 7px #0008; }
+.photo-mode-ui[data-busy] { pointer-events: auto; }
+.photo-pose-tools { position: absolute; top: 108px; right: 24px; width: 270px; pointer-events: auto; padding: 14px; border: 1px solid #fff4d533; border-radius: 14px; background: #102b25d9; backdrop-filter: blur(10px); }
+.photo-pose-tools fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.photo-pose-tools legend { font-size: 10px; font-weight: 600; margin-bottom: 8px; }
+.photo-pose-tools button { border: 1px solid #fff4d52b; border-radius: 8px; background: transparent; color: #fff9e8; padding: 8px 10px; min-height: 40px; font-size: 11px; }
+.photo-pose-tools button[aria-pressed="true"] { background: #f0dfb9; color: #18372a; }
+.photo-pose-tools p { font-size: 10px; line-height: 1.6; color: #d3ddcf; margin: 10px 0 12px; }
+.photo-mode-ui[data-busy] .photo-pose-tools { visibility: hidden; }
+.photo-countdown { position: absolute; top: 46%; left: 50%; transform: translate(-50%, -50%); padding: 20px; border-radius: 20px; text-align: center; background: #102b2599; min-width: 180px; border: 1px solid #fff4d544; }
+.photo-countdown strong { display: block; font: 76px/1.1 Georgia, serif; }
+.photo-countdown > span { display: block; font-size: 12px; margin: 7px 0 15px; }
+.photo-countdown button { pointer-events: auto; border: 1px solid #fff4d555; color: #fff9e8; background: #102b2544; border-radius: 8px; min-height: 40px; padding: 8px 15px; }
 .photo-mode-heading { position: absolute; top: max(22px, env(safe-area-inset-top)); left: max(24px, env(safe-area-inset-left)); right: max(24px, env(safe-area-inset-right)); display: flex; justify-content: space-between; align-items: start; gap: 15px; }
 .photo-mode-heading > div { padding: 12px 16px; background: #102b2566; backdrop-filter: blur(12px); border: 1px solid #fff4d52b; border-radius: 13px; }
 .photo-mode-heading span { display: block; font-size: 8px; letter-spacing: .18em; color: #e7d7aa; }
@@ -36,6 +48,12 @@
 .postcard-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; padding-block: 12px; align-items: center; position: sticky; top: -22px; z-index: 2; background: #f6f1e5f5; border-bottom: 1px solid #203d3218; }
 .postcard-actions a { padding: 12px 17px; min-height: 42px; background: #203d32; border-radius: 8px; color: #fff5dc; text-decoration: none; font-size: 12px; }
 .postcard-private { font-size: 10px; color: #5d7164; margin: 13px 0 0; }
+.postcard-group { border: 1px solid #203d3226; padding: 10px 12px; margin: 16px 0; border-radius: 10px; min-width: 0; }
+.postcard-group legend { font-size: 11px; font-weight: 600; padding-inline: 5px; }
+.postcard-dialog .postcard-group label { display: flex; flex-direction: row; align-items: center; gap: 9px; min-height: 36px; margin: 0; font-weight: 400; overflow-wrap: anywhere; }
+.postcard-group input { accent-color: #285e49; flex-shrink: 0; width: 17px; height: 17px; }
+.postcard-group > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
+.postcard-group p { color: #5d7164; font-size: 10px; margin: 7px 0; }
 .postcard-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
 .postcard-presets button { border: 1px solid #203d3226; border-radius: 20px; padding: 8px 11px; color: #496252; background: #fffdf54d; font-size: 10px; min-height: 36px; }
 .postcard-presets button[aria-pressed="true"] { border-color: #285e49; background: #285e4912; color: #203d32; }
@@ -45,4 +63,5 @@
 .postcard-share-copy button { border: 1px solid #203d3233; border-radius: 8px; background: transparent; color: #203d32; padding: 10px 13px; min-height: 40px; }
 .postcard-share-copy > span { margin-left: 10px; font-size: 10px; }
 @media (max-width: 760px) { .photo-mode-heading { left: 14px; right: 14px; top: max(14px, env(safe-area-inset-top)); }.photo-mode-heading strong { font-size: 21px; }.explorer.photo-mode .postcard-dialog { padding: 16px; }.postcard-options { gap: 12px; }.postcard-options button, .postcard-actions button { min-height: 44px; padding: 9px 11px; }.postcard-preview img { max-height: 32dvh; } }
+@media (max-width: 760px) { .photo-pose-tools { top: 104px; right: 14px; left: 14px; width: auto; padding: 10px 12px; }.photo-pose-tools button { font-size: 10px; padding: 7px 9px; min-height: 38px; }.photo-pose-tools p { font-size: 9px; margin-block: 7px; }.photo-pose-tools fieldset:last-child { align-items: center; }.postcard-group > div { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { .photo-shutter > span { transition: none; } }

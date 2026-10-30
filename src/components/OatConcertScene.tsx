@@ -20,7 +20,7 @@ import type { AvatarMotion } from '../lib/avatarMotion'
 function ConcertVisitor({ style, point, id, name, performer, color, session, detailed, label }: { style?: AvatarStyle; point: Pick<SocialSeat, 'x' | 'y' | 'z' | 'yaw'>; id: string; name: string; performer: boolean; color: string; session: React.RefObject<CampusSession>; detailed: boolean; label: boolean }) {
   const motion = useRef<AvatarMotion>({ phase: 0, moving: false, seated: !performer })
   useFrame(() => { motion.current.seated = !performer; motion.current.social = session.current.snapshot?.people.find(p => p.id === id)?.social })
-  return <group position={[point.x, point.y, point.z]} rotation={[0, point.yaw, 0]} name={performer ? 'concert-performer' : 'seated-concert-visitor'}>
+  return <group userData={{ photoPersonId: id }} position={[point.x, point.y, point.z]} rotation={[0, point.yaw, 0]} name={performer ? 'concert-performer' : 'seated-concert-visitor'}>
     {detailed || performer ? <StudentAvatar style={style} motion={motion} jersey={color} /> : <CrowdAvatar style={style} motion={motion} color={color} seated />}
     {(label || performer) && <SocialBubble session={session} personId={id} height={performer ? 2.9 : 1.5} />}
     {performer && <Html center position={[0, 2.1, 0]} distanceFactor={35} style={{ pointerEvents: 'none' }}><span className="oat-performer-label">🎤 {name}</span></Html>}

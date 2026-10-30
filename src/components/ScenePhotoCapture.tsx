@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import type { ScenePhotoCapture as Capture } from '../lib/postcard'
+import type { ScenePhoto, ScenePhotoCapture as Capture } from '../lib/postcard'
+import type { CampusPose, CampusSession } from '../lib/campusProtocol'
+import { photoGroup } from '../lib/photoGroup'
 
 // One extra render only on capture; no persistent GPU buffer or per-frame readback.
-export default function ScenePhotoCapture({ target }: { target?: React.RefObject<Capture | null> }) {
+export default function ScenePhotoCapture({ target, session, localPose, walking }: { target?: React.RefObject<Capture | null>; session: React.RefObject<CampusSession>; localPose: React.RefObject<CampusPose | null>; walking: boolean }) {
   const invalidate = useThree(state => state.invalidate)
-  const pending = useRef<{ resolve: (canvas: HTMLCanvasElement) => void; reject: (error: Error) => void; timer: number } | null>(null)
+  const pending = useRef<{ resolve: (photo: ScenePhoto) => void; reject: (error: Error) => void; timer: number } | null>(null)
   useEffect(() => {
     if (!target) return
-    const capture = () => new Promise<HTMLCanvasElement>((resolve, reject) => {
+    const capture = () => new Promise<ScenePhoto>((resolve, reject) => {
       if (pending.current) { reject(Error('A photo is already being taken.')); return }
       const timer = window.setTimeout(() => {
         pending.current = null
@@ -36,7 +38,7 @@ export default function ScenePhotoCapture({ target }: { target?: React.RefObject
       const context = canvas.getContext('2d')
       if (!context) throw Error('Your browser could not take this photo.')
       context.drawImage(source, 0, 0, canvas.width, canvas.height)
-      request.resolve(canvas)
+      request.resolve({ image: canvas, people: photoGroup(scene, camera, session.current.snapshot?.people ?? [], session.current.id, localPose.current, walking) })
     } catch (error) { request.reject(error instanceof Error ? error : Error('The photo could not be taken. Try again.')) }
   })
   return null

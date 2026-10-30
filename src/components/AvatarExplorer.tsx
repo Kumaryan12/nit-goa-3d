@@ -32,7 +32,7 @@ import { nearestHostelLift, hostelLiftArrival, hostelAreaLabel, hostelCourtSurfa
 
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'])
 const editingText = () => { const element = document.activeElement; return element instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable) }
-export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoined, concertPose, campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, seminarPlan, interiorPose, processedSpawn, twin, paused, input, position, spawn, onStatus, onInspect }: {
+export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoined, concertPose, campusSession, onSocialStop, onBuggyRide, campusPose, footballPitch, footballControls, footballLive, footballJersey, avatarAccent, hostelPlan, gyanPlan, seminarPlan, interiorPose, processedSpawn, twin, paused, photoMode = false, photoBusy = false, input, position, spawn, onStatus, onInspect }: {
   screeningPose: ConcertPlacement | null
   avatarStyle?: AvatarStyle
   concertJoined: boolean; concertPose: ConcertPlacement | null
@@ -42,6 +42,7 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
   footballPitch: FootballPitch | null; footballControls: React.RefObject<FootballControls>; footballLive: boolean; footballJersey?: string; avatarAccent?: string
   hostelPlan: HostelPlan | null; gyanPlan: HostelPlan | null; seminarPlan: HostelPlan | null; interiorPose: React.RefObject<InteriorPose | null>
   processedSpawn: React.RefObject<number>
+  photoMode?: boolean; photoBusy?: boolean;
   twin: DigitalTwin; paused: boolean; input: React.RefObject<WalkInput>; position: React.RefObject<LocalCoordinate | null>; spawn: WalkSpawnRequest;
   onStatus: (status: WalkStatus) => void; onInspect: (id: string) => void
 }) {
@@ -179,9 +180,9 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
   useEffect(() => () => { keys.current.clear(); input.current = emptyWalkInput(); vehicle.current.speed = 0; locomotion.current = freshLocomotion() }, [input])
   useEffect(() => {
     const clear = () => { keys.current.clear(); input.current = emptyWalkInput(); locomotion.current = freshLocomotion(); vehicle.current.speed = 0; lookTarget.current = { yaw: yaw.current, pitch: pitch.current, distance: cameraDistance.current } }
-    if (paused) clear()
+    if (paused || photoMode) clear()
     const down = (event: KeyboardEvent) => {
-      if (paused || editingText() || event.metaKey || event.ctrlKey || event.altKey) return
+      if (paused || photoMode || editingText() || event.metaKey || event.ctrlKey || event.altKey) return
       if (movementKeys.has(event.code)) { event.preventDefault(); keys.current.add(event.code) }
       if ((event.code === 'Space' || event.code === 'KeyJ') && !(event.code === 'Space' && event.target instanceof HTMLElement && event.target.closest('button'))) {
         event.preventDefault()
@@ -218,18 +219,19 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
     const hidden = () => { if (document.hidden) clear() }
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear); document.addEventListener('visibilitychange', hidden)
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', hidden) }
-  }, [paused, input, onInspect, act, activePlan, interiorPose, position, footballPitch, footballLive, footballControls, onBuggyRide, campusSession])
+  }, [paused, photoMode, input, onInspect, act, activePlan, interiorPose, position, footballPitch, footballLive, footballControls, onBuggyRide, campusSession])
   useEffect(() => {
-    if (paused) return
+    if (paused || photoBusy) return
     const distance = (value: number) => { lookTarget.current.distance = Math.max(3, Math.min(12, value)) }
     return bindCameraGestures(gl.domElement, {
       zoom: ratio => distance(lookTarget.current.distance * ratio),
       rotate: (x, y) => { lookTarget.current.yaw -= x * WALK_CONTROLS.dragYaw; lookTarget.current.pitch = Math.max(.08, Math.min(footballPitch ? 1.15 : .8, lookTarget.current.pitch + y * WALK_CONTROLS.dragPitch)) },
       scroll: event => distance(lookTarget.current.distance + cameraWheelStep(event.deltaY, event.deltaMode)),
     })
-  }, [gl, paused, footballPitch])
+  }, [gl, paused, photoBusy, footballPitch])
   useFrame((_, delta) => {
     if (!avatar.current) return
+    avatar.current.userData.photoPersonId = campusSession.current.id
     delta = motionDelta(delta)
     const concert = screeningPose ?? (concertJoined ? concertPose ?? lastConcert.current : null)
     if (concert) {
@@ -381,10 +383,10 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
       yaw.current=Math.atan2(-d.x,-d.z);lookTarget.current.yaw=yaw.current;avatar.current.rotation.y=yaw.current;snapped.current=false
       jump.current=freshJump();locomotion.current=freshLocomotion()
     }
-    const allowed = !concertJoined && (!footballPitch || footballLive) && !paused && !editingText() && !document.hidden, key = (code: string) => allowed && keys.current.has(code) ? 1 : 0
-    let forward = allowed ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
-    let side = allowed ? key('KeyD') - key('KeyA') + input.current.side : 0
-    const turn = allowed ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0
+    const allowed = !concertJoined && (!footballPitch || footballLive) && !paused && (photoMode || !editingText()) && !document.hidden, key = (code: string) => allowed && !photoMode && keys.current.has(code) ? 1 : 0
+    let forward = allowed && !photoMode ? key('KeyW') + key('ArrowUp') - key('KeyS') - key('ArrowDown') + input.current.forward : 0
+    let side = allowed && !photoMode ? key('KeyD') - key('KeyA') + input.current.side : 0
+    const turn = allowed && !photoMode ? key('ArrowLeft') - key('ArrowRight') + input.current.turn : 0
     const wantsToStand = forward || side || input.current.jump || input.current.action || input.current.vehicle
     // A cancelled conversation prompt must allow a later movement attempt.
     // Latch a held key/pad until it is released so it cannot reopen each frame.
@@ -508,6 +510,10 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
     if (footballPitch && motion.current.kick !== footballControls.current.kick) {
       if (motion.current.kick !== undefined) avatar.current.rotation.y = yaw.current
       motion.current.kick = footballControls.current.kick
+    }
+    if (photoMode && !sitting && !passengerPose && !footballPitch && ride.current === 'walk' && jump.current.grounded) {
+      const faceCamera = Math.atan2(next.x - camera.position.x, next.z - camera.position.z)
+      avatar.current.rotation.y += Math.atan2(Math.sin(faceCamera - avatar.current.rotation.y), Math.cos(faceCamera - avatar.current.rotation.y)) * (1 - Math.exp(-delta * 9))
     }
     campusPose.current = { ...(ride.current !== 'walk' || passengerPose ? { pitch: avatar.current.rotation.x } : {}), airborne: !jump.current.grounded, vehicle: ride.current, ...(ride.current === 'buggy' && impactAck.current ? {impactAck:impactAck.current} : {}), x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
     if (sitting && social?.seatId?.startsWith('chapora-')) {

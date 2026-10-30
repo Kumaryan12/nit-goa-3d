@@ -1,20 +1,36 @@
 export type PostcardFormat = 'landscape' | 'portrait' | 'story'
 export type PostcardTheme = 'paper' | 'midnight'
-export interface ScenePhotoCapture { capture: () => Promise<HTMLCanvasElement> }
-export interface PostcardOptions { format: PostcardFormat; theme: PostcardTheme; caption: string; place: string; takenAt: Date }
+export interface PhotoPerson { id: string; name: string; x: number; y: number }
+export interface ScenePhoto { image: HTMLCanvasElement; people: PhotoPerson[] }
+export interface ScenePhotoCapture { capture: () => Promise<ScenePhoto> }
+export interface PostcardOptions { format: PostcardFormat; theme: PostcardTheme; caption: string; place: string; takenAt: Date; includeNames?: boolean; names?: string[] }
+export const POSTCARD_GROUP_LIMIT = 8
+export function postcardNames(names: readonly string[]) { return names.slice(0, POSTCARD_GROUP_LIMIT).map(name => postcardText(name, 24)).filter(Boolean) }
 
 export const POSTCARD_CAPTIONS = ['Some places stay with you.', 'Same campus. New memories.', 'Meet me where the memories are.', 'A little Goa, a lot of memories.'] as const
 
-export function postcardShareText(caption: string, place: string) {
-  return `${postcardText(caption) || POSTCARD_CAPTIONS[0]}\n\n${postcardText(place, 90) || 'NIT Goa'}\nExplore NIT Goa in 3D → https://nitg-explored.pages.dev`
+export function postcardShareText(caption: string, place: string, names: readonly string[] = []) {
+  const group = postcardNames(names)
+  return `${postcardText(caption) || POSTCARD_CAPTIONS[0]}\n\n${postcardText(place, 90) || 'NIT Goa'}${group.length ? `\nWith ${group.join(' · ')}` : ''}\nExplore NIT Goa in 3D → https://nitg-explored.pages.dev`
 }
 
-export function postcardLayout(format: PostcardFormat) {
+export function postcardLayout(format: PostcardFormat, includeNames = false) {
   const width = format === 'landscape' ? 1600 : 1080
   const height = format === 'story' ? 1920 : format === 'portrait' ? 1350 : 1200
   // Leave breathing room for story apps' profile header and reply controls.
   const top = format === 'story' ? 164 : 32, bottom = format === 'story' ? 200 : 24
-  return { width, height, top, bottom, image: { x: 32, y: top + 112, width: width - 64, height: height - top - bottom - 240 } }
+  return { width, height, top, bottom, image: { x: 32, y: top + 112, width: width - 64, height: height - top - bottom - 240 - (includeNames ? 72 : 0) } }
+}
+
+// Use coordinates frozen with the photo, and recheck when a different format crops it.
+export function postcardPeopleInCrop(people: readonly PhotoPerson[], sourceWidth: number, sourceHeight: number, format: PostcardFormat, includeNames: boolean) {
+  const { image } = postcardLayout(format, includeNames), crop = postcardCrop(sourceWidth, sourceHeight, image.width, image.height)
+  const ids = new Set<string>()
+  return people.filter(person => {
+    const x = person.x * sourceWidth, y = person.y * sourceHeight
+    if (ids.has(person.id) || !Number.isFinite(x) || !Number.isFinite(y) || x < crop.x || x > crop.x + crop.width || y < crop.y || y > crop.y + crop.height) return false
+    ids.add(person.id); return true
+  }).slice(0, 32)
 }
 
 export function postcardCrop(sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number) {
@@ -25,7 +41,7 @@ export function postcardCrop(sourceWidth: number, sourceHeight: number, targetWi
 }
 
 export function postcardText(value: string, limit = 72) {
-  return Array.from(value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim()).slice(0, limit).join('')
+  return Array.from(value.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim()).slice(0, limit).join('')
 }
 
 function fitText(context: CanvasRenderingContext2D, value: string, width: number) {
@@ -70,7 +86,7 @@ function captionLines(context: CanvasRenderingContext2D, text: string, width: nu
 }
 
 export async function renderPostcard(source: HTMLCanvasElement, options: PostcardOptions): Promise<Blob> {
-  const layout = postcardLayout(options.format), canvas = document.createElement('canvas')
+  const layout = postcardLayout(options.format, options.includeNames), canvas = document.createElement('canvas')
   canvas.width = layout.width; canvas.height = layout.height
   const context = canvas.getContext('2d')
   if (!context) return Promise.reject(Error('Your browser could not create a postcard. Try another browser.'))
@@ -105,6 +121,10 @@ export async function renderPostcard(source: HTMLCanvasElement, options: Postcar
     context.fillText(new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(options.takenAt), canvas.width - 48, photoBottom + 48)
     context.textAlign = 'left'; context.font = '19px system-ui, sans-serif'
     context.fillText('A campus, connected.', 48, photoBottom + 80)
+    if (options.includeNames && options.names?.length) {
+      context.font = '18px system-ui, sans-serif'
+      captionLines(context, `With ${postcardNames(options.names).join(' · ')}`, canvas.width - 96).forEach((line, index) => context.fillText(line, 48, photoBottom + 114 + index * 22))
+    }
     context.font = '13px system-ui, sans-serif'
     context.fillText('Map data © OpenStreetMap contributors', 48, canvas.height - layout.bottom)
     context.textAlign = 'right'; context.fillText('nitg-explored.pages.dev', canvas.width - 48, canvas.height - layout.bottom)

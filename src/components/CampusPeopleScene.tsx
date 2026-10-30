@@ -55,7 +55,7 @@ function Visitor({ person, session, localPose, messages, space, walking, detaile
     motion.current.turn = !snap && dt ? Math.atan2(Math.sin(group.rotation.y - beforeYaw), Math.cos(group.rotation.y - beforeYaw)) / dt : 0
     if (bubble.current) bubble.current.hidden = !message || Date.now() - message.time > 8000
   })
-  return <group ref={root} position={person.pose ? [person.pose.x, person.pose.y, person.pose.z] : [0, 0, 0]} name="shared-campus-visitor">
+  return <group ref={root} userData={{ photoPersonId: person.id }} position={person.pose ? [person.pose.x, person.pose.y, person.pose.z] : [0, 0, 0]} name="shared-campus-visitor">
     {!detailed ? <CrowdAvatar seatHeight={person.social?.seatHeight} style={person.avatarStyle} motion={motion} color={CAMPUS_COLORS[person.color]} seated={person.concert?.role === 'audience' || !!person.screening || person.social?.action === 'sit' || !!person.ride} passenger={!!person.ride} vehicle={person.ride ? 'walk' : person.pose?.vehicle ?? 'walk'} /> : person.ride ? <StudentAvatar style={person.avatarStyle} motion={motion} jersey={CAMPUS_COLORS[person.color]} /> : <CampusVehicle style={person.avatarStyle} mode={person.pose?.vehicle ?? 'walk'} motion={motion} jersey={CAMPUS_COLORS[person.color]} />}
     {label && <SocialBubble session={session} personId={person.id} />}
     {label && <Html center position={[0, 2.25, 0]} zIndexRange={[20, 0]} distanceFactor={12}>

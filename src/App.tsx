@@ -338,7 +338,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   }
   const openSlopeEditor = () => { changeView('overview'); setSlopeEditorOpen(true) }
   const viewSlopeSection = (points: LocalCoordinate[]) => setCameraRequest(request => ({ sequence: request.sequence + 1, locationId: null, routePoints: points }))
-  const walkPaused = startupVisible || accountOpen || walkManualPause || galleryOpen || uploadOpen || authOpen || editorOpen || slopeEditorOpen || terrainControlsOpen || photoPaused
+  const walkPaused = startupVisible || accountOpen || walkManualPause || galleryOpen || uploadOpen || authOpen || editorOpen || slopeEditorOpen || terrainControlsOpen
   const onRenderedCount = useCallback((count: number) => {
     if (import.meta.env.DEV) console.info('[NIT Goa OSM] Buildings successfully rendered:', count)
   }, [])
@@ -412,11 +412,11 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   return (<>
     <main ref={explorer} inert={startupVisible} aria-hidden={startupVisible || undefined} className={`explorer ${photoMode ? 'photo-mode' : ''} ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${screening.joined ? 'screening-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
       <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} view={view} drag={overviewDrag} onDrag={setOverviewDrag} vehicle={walkStatus?.vehicle ?? 'walk'} football={footballJoined} onPhoto={() => setPhotoMode(true)} photoReady={!!twin && !startupVisible && !editorOpen && !slopeEditorOpen} />
-      {photoMode && <PhotoMode capture={photoCapture} place={activeSelection?.location.name ?? 'NIT Goa'} onClose={closePhotoMode} onPreviewChange={setPhotoPaused} />}
+      {photoMode && <PhotoMode live={campusLive} pose={campusPose} walking={view === 'walk'} capture={photoCapture} place={activeSelection?.location.name ?? 'NIT Goa'} onClose={closePhotoMode} onPreviewChange={setPhotoPaused} />}
       <CampusUpdateNotice ready={!startupVisible && !!twin && (campusLive.connection === 'live' || campusLive.socialPreview)} busy={screeningOpen || screening.joined || footballJoined || oatOpen || campusOpen || accountOpen || editorOpen || slopeEditorOpen || !!activeSelection || navigationOpen} open={updatesOpen} onOpen={() => setUpdatesOpen(true)} onClose={closeUpdates} onExplore={exploreUpdate} />
       <div className="scene-viewport" aria-label={view === 'walk' ? 'Avatar campus exploration. WASD to move, arrows or drag to look, scroll or pinch with two fingers to zoom, Shift to run, Space or J to jump (J during football), E to inspect nearby places.' : `Interactive campus. Click a building for details, left-drag to ${overviewDrag === 'pan' ? 'move the view' : 'rotate'}, right-drag to rotate, scroll or pinch with two fingers to zoom. Touch: one finger to rotate, pinch to zoom, three fingers to move the view.`}>
         <Suspense fallback={null}><CampusScene
-          photoCapture={photoCapture}
+          photoCapture={photoCapture} photoMode={photoMode} photoBusy={photoPaused}
           overviewDrag={overviewDrag}
           scenePrepared={requestsSettled && !!twin && terrainReady && vegetationReady}
           onSceneReady={onSceneReady} onSceneUnavailable={onSceneUnavailable}

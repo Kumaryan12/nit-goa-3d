@@ -51,7 +51,7 @@ const RemotePlayer=memo(function RemotePlayer({ player, session, campusSession, 
     motion.current.speed = motion.current.moving && delta > 0 ? Math.min(5.5, distance / delta) : 0
     if (motion.current.moving) motion.current.phase = stridePhase(motion.current.phase, distance, current.running)
   })
-  return <group ref={group} position={initial} name={`football-player-${player.number}`}>
+  return <group ref={group} userData={{ photoPersonId: player.id }} position={initial} name={`football-player-${player.number}`}>
     {lightweight ? <FootballAvatar style={style} motion={motion} color={player.team==='blue'?'#388fc1':'#d2a345'}/> : detailed ? <StudentAvatar style={style} motion={motion} jersey={player.team === 'blue' ? '#388fc1' : '#d2a345'} accent={color} /> : <CrowdAvatar style={style} motion={motion} color={player.team==='blue'?'#388fc1':'#d2a345'}/>}
     {label && <Html portal={portal} position={[0,2.2,0]} center pointerEvents="none" zIndexRange={[15,0]}><span className={`football-player-label ${player.team}`}>Player {player.number}</span></Html>}
   </group>

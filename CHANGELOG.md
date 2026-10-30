@@ -2,6 +2,10 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## 2026-10-30
+
+- Added live gestures and cancellable shutter timers to photo mode, camera-facing avatars, and optional group names selected from shutter-time nearby avatar suggestions. Export crops recheck the names, and all composition stays on-device. Movement is held while presence and gesture animation stay active.
+
 ## 2026-10-29
 
 - Added campus photo mode with a clean camera view, local PNG postcard export, the official NIT Goa wordmark, warm paper and midnight frames, caption ideas and copyable social text, feed/story/classic formats and image sharing where supported. See [photo mode](docs/postcards.md).
