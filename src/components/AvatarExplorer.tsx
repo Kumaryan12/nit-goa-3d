@@ -515,7 +515,7 @@ export default function AvatarExplorer({ screeningPose, avatarStyle, concertJoin
       const faceCamera = Math.atan2(next.x - camera.position.x, next.z - camera.position.z)
       avatar.current.rotation.y += Math.atan2(Math.sin(faceCamera - avatar.current.rotation.y), Math.cos(faceCamera - avatar.current.rotation.y)) * (1 - Math.exp(-delta * 9))
     }
-    campusPose.current = { ...(ride.current !== 'walk' || passengerPose ? { pitch: avatar.current.rotation.x } : {}), airborne: !jump.current.grounded, vehicle: ride.current, ...(ride.current === 'buggy' && impactAck.current ? {impactAck:impactAck.current} : {}), x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
+    campusPose.current = { ...(ride.current !== 'walk' || passengerPose ? { pitch: avatar.current.rotation.x } : {}), airborne: !jump.current.grounded, vehicle: ride.current, ...(ride.current === 'buggy' && impactAck.current ? {impactAck:impactAck.current} : {}), x: next.x, y: feetY, z: next.z, yaw: avatar.current.rotation.y, moving: motion.current.moving, running: motion.current.running, active: allowed || !!sitting && !paused && !document.hidden, visible: true, space: pose && plan ? interiorSpace(plan, journey.current?.lowFloor ?? pose.floor) : 'outdoors', epoch: campusEpoch.current }
     if (sitting && social?.seatId?.startsWith('chapora-')) {
       // A chase camera lands inside the solid backrest. View from the seated
       // visitor's eyes instead, while keeping their avatar visible to friends.

@@ -4,6 +4,7 @@ Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
 ## 2026-11-11
 
+- Preserve seated Nescafé presence through visible microphone permission prompts and volume-control focus. A microphone capture/track failure now keeps an existing listener session instead of leaving and triggering its cooldown. Hidden pages, disconnects and actual expiry still release voice. Add four-person session/timer continuity regressions.
 - Keep the welcome page visible during account restoration, bound stalled Firebase/token/API waits, and retry temporary admission failures while the live server wakes. Add explicit connection recovery, cancel obsolete account requests and defer unused profile/admin code. Admission still requires a fresh server-verified matching account. See [account startup](docs/account-startup.md).
 
 ## 2026-10-30

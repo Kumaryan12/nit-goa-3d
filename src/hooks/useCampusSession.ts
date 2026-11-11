@@ -27,6 +27,11 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
   const sendCafeVoice = useCallback((value: unknown) => { const ws = socket.current; if (!session.current.id || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) return false; ws.send(JSON.stringify(value)); return true }, [])
   const resetVoice = () => { for (const listener of voiceListeners.current) listener({ type: 'cafe-voice-reset' }) }
   const mode = useRef({ walking, activity }); mode.current = { walking, activity }
+  const publishPose = useCallback((current: CampusPose) => {
+    const own = session.current.snapshot?.people.find(person => person.id === session.current.id)
+    const seated = own?.social?.action === 'sit' && own.social.until > Date.now() && cafeSeatTable(own.social.seatId) !== null
+    return publishedCampusPose(current, mode.current.walking, mode.current.activity, !document.hidden && document.hasFocus(), { seated, pageVisible: !document.hidden })
+  }, [])
   const [connection, setConnection] = useState<CampusConnection>('idle'), [people, setPeople] = useState<CampusPerson[]>([])
   const [messages, setMessages] = useState<CampusChat[]>([]), [error, setError] = useState(''), [queue, setQueue] = useState(0), [retry, setRetry] = useState(0)
   const [rideError, setRideError] = useState('')
@@ -166,13 +171,12 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (mode.current.walking && session.current.spawnPending) return
       const current = pose.current
       if (!current) return
-      const focused = !document.hidden && document.hasFocus()
-      ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(current, mode.current.walking, mode.current.activity, focused) })); lastPublishedAt.current = performance.now()
+      ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishPose(current) })); lastPublishedAt.current = performance.now()
     }
     const timer = window.setInterval(publish, 100)
     window.addEventListener('blur', publish); window.addEventListener('focus', publish); window.addEventListener('pageshow', publish); document.addEventListener('visibilitychange', publish)
     return () => { active = false; resetVoice(); clearCafePending(); clearRidePending(); clearSocialPending(); stopAuth(); watchdog.stop(); clearInterval(timer); clearTimeout(timeout); clearTimeout(recoveryTimer); window.removeEventListener('blur', publish); window.removeEventListener('focus', publish); window.removeEventListener('pageshow', publish); document.removeEventListener('visibilitychange', publish); ws.close(); socket.current = null; session.current = { id: null, snapshot: null } }
-  }, [enabled, retry, pose, preview, clearCafePending, clearSocialPending, clearRidePending])
+  }, [enabled, retry, pose, preview, clearCafePending, clearSocialPending, clearRidePending, publishPose])
   const sendChat = useCallback((text: string, scope: 'campus' | 'nearby') => {
     const clean = chatText(text), ws = socket.current
     if (!clean || !session.current.id || ws?.readyState !== WebSocket.OPEN || ws.bufferedAmount > 16384) { setError('Connect to the live campus and write a message to send.'); return false }
@@ -189,7 +193,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     rideSendTimer.current = window.setTimeout(() => {
       if (ws !== socket.current || ws.readyState !== WebSocket.OPEN) { clearRidePending(); return }
       if (pose.current && !session.current.spawnPending) {
-        ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(pose.current, mode.current.walking, mode.current.activity, !document.hidden && document.hasFocus()) }))
+        ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishPose(pose.current) }))
         lastPublishedAt.current = performance.now()
       }
       ws.send(JSON.stringify({ type: 'buggy-ride', driverId }))
@@ -198,7 +202,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       clearRidePending(); setRideError('The buggy seat was not confirmed. Reconnecting to refresh the ride…')
       ws.close(4000, 'Buggy boarding acknowledgement timeout')
     }, 5000)
-  }, [pose, clearRidePending])
+  }, [pose, clearRidePending, publishPose])
   const requestDrink = useCallback((action: 'get' | 'sip' | 'put-away', kind?: CafeDrinkKind) => {
     if (previewCafe.current) return previewCafe.current(action, kind)
     const ws = socket.current
@@ -208,14 +212,14 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
     cafeSendTimer.current = window.setTimeout(() => {
       if (ws !== socket.current || ws.readyState !== WebSocket.OPEN) { clearCafePending(); return }
       if (pose.current && !session.current.spawnPending) {
-        ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(pose.current, mode.current.walking, mode.current.activity, !document.hidden && document.hasFocus()) }))
+        ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishPose(pose.current) }))
         lastPublishedAt.current = performance.now()
       }
       ws.send(JSON.stringify({ type: 'cafe-drink', action, ...(kind ? { kind } : {}) }))
     }, Math.max(0, 75 - (performance.now() - lastPublishedAt.current)))
     cafeTimer.current = window.setTimeout(() => { clearCafePending(); setCafeError('The café did not confirm your drink. Reconnecting…'); ws.close(4000, 'Cafe acknowledgement timeout') }, 5000)
     return true
-  }, [pose, clearCafePending])
+  }, [pose, clearCafePending, publishPose])
   const socialAction = useCallback((action: SocialAction | 'stop', seatId?: string) => {
     if (action === 'stop' && socialStopGuard.current && !socialStopGuard.current()) return false
     if (previewAction.current) return previewAction.current(action, seatId)
@@ -229,7 +233,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       if (ws !== socket.current || ws.readyState !== WebSocket.OPEN) { clearSocialPending(); return }
       const current = pose.current
       if (current && !session.current.spawnPending) {
-        ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishedCampusPose(current, mode.current.walking, mode.current.activity, !document.hidden && document.hasFocus()) }))
+        ws.send(JSON.stringify({ type: 'pose', activity: mode.current.activity, pose: publishPose(current) }))
         lastPublishedAt.current = performance.now()
       }
       ws.send(JSON.stringify({ type: 'social-action', action, ...(seatId ? { seatId } : {}) }))
@@ -241,7 +245,7 @@ export function useCampusSession(enabled: boolean, pose: React.RefObject<CampusP
       ws.close(4000, 'Social action acknowledgement timeout')
     }, 5000)
     return true
-  }, [pose, clearSocialPending])
+  }, [pose, clearSocialPending, publishPose])
   return { subscribeScreening: subscribeCafeVoice, sendScreening: sendCafeVoice, registerSocialStopGuard, subscribeCafeVoice, sendCafeVoice, requestDrink, cafePending, cafeError, ridePending, socialAction, socialError, socialPending, socialPreview: preview && !enabled && import.meta.env.DEV, rideBuggy, rideError, connection, people, messages: visibleMessages, muted, toggleMute: (id: string) => setMuted(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next }), error, queue, session, sendChat, rejoin: () => { recoveryAttempt.current = 0; setRetry(v => v + 1) }, clearError: () => setError('') }
 }
 export type CampusLiveSession = ReturnType<typeof useCampusSession>

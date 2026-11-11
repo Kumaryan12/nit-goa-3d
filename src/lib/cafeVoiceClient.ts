@@ -65,6 +65,7 @@ export class CafeVoiceClient {
     this.pending = true; this.error = ''; this.emit()
     try {
       await this.unlock()
+      if (this.disposed || revision !== this.revision) return
       const stream = await this.runtime.capture()
       if (this.disposed || revision !== this.revision) { stream.getTracks().forEach(t => t.stop()); return }
       if ((this.clock.read()?.cooldownMs ?? 0) > 0) { stream.getTracks().forEach(t => t.stop()); this.fail('Take a 2-minute break before starting another conversation.'); return }
@@ -78,7 +79,18 @@ export class CafeVoiceClient {
         if (!this.send({ type: 'cafe-voice-mic', sessionId: this.state.sessionId, mic: true })) throw new Error('offline')
       } else this.join()
       this.emit()
-    } catch { if (revision === this.revision && !this.disposed) { this.muteMic(); this.fail('Microphone unavailable. Allow microphone access in your browser, or join with Listen.'); } }
+    } catch {
+      if (revision === this.revision && !this.disposed) {
+        // A capture/track error is not a request to leave the table. Retain the
+        // existing listener session, peers and original server deadline.
+        this.muteMic()
+        if (!this.state?.sessionId) { this.audio?.close(); this.audio = null }
+        this.error = this.state?.sessionId
+          ? 'Microphone unavailable. You are still listening. Check microphone permission and try Turn mic on again.'
+          : 'Microphone unavailable. Allow microphone access in your browser, or join with Listen.'
+        this.emit()
+      }
+    }
   }
   muteMic() {
     this.revision++; const stream = this.stream; this.stream = null

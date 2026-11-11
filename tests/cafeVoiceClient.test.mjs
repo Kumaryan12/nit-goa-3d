@@ -92,6 +92,44 @@ test('a stalled signalling socket cannot keep mic or decoder alive past the serv
   await f.client.startMic(); f.client.listen(); await tick()
   assert.equal(f.tracks.length, captures); assert.equal(f.sent.filter(m => m.type === 'cafe-voice-join').length, joins)
 })
+test('denying microphone permission while listening preserves the conversation, peers and original deadline', async t => {
+  const f = setup(async () => { throw new DOMException('Denied', 'NotAllowedError') }); t.after(() => f.client.close())
+  f.client.listen(); await tick()
+  const now = Date.now(), timing = { serverTime: now, expiresAt: now + 600000, cooldownUntil: now + 720000 }
+  f.client.receive({ ...roster('alice', ['alice', 'bob']), timing }); f.client.receive(ice('alice')); await tick()
+  const pc = f.pcs[0], before = f.client.view().remainingMs
+  await f.client.startMic()
+  assert.equal(f.client.view().joined, true); assert.equal(f.client.view().mic, false)
+  assert.equal(f.client.view().cooldownMs, 0)
+  assert.ok(f.client.view().remainingMs <= before && f.client.view().remainingMs > before - 1000)
+  assert.equal(pc.closed, false); assert.match(f.client.view().error, /still listening/)
+  assert.equal(f.sent.some(m => m.type === 'cafe-voice-leave'), false)
+})
+
+test('a failed microphone track replacement retains listening and permits a later retry without a new session', async t => {
+  const f = setup(); t.after(() => f.client.close()); f.client.listen(); await tick()
+  f.client.receive(roster('alice', ['alice', 'bob'])); f.client.receive(ice('alice')); await tick()
+  const sender = f.pcs[0].transceivers[0].sender, replace = sender.replaceTrack
+  sender.replaceTrack = async track => { if (track) throw new Error('Temporary sender failure'); return replace(track) }
+  await f.client.startMic()
+  assert.equal(f.client.view().joined, true); assert.equal(f.client.view().mic, false)
+  assert.equal(f.tracks[0].stopped, true); assert.equal(f.pcs[0].closed, false)
+  sender.replaceTrack = replace
+  await f.client.startMic()
+  assert.equal(f.client.view().mic, true)
+  assert.equal(f.sent.filter(m => m.type === 'cafe-voice-join').length, 1)
+  assert.equal(f.sent.some(m => m.type === 'cafe-voice-leave'), false)
+})
+
+test('leaving while audio unlock is pending does not later prompt for a microphone', async t => {
+  const f = setup(); t.after(() => f.client.close()); let unlock
+  f.runtime.audio = () => ({ unlock: () => new Promise(resolve => { unlock = resolve }), close() {}, volume() {}, mute() {}, receive() {}, remove() {} })
+  const pending = f.client.startMic()
+  f.client.leave(); unlock(); await pending
+  assert.equal(f.tracks.length, 0)
+  assert.equal(f.sent.some(m => m.type === 'cafe-voice-join'), false)
+})
+
 test('a server cooldown arriving during microphone permission stops the late input and emits no join', async t => {
   let finish; const track = { readyState: 'live', stopped: false, stop() { this.stopped = true } }
   const f = setup(() => new Promise(r => { finish = r })); t.after(() => f.client.close())

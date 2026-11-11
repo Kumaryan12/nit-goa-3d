@@ -17,9 +17,12 @@ export interface CampusPerson { screening?: { seat: number }; drink?: CafeDrink;
 export interface CampusSnapshot { type: 'campus-state'; sequence: number; serverTime: number; people: CampusPerson[] }
 export interface CampusChat { type: 'chat'; id: string; sender: string; name: string; scope: 'campus' | 'nearby'; text: string; time: number }
 export interface CampusSession { snapshotReceivedAt?: number; id: string | null; snapshot: CampusSnapshot | null; correction?: CampusPose; impact?: ReceivedBuggyImpact; motion?: RemoteMotionBuffer; peopleById?: Map<string, CampusPerson>; spawnSlot?: number; spawnPending?: boolean }
-export function publishedCampusPose(current: CampusPose, walking: boolean, activity: CampusActivity, focused: boolean): CampusPose {
+export function publishedCampusPose(current: CampusPose, walking: boolean, activity: CampusActivity, focused: boolean, seatedPresence?: { seated: boolean; pageVisible: boolean }): CampusPose {
   const visible = walking && current.visible
-  return { ...current, yaw: Math.atan2(Math.sin(current.yaw), Math.cos(current.yaw)), visible, active: focused && current.active && (visible || activity === 'concert'), moving: visible && focused && current.moving }
+  // A permission prompt can blur a visible page. An already confirmed seated
+  // visitor remains present, without accepting movement or hidden-tab activity.
+  const seated = !!seatedPresence?.seated && seatedPresence.pageVisible && visible && activity === 'walk'
+  return { ...current, yaw: Math.atan2(Math.sin(current.yaw), Math.cos(current.yaw)), visible, active: (focused || seated) && current.active && (visible || activity === 'concert'), moving: !seated && visible && focused && current.moving, ...(seated ? { running: false } : {}) }
 }
 export const campusName = (value: unknown) => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, '').trim().slice(0, 80) || 'Campus member' : 'Campus member'
 export const campusId = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value)
