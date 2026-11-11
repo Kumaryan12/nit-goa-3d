@@ -1,6 +1,7 @@
 import type { Auth } from 'firebase/auth'
 import type { FirebaseApp } from 'firebase/app'
 import { campusServerURL } from './serverURL'
+import { requestCampusJSON } from './accountRequest'
 export interface FirebasePublicConfig {
   apiKey: string
   authDomain: string
@@ -43,7 +44,7 @@ let firebaseApp: Promise<FirebaseApp> | null = null
 export function getFirebaseApp(): Promise<FirebaseApp> {
   if (!firebasePublicConfig)
     return Promise.reject(new Error('Campus sign-in is not configured yet.'))
-  firebaseApp ??= import('firebase/app').then(sdk => sdk.getApps()[0] || sdk.initializeApp(firebasePublicConfig))
+  firebaseApp ??= import('firebase/app').then(sdk => sdk.getApps()[0] || sdk.initializeApp(firebasePublicConfig)).catch(error => { firebaseApp = null; throw error })
   return firebaseApp
 }
 let auth: Promise<Auth> | null = null
@@ -52,7 +53,7 @@ export function getFirebaseAuth(): Promise<Auth> {
     return Promise.reject(new Error('Campus sign-in is not configured yet.'))
   auth ??= Promise.all([getFirebaseApp(), import('firebase/auth')]).then(
     ([app, sdk]) => sdk.getAuth(app),
-  )
+  ).catch(error => { auth = null; throw error })
   return auth
 }
 export async function firebaseToken(force = false) {
@@ -65,16 +66,8 @@ export async function campusAPI(
   options: RequestInit = {},
   authenticated = true,
 ) {
-  const headers = new Headers(options.headers)
-  if (authenticated)
-    headers.set('Authorization', `Bearer ${await firebaseToken()}`)
-  const response = await fetch(campusServerURL(path, window.location.href, import.meta.env.VITE_CAMPUS_SERVER_URL), {
-    ...options,
-    headers,
-    signal: options.signal || AbortSignal.timeout(15000),
-  })
-  const data = await response.json()
-  if (!response.ok)
-    throw new Error(data.error || 'The campus request could not be completed.')
-  return data
+  return requestCampusJSON(
+    campusServerURL(path, window.location.href, import.meta.env.VITE_CAMPUS_SERVER_URL),
+    options, authenticated ? () => firebaseToken() : null,
+  )
 }

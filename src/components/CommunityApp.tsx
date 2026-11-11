@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { campusAPI, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, initials, navigate } from '../lib/community'
@@ -6,30 +6,25 @@ import SignInForm from './SignInForm'
 import LandingPage from './LandingPage'
 import UpdatesPage from './UpdatesPage'
 import NitGoaLogo from './NitGoaLogo'
-import ProfilePage from './ProfilePage'
-import PeoplePage from './PeoplePage'
-import CrowdDesk from './CrowdDesk'
 import AccessPortal from './AccessPortal'
 import AvatarChoice from './AvatarChoice'
 import CampusLoadingBoundary from './CampusLoadingBoundary'
 import { isAvatarStyle } from '../lib/profile'
 import { trackPageView } from '../lib/analytics'
-import type { AvatarStyle } from '../lib/profile'
+import { loadCampusAccess, retryableAccountError } from '../lib/accountRequest'
+import type { CampusAccess } from '../lib/accountRequest'
 import './community.css'
 const Campus = lazy(() => import('../App'))
-interface Access {
-  avatarStyle?: AvatarStyle | null
-  id: string
-  name: string
-  role: 'member' | 'moderator' | 'admin'
-  status: string
-}
+const ProfilePage = lazy(() => import('./ProfilePage'))
+const PeoplePage = lazy(() => import('./PeoplePage'))
+const CrowdDesk = lazy(() => import('./CrowdDesk'))
 export default function CommunityApp() {
   const auth = useAuth(),
     [path, setPath] = useState(window.location.pathname),
-    [access, setAccess] = useState<Access | null>(null),
+    [access, setAccess] = useState<CampusAccess | null>(null),
     [accessLoading, setAccessLoading] = useState(false),
     [accessError, setAccessError] = useState(''),
+    [accessStatus, setAccessStatus] = useState('Connecting your account…'),
     [refresh, setRefresh] = useState(0),
     [menu, setMenu] = useState(false),
     [preview, setPreview] = useState(false)
@@ -45,6 +40,7 @@ export default function CommunityApp() {
     return () => window.removeEventListener('popstate', changed)
   }, [])
   useEffect(() => {
+    const controller = new AbortController()
     let active = true
     setAccessError('')
     if (!auth.user) {
@@ -58,37 +54,30 @@ export default function CommunityApp() {
       setAccessError('Verify your email before entering campus.')
       return
     }
-    setAccessLoading(!access)
-    void campusAPI('/api/access')
+    setAccessLoading(!access || access.id !== auth.user.id)
+    setAccessStatus('Connecting your account…')
+    void loadCampusAccess(auth.user.id, signal => campusAPI('/api/access', { signal }), controller.signal,
+      () => { if (active) setAccessStatus('The campus is waking up. Reconnecting your account…') })
       .then((data) => {
-        const error = !data || data.status !== 'active'
         if (active) {
-          if (error || !data) {
-            setAccess(null)
-            setAccessError(
-              data?.error ||
-                'Your campus account could not be opened. Try again, or contact the campus host.',
-            )
-          } else if (data.status !== 'active') {
-            setAccess(null)
-            setAccessError(
-              'Access to this campus has been suspended. Contact the campus host.',
-            )
-          } else setAccess(data as Access)
+          setAccess(data)
           setAccessLoading(false)
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (active) {
           setAccess(null)
-          setAccessError('Your campus account is temporarily unavailable.')
+          setAccessError(retryableAccountError(error)
+            ? 'The campus server is taking longer than usual. Retry to reconnect your account.'
+            : error instanceof Error ? error.message : 'Your campus account is temporarily unavailable.')
           setAccessLoading(false)
         }
       })
     return () => {
       active = false
+      controller.abort()
     }
-  }, [auth.user?.id, refresh])
+  }, [auth.user?.id, auth.user?.email_confirmed_at, refresh])
   useEffect(() => {
     if (!auth.user) return
     const timer = window.setInterval(
@@ -103,6 +92,9 @@ export default function CommunityApp() {
     inCampus = (path === '/campus' && (signedIn || preview)) || (path === '/admin/campus' && isAdmin),
     memberPage = path === '/me',
     handle = path.startsWith('/people/') ? path.slice(8) : undefined
+  const accountPending = auth.loading || accessLoading || (!!auth.user && access?.id !== auth.user.id && !accessError)
+  const publicPage = path === '/' || path === '/updates' || path === '/people' || !!handle
+  const retryAccount = () => { if (auth.error || !auth.user) auth.retry(); else setRefresh(value => value + 1) }
   const enter = () => {
     navigate(campusDestination())
     setPreview(false)
@@ -254,20 +246,23 @@ export default function CommunityApp() {
           ) : (
             <button
               className="community-secondary"
+              disabled={accountPending}
               onClick={() => {
                 if (path === '/') document.getElementById('join')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
                 else navigate(adminPage ? '/admin' : '/student')
               }}
             >
-              {path === '/' ? 'Join ↗' : 'Enter campus ↗'}
+              {accountPending ? 'Connecting…' : path === '/' ? 'Join ↗' : 'Enter campus ↗'}
             </button>
           )}
         </div>
       </header>
       <div id="community-content">
-        {path === '/updates' ? <UpdatesPage /> : auth.loading || accessLoading ? (
+        <Suspense fallback={<div className="community-empty" role="status">Opening page…</div>}>
+        {path === '/updates' ? <UpdatesPage /> : accountPending && !publicPage ? (
           <div className="community-empty" role="status">
-            Verifying your campus account…
+            <p>{auth.loading ? 'Restoring your Google sign-in…' : accessStatus}</p>
+            <button className="community-secondary" onClick={retryAccount}>Retry connection</button>
           </div>
         ) : (
           <>
@@ -277,22 +272,20 @@ export default function CommunityApp() {
                 role="alert"
               >
                 <p>{accessError || auth.error}</p>
-                {auth.user && (
-                  <>
+                <>
                     <button
                       className="community-secondary"
-                      onClick={() => setRefresh((v) => v + 1)}
+                      onClick={retryAccount}
                     >
                       Try again
                     </button>
-                    <button
+                    {auth.user && <button
                       className="community-secondary"
                       onClick={() => void signOut()}
                     >
                       Sign out
-                    </button>
-                  </>
-                )}
+                    </button>}
+                </>
               </div>
             )}
             {(adminPage && (!isAdmin || path === '/admin')) || path === '/student' ? (
@@ -326,10 +319,11 @@ export default function CommunityApp() {
                 )}
               </div>
             ) : (
-              <LandingPage signedIn={signedIn} onEnter={enter} />
+              <LandingPage signedIn={signedIn} onEnter={enter} pending={accountPending} status={auth.loading ? 'Restoring your Google sign-in…' : accessStatus} />
             )}
           </>
         )}
+        </Suspense>
       </div>
     </div>
   )

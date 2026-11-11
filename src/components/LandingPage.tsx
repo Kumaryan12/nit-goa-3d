@@ -3,7 +3,7 @@ import SignInForm from './SignInForm'
 import { navigate } from '../lib/community'
 import './landing.css'
 
-export default function LandingPage({ signedIn, onEnter }: { signedIn: boolean; onEnter: () => void }) {
+export default function LandingPage({ signedIn, onEnter, pending = false, status = 'Connecting your account…' }: { signedIn: boolean; onEnter: () => void; pending?: boolean; status?: string }) {
   const experiences = [
     { kind: 'walk', title: 'Take the scenic route.', detail: 'Familiar roads. A new perspective.', destination: '/campus?view=walk', label: 'Explore campus' },
     { kind: 'football', title: 'Find your team.', detail: 'A shared ball. A game with friends.', destination: '/campus?view=walk&location=sports-ground', label: 'Visit the sports ground' },
@@ -16,7 +16,8 @@ export default function LandingPage({ signedIn, onEnter }: { signedIn: boolean; 
         <h1 id="welcome-title">Your campus.<br /><em>Unlocked.</em></h1>
         <p className="welcome-description">Explore. Play. Find your people.</p>
         <div id="join" className="welcome-join">
-          {signedIn ? <button className="welcome-enter" onClick={onEnter}>Enter campus <span aria-hidden="true">↗</span></button>
+          {pending ? <p className="welcome-account-status" role="status" aria-live="polite">{status}</p>
+            : signedIn ? <button className="welcome-enter" onClick={onEnter}>Enter campus <span aria-hidden="true">↗</span></button>
             : <SignInForm destination={window.location.search ? undefined : '/student'} />}
         </div>
         <a className="welcome-discover" href="#experiences">Explore the experience <span aria-hidden="true">↘</span></a>

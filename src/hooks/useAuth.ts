@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { firebasePublicConfig, getFirebaseAuth } from '../lib/firebase'
 import { safeAuthDestination } from '../lib/community'
 import { trackCampusEvent } from '../lib/analytics'
+import { observeAuthStartup } from '../lib/authStartup'
+import { withRequestDeadline } from '../lib/accountRequest'
 export interface CampusUser {
   id: string
   email: string | null
@@ -11,12 +13,15 @@ export interface CampusUser {
 export function useAuth() {
   const [user, setUser] = useState<CampusUser | null>(null),
     [loading, setLoading] = useState(!!firebasePublicConfig),
-    [error, setError] = useState('')
+    [error, setError] = useState(''),
+    [attempt, setAttempt] = useState(0)
   useEffect(() => {
     if (!firebasePublicConfig) return
+    setLoading(true)
+    setError('')
     let active = true,
       unsubscribe: (() => void) | undefined
-    void Promise.all([getFirebaseAuth(), import('firebase/auth')])
+    void withRequestDeadline(() => Promise.all([getFirebaseAuth(), import('firebase/auth')]), 12000)
       .then(([auth, sdk]) => {
         if (!active) return
         void sdk
@@ -35,8 +40,8 @@ export function useAuth() {
             if (active)
               setError('Google sign-in could not complete. Please try again.')
           })
-        unsubscribe = sdk.onIdTokenChanged(
-          auth,
+        unsubscribe = observeAuthStartup<import('firebase/auth').User | null>(
+          (next, failed) => sdk.onIdTokenChanged(auth, next, failed),
           (next) => {
             if (active) {
               setUser(
@@ -59,7 +64,7 @@ export function useAuth() {
             if (active) {
               setUser(null)
               setLoading(false)
-              setError('Your sign-in could not be verified. Please try again.')
+              setError('Google is taking longer than usual to restore your sign-in. Please retry.')
             }
           },
         )
@@ -74,6 +79,6 @@ export function useAuth() {
       active = false
       unsubscribe?.()
     }
-  }, [])
-  return { user, loading, error, configured: !!firebasePublicConfig }
+  }, [attempt])
+  return { user, loading, error, configured: !!firebasePublicConfig, retry: () => setAttempt(value => value + 1) }
 }

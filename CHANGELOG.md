@@ -2,6 +2,10 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## 2026-11-11
+
+- Keep the welcome page visible during account restoration, bound stalled Firebase/token/API waits, and retry temporary admission failures while the live server wakes. Add explicit connection recovery, cancel obsolete account requests and defer unused profile/admin code. Admission still requires a fresh server-verified matching account. See [account startup](docs/account-startup.md).
+
 ## 2026-10-30
 
 - Added live gestures and cancellable shutter timers to photo mode, camera-facing avatars, and optional group names selected from shutter-time nearby avatar suggestions. Export crops recheck the names, and all composition stays on-device. Movement is held while presence and gesture animation stay active.
