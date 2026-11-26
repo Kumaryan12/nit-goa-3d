@@ -109,6 +109,16 @@
   }
   .explorer .walk-controls-compact .walk-transport button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 }
+/* Keyboard/trackpad visitors keep transport and destinations in a small panel. */
+@media (hover: hover) and (pointer: fine) {
+  .explorer .walk-controls { width: 292px; max-width: calc(100vw - 48px); padding: 12px; }
+  .explorer .walk-controls :is(.walk-heading, .walk-help, .walk-input-row) { display: none; }
+  .explorer .walk-controls .walk-transport { margin: 0 0 8px; }
+  .explorer .walk-controls:not(.football-movement) .walk-start { display: flex; }
+  .explorer .walk-controls .walk-location { display: block; margin: 0 0 8px; }
+  .explorer .walk-controls .walk-notice { display: block; }
+  .explorer .walk-controls.football-movement { display: none; }
+}
 /* Landscape phones keep one scrolling toolbar row and usable panel height. */
 @media (max-height: 500px) and (max-width: 1100px) and (orientation: landscape) {
   .explorer .scene-header {

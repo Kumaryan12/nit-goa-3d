@@ -16,9 +16,6 @@
 .gesture-guide dl > div { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 32px; border-top: 1px solid var(--border); }
 .gesture-guide dt { font-weight: 550; }
 .gesture-guide dd { margin: 0; text-align: right; color: var(--ink); }
-@media (min-width: 1101px) {
-  .explorer:not(.minimap-hidden):not(.football-mode):not(.editing-campus) .gesture-guide { right: 330px; }
-}
 @media (max-width: 760px), (pointer: coarse) {
   .gesture-guide { max-height: calc(100dvh - 160px); }
   .gesture-devices button, .gesture-drag-mode button, .gesture-guide-heading button { min-height: 44px; }

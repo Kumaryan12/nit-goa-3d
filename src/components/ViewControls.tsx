@@ -3,14 +3,14 @@ import GestureGuide from './GestureGuide'
 import type { OverviewDrag } from '../lib/cameraGestures'
 import type { ExplorerView } from '../lib/walking'
 import type { TransportMode } from '../lib/vehicles'
-export interface ViewLayout { panels: boolean; minimap: boolean; toolbar: boolean }
-const defaults: ViewLayout = { panels: true, minimap: true, toolbar: true }
+export interface ViewLayout { panels: boolean; toolbar: boolean }
+const defaults: ViewLayout = { panels: true, toolbar: true }
 export function initialViewLayout(): ViewLayout {
   try {
     const value = JSON.parse(localStorage.getItem('nit-goa:view-layout') || 'null')
-    if (value && ['panels', 'minimap', 'toolbar'].every(key => typeof value[key] === 'boolean')) return value
+    if (value && ['panels', 'toolbar'].every(key => typeof value[key] === 'boolean')) return { panels: value.panels, toolbar: value.toolbar }
   } catch { /* Private browsing may disable saved preferences. */ }
-  return window.matchMedia('(max-width: 760px), (pointer: coarse)').matches ? { panels: false, minimap: false, toolbar: true } : { ...defaults }
+  return window.matchMedia('(max-width: 760px), (pointer: coarse)').matches ? { panels: false, toolbar: true } : { ...defaults }
 }
 export default function ViewControls({ explorer, layout, onChange, view, drag, onDrag, vehicle, football, onPhoto, photoReady = true }: {
   explorer: React.RefObject<HTMLElement | null>; layout: ViewLayout; onChange: (layout: ViewLayout) => void
@@ -20,7 +20,7 @@ export default function ViewControls({ explorer, layout, onChange, view, drag, o
   const root = useRef<HTMLDivElement>(null), previous = useRef(defaults)
   const [open, setOpen] = useState(false), [fullscreen, setFullscreen] = useState(false), [message, setMessage] = useState('')
   const [guideOpen, setGuideOpen] = useState(false)
-  const focus = !layout.panels && !layout.minimap && !layout.toolbar
+  const focus = !layout.panels && !layout.toolbar
   useEffect(() => {
     const changed = () => setFullscreen(document.fullscreenElement === explorer.current)
     document.addEventListener('fullscreenchange', changed); changed()
@@ -35,7 +35,7 @@ export default function ViewControls({ explorer, layout, onChange, view, drag, o
   }, [open])
   const focusView = () => {
     if (focus) onChange(previous.current)
-    else { previous.current = layout; onChange({ panels: false, minimap: false, toolbar: false }) }
+    else { previous.current = layout; onChange({ panels: false, toolbar: false }) }
     setOpen(false); setGuideOpen(false)
   }
   const toggleFullscreen = async () => {
@@ -50,7 +50,7 @@ export default function ViewControls({ explorer, layout, onChange, view, drag, o
     {guideOpen && <GestureGuide view={view} drag={drag} onDrag={onDrag} vehicle={vehicle} football={football} onClose={() => setGuideOpen(false)} />}
     {open && <div className="view-options" id="campus-view-options" role="group" aria-label="Campus view options">
       <span className="eyebrow">Make room to explore</span>
-      {([['panels', 'Side panels'], ['minimap', 'Minimap'], ['toolbar', 'Toolbar']] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={layout[key]} onChange={event => onChange({ ...layout, [key]: event.target.checked })} />{label}</label>)}
+      {([['panels', 'Side panels'], ['toolbar', 'Toolbar']] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={layout[key]} onChange={event => onChange({ ...layout, [key]: event.target.checked })} />{label}</label>)}
       <p>Movement controls stay within reach.</p>
     </div>}
     <div className="view-dock" role="group" aria-label="View controls">

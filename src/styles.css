@@ -549,7 +549,7 @@ a.campus-avatar-name:hover { background: #e1f0e4; }
 .toolbar-hidden .scene-header { display: none; }
 .toolbar-hidden .map-status, .toolbar-hidden .resilience-notice { top: 20px; }
 .walk-controls-compact { width: auto; max-width: 320px; padding: 10px; bottom: max(88px, calc(env(safe-area-inset-bottom) + 64px)); }
-.walk-controls-compact > :not(.walk-input-row):not(.walk-inspect):not(.walk-interior-actions):not(.walk-transport):not(.walk-board):not(.walk-notice) { display: none; }
+.walk-controls-compact > :not(:where(.walk-input-row, .walk-inspect, .walk-interior-actions, .walk-transport, .walk-board, .walk-notice)) { display: none; }
 .walk-controls-compact .walk-transport { margin: 0 0 8px; }
 .walk-controls-compact .walk-notice { display: block; font-size: 11px; margin: 6px 0; color: var(--accent); }
 .walk-controls-compact .walk-input-row { margin-top: 0; gap: 10px; }

@@ -54,7 +54,6 @@ import { createRoadGraph, planWalkingRoute } from './lib/pathfinding'
 import { campusCenter, selectionForLocation } from './lib/locations'
 import SearchBar from './components/SearchBar'
 import NavigationMode from './components/NavigationMode'
-import MiniMap from './components/MiniMap'
 import { campusLocations } from './data/campus'
 import LoadingOverlay from './components/LoadingOverlay'
 import BuildingInfoPanel from './components/BuildingInfoPanel'
@@ -412,7 +411,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   useEffect(() => { if (twin && !initialSelectionResolved.current && (initial.to ?? initial.location)) { initialSelectionResolved.current = true; const resolved = selectionForLocation(initial.to ?? initial.location!, catalog, twin.selections); if (resolved) setSelection(resolved) } }, [twin])
 
   return (<>
-    <main ref={explorer} inert={startupVisible} aria-hidden={startupVisible || undefined} className={`explorer ${photoMode ? 'photo-mode' : ''} ${!layout.panels ? 'panels-hidden' : ''} ${!layout.minimap ? 'minimap-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${screening.joined ? 'screening-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
+    <main ref={explorer} inert={startupVisible} aria-hidden={startupVisible || undefined} className={`explorer ${photoMode ? 'photo-mode' : ''} ${!layout.panels ? 'panels-hidden' : ''} ${!layout.toolbar ? 'toolbar-hidden' : ''} ${night ? 'night-mode' : 'day-mode'} ${picking || slopePicking ? 'picking-location' : ''} ${editorOpen || slopeEditorOpen ? 'editing-campus' : ''} ${view === 'walk' ? 'walk-mode' : ''} ${footballJoined ? 'football-mode' : ''} ${screening.joined ? 'screening-mode' : ''} ${oatOpen ? 'oat-mode' : ''} ${campusOpen ? 'social-open' : ''}`} aria-label="NIT Goa 3D campus explorer">
       <ViewControls explorer={explorer} layout={layout} onChange={changeLayout} view={view} drag={overviewDrag} onDrag={setOverviewDrag} vehicle={walkStatus?.vehicle ?? 'walk'} football={footballJoined} onPhoto={() => setPhotoMode(true)} photoReady={!!twin && !startupVisible && !editorOpen && !slopeEditorOpen} />
       {photoMode && <PhotoMode live={campusLive} pose={campusPose} walking={view === 'walk'} capture={photoCapture} place={activeSelection?.location.name ?? 'NIT Goa'} onClose={closePhotoMode} onPreviewChange={setPhotoPaused} />}
       <CampusUpdateNotice ready={!startupVisible && !!twin && (campusLive.connection === 'live' || campusLive.socialPreview)} busy={screeningOpen || screening.joined || footballJoined || oatOpen || campusOpen || accountOpen || editorOpen || slopeEditorOpen || !!activeSelection || navigationOpen} open={updatesOpen} onOpen={() => setUpdatesOpen(true)} onClose={closeUpdates} onExplore={exploreUpdate} />
@@ -455,11 +454,6 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
         assignedBuildingId={twin?.selections.find((item) => item.location.id === editorLocationId)?.buildingId ?? null} picking={picking} picked={picked} edits={overrides}
         onLocation={(id) => { setEditorLocationId(id); setPicking(null); setPicked(null) }} onPick={setPicking} onSave={saveCorrection} onReset={resetCorrection} onClose={closeEditor} /></Suspense>}
       {slopeEditorOpen && <Suspense fallback={<p className="scene-loading">Opening slope editor…</p>}><SlopeEditor settings={terrainSettings} picking={slopePicking} picked={slopePicked} onPick={setSlopePicking} onChange={applyTerrainSettings} onPreview={setSlopePreview} onView={viewSlopeSection} onClose={closeSlopeEditor} /></Suspense>}
-      <MiniMap avatarPosition={view === 'walk' ? avatarPosition : undefined} presentation={view === 'overview' ? presentation : null} travelerPosition={travelerPosition} twin={twin} selection={activeSelection} onSelect={(id) => {
-        const match = twin?.selections.find((item) => item.location.id === id)
-        if (picking?.mode === 'building' && match) onSelectBuilding(match)
-        else if (!picking && !slopeEditorOpen) chooseLocation(id)
-      }} />
 
       {(!online || Object.keys(cacheNotices).length > 0 || mapState.status === 'error') && <div className="resilience-notice" role="status">
         {!online && 'Offline · '}{Object.keys(cacheNotices).length > 0 ? `Using cached map data · ${Object.keys(cacheNotices).join(' and ')} · Updated ${cacheAge(Math.min(...Object.values(cacheNotices).map((c) => c.timestamp)))}${Object.values(cacheNotices).some((c) => c.stale) ? ' (older than 24 hours)' : ''}` : mapState.status === 'error' ? 'Map unavailable. Reconnect or retry; no usable building cache is available.' : 'Live map loading paused.'}
