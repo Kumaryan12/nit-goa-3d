@@ -5,6 +5,7 @@ import type { AvatarStyle } from '../lib/profile'
 import { Component, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import CampusStudents from './CampusStudents'
 import ScenePhotoCapture from './ScenePhotoCapture'
 import type { ScenePhotoCapture as PhotoCapture } from '../lib/postcard'
 import { CameraControls, CameraControlsImpl, Sky, Stars } from '@react-three/drei'
@@ -68,6 +69,7 @@ import type { CampusChat, CampusPerson, CampusPose, CampusSession } from '../lib
 
 export interface SceneMetrics { fps: number; calls: number; triangles: number; peakCalls?:number; peakTriangles?:number; p95Ms?:number; worstMs?:number; slowFrames?:number }
 interface CampusSceneProps {
+  studentsEnabled?: boolean
   photoCapture?: React.RefObject<PhotoCapture | null>
   photoMode?: boolean; photoBusy?: boolean
   screening: ScreeningSession
@@ -220,7 +222,7 @@ function RuntimeMetrics({ onMetrics }: { onMetrics: (metrics: SceneMetrics) => v
   return null
 }
 
-function CampusScene({ photoCapture, photoMode, photoBusy, screening, screeningPlayer, overviewDrag = 'rotate', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, oatSelfId, concertJoined, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, seminarPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
+function CampusScene({ studentsEnabled = true, photoCapture, photoMode, photoBusy, screening, screeningPlayer, overviewDrag = 'rotate', scenePrepared = false, onSceneReady, onSceneUnavailable, onSocialStop, graphicsMode, onBuggyRide, campusPeople, campusSession, campusPose, campusMessages, avatarColor, avatarStyle, oatConcert, oatSelfId, concertJoined, footballPitch, footballJoined, footballLive, footballSession, footballPlayers, footballInput, onFootballStatus, hostelPlan, gyanPlan, seminarPlan, interiorBuildingId, interiorPose, processedWalkSpawn, hostelFloor, stairLowFloor, view, walkPaused, walkInput, avatarPosition, walkSpawn, onWalkStatus, onWalkInspect, slopePreview, pickingPosition, pickedPosition, onPickPosition, presentation, playback, travelerPosition, onWalkComplete, showGrid, showContours, night, twin, cameraRequest, onRenderedCount, onTerrainReady, onVegetationReady, onMetrics, selectedBuildingId, selectedLocationId, onSelectBuilding, onClearSelection }: CampusSceneProps) {
   const compact = useRef(window.matchMedia('(pointer: coarse)').matches || navigator.hardwareConcurrency <= 4).current
   const adaptation = useRef(initialGraphics(compact)), [qualityLevel, setQualityLevel] = useState(adaptation.current.level)
   const profile = useMemo(() => footballGraphicsProfile(graphicsProfile(graphicsMode, qualityLevel),footballJoined,graphicsMode), [graphicsMode, qualityLevel,footballJoined])
@@ -297,6 +299,7 @@ function CampusScene({ photoCapture, photoMode, photoBusy, screening, screeningP
       {seminarPlan && <SeminarInterior screening={screening} playerControls={screeningPlayer} plan={seminarPlan} inside={view==='walk'&&interiorBuildingId===seminarPlan.buildingId&&hostelFloor!==null} night={night} onSelect={selectSeminar}/> }
       {footballPitch && <FootballScene campusSession={campusSession} pitch={footballPitch} session={footballSession} players={footballPlayers} controls={footballInput} live={footballLive} onStatus={onFootballStatus} />}
       <CampusPeopleScene people={campusPeople} session={campusSession} localPose={view === 'walk' ? campusPose : undefined} messages={campusMessages} excludedIds={[...(footballLive ? footballPlayers.map(p => p.id) : []), ...(oatConcert?.participants.map(p => p.id) ?? [])]} space={hostelFloor !== null ? activeInterior?interiorSpace(activeInterior,stairLowFloor ?? hostelFloor):'outdoors' : 'outdoors'} walking={view === 'walk'} />
+      {studentsEnabled && <CampusStudents twin={twin} session={campusSession} localPose={campusPose} walking={view === 'walk'} outdoors={view === 'overview' || hostelFloor === null} busy={footballJoined || concertJoined} />}
       {!footballJoined&&!(view==='walk'&&hostelFloor!==null)&&<LocationLabels locations={labelLocations} heights={heights} />}
     </>}
     {view === 'overview' && twin && presentation && <><RouteOverlay presentation={presentation} terrain={twin.terrain} night={night} /><RouteTraveler presentation={presentation} terrain={twin.terrain} playback={playback} position={travelerPosition} onComplete={onWalkComplete} /></>}

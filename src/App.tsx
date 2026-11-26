@@ -103,6 +103,8 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
   const [overviewDrag, setOverviewDrag] = useState<OverviewDrag>('rotate')
   const [graphicsMode, setGraphicsMode] = useState(() => { try { return validGraphicsMode(localStorage.getItem('nit-goa:graphics')) } catch { return validGraphicsMode(null) } })
   const changeGraphics = (mode: typeof graphicsMode) => { setGraphicsMode(mode); try { localStorage.setItem('nit-goa:graphics', mode) } catch { /* Rendering still works without storage. */ } }
+  const [studentsEnabled, setStudentsEnabled] = useState(() => { try { return localStorage.getItem('nit-goa:npc-students') !== 'off' } catch { return true } })
+  const toggleStudents = () => setStudentsEnabled(value => { try { localStorage.setItem('nit-goa:npc-students', value ? 'off' : 'on') } catch { /* Campus life remains usable without storage. */ } return !value })
   const [terrainSettings, setTerrainSettings] = useState(() => readTerrainSettings(browserStorage))
   const [terrainControlsOpen, setTerrainControlsOpen] = useState(false)
   const [slopeEditorOpen, setSlopeEditorOpen] = useState(false)
@@ -429,7 +431,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
           presentation={presentation} playback={playback} travelerPosition={travelerPosition} onWalkComplete={onWalkComplete}
           slopePreview={slopeEditorOpen ? slopePreview : null} pickingPosition={!!slopePicking || picking?.mode === 'point'} pickedPosition={editorOpen ? picked?.coordinates ?? null : null} onPickPosition={onPickPosition}
           showGrid={showGrid}
-          twin={twin} graphicsMode={graphicsMode}
+          twin={twin} graphicsMode={graphicsMode} studentsEnabled={studentsEnabled}
           night={night}
           cameraRequest={cameraRequest}
           onTerrainReady={onTerrainReady}
@@ -482,6 +484,7 @@ export default function App({avatarStyle,accountControl,accountOpen=false,canEdi
           <button className="toolbar-button" onClick={() => onGallery()}>▧ Gallery</button>
           <button type="button" className="toolbar-button mode-toggle" aria-pressed={night} aria-label="Toggle night mode" onClick={() => setNight((value) => !value)}>{night ? '🌙 Night' : '☀ Day'}</button>
           <GraphicsControl mode={graphicsMode} onChange={changeGraphics} />
+          <button className="toolbar-button" aria-pressed={studentsEnabled} aria-label="Show NPC students" title="Ambient students · gestures and campus conversations" onClick={toggleStudents}>♧ Campus life</button>
           <button className="toolbar-button" aria-expanded={updatesOpen} onClick={() => setUpdatesOpen(value => !value)}>✦ What’s new</button>
           <SocialActions live={campusLive} pose={campusPose} seats={socialSeats} walking={view === 'walk'} concert={oatJoined} disabled={screening.joined || footballJoined || view === 'walk' && walkPaused} />
           <CafeCounter live={campusLive} pose={campusPose} counters={cafeStations} seats={twin?.terrain.cafe?.seats ?? []} walking={view === 'walk'} disabled={screening.joined || footballJoined || oatJoined || walkPaused} />

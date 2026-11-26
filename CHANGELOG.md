@@ -2,6 +2,10 @@
 
 Public update log: [What’s new](https://nitg-explored.pages.dev/updates).
 
+## 2026-11-26
+
+- Added ambient NPC students: eight walking between campus entrances, four chatting in pairs and four taking breaks at Nescafé/OAT seats. Students greet nearby visitors and respond to social gestures. Real visitors retain seat priority. Routes are checked in the campus worker, simulation runs at 10 Hz, crowd detail adapts to devices/real players, and Campus life can be switched off. NPCs use no live presence slots, voice relay or account records. See [campus students](docs/campus-students.md).
+
 ## 2026-11-11
 
 - Preserve seated Nescafé presence through visible microphone permission prompts and volume-control focus. A microphone capture/track failure now keeps an existing listener session instead of leaving and triggering its cooldown. Hidden pages, disconnects and actual expiry still release voice. Add four-person session/timer continuity regressions.

@@ -155,6 +155,10 @@ export default function StudentAvatar({ style = 'boy', motion, jersey = '#277c77
       pose.rootY += (jump.rootY - pose.rootY) * visual.air
     }
     const social = kickTime.current ? null : socialPoseForMotion(state, Date.now(), reducedMotion.current)
+    if (state.talking && !state.moving && !social && !riding) {
+      const beat = reducedMotion.current ? 0 : Math.sin(clock.current * 2.7)
+      pose.arms = [.32 + beat * .14, .44 - beat * .12]; pose.elbows = [.5 + beat * .12, .58 - beat * .1]
+    }
     const drink = !riding && !state.passenger && !state.airborne && (!social || state.social?.action === 'sit') ? cafeDrinkArm(state.drink, Date.now(), reducedMotion.current) : null
     const easing = 1 - Math.exp(-dt * 22)
     const mix = (normal: number, gesture: number | undefined) => normal + ((gesture ?? normal) - normal) * (social?.weight ?? 0)

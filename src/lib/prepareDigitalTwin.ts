@@ -8,6 +8,7 @@ import { createWalkWorld, isWalkable } from './walking.ts'
 import type { CampusOverrides } from './locationOverrides.ts'
 import type { CampusMapData, CampusRoadData } from '../types/osm.ts'
 import type { TerrainSettings } from '../data/topography.ts'
+import { createCampusStudents } from './campusStudents.ts'
 
 export interface TwinBuildRequest { id: number; map: CampusMapData | null; roads: CampusRoadData | null; settled: boolean; overrides: CampusOverrides; terrainSettings: TerrainSettings }
 export type TwinBuildReply = { id: number; twin: DigitalTwin } | { id: number; error: string }
@@ -26,6 +27,7 @@ export function prepareDigitalTwin(request: TwinBuildRequest): DigitalTwin {
     hostel: hostel ? createHostelPlan(hostel, twin.roads, safe) : null,
     gyan: gyan ? createGyanMandirPlan(gyan, twin.roads, safe, twin.selections.find(s => s.location.id === 'way/1423803680')?.location.coordinates) : null,
   }
+  twin.students = createCampusStudents(twin, world)
   return twin
 }
 
