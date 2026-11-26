@@ -1,5 +1,6 @@
 import NitGoaLogo from './NitGoaLogo'
 import SignInForm from './SignInForm'
+import AccountConnectionNote from './AccountConnectionNote'
 import { navigate } from '../lib/community'
 import './landing.css'
 
@@ -16,7 +17,7 @@ export default function LandingPage({ signedIn, onEnter, pending = false, status
         <h1 id="welcome-title">Your campus.<br /><em>Unlocked.</em></h1>
         <p className="welcome-description">Explore. Play. Find your people.</p>
         <div id="join" className="welcome-join">
-          {pending ? <p className="welcome-account-status" role="status" aria-live="polite">{status}</p>
+          {pending ? <div role="status" aria-live="polite"><p className="welcome-account-status">{status}</p><AccountConnectionNote /></div>
             : signedIn ? <button className="welcome-enter" onClick={onEnter}>Enter campus <span aria-hidden="true">↗</span></button>
             : <SignInForm destination={window.location.search ? undefined : '/student'} />}
         </div>

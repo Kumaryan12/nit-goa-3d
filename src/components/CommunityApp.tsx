@@ -4,6 +4,7 @@ import { campusAPI, getFirebaseAuth } from '../lib/firebase'
 import { campusDestination, initials, navigate } from '../lib/community'
 import SignInForm from './SignInForm'
 import LandingPage from './LandingPage'
+import AccountConnectionNote from './AccountConnectionNote'
 import UpdatesPage from './UpdatesPage'
 import NitGoaLogo from './NitGoaLogo'
 import AccessPortal from './AccessPortal'
@@ -262,6 +263,7 @@ export default function CommunityApp() {
         {path === '/updates' ? <UpdatesPage /> : accountPending && !publicPage ? (
           <div className="community-empty" role="status">
             <p>{auth.loading ? 'Restoring your Google sign-in…' : accessStatus}</p>
+            <AccountConnectionNote />
             <button className="community-secondary" onClick={retryAccount}>Retry connection</button>
           </div>
         ) : (
